@@ -22,6 +22,7 @@
 // MOOSE includes
 #include "MooseObject.h"
 #include "MooseTypes.h"
+#include "FileLineInfo.h"
 
 // Forward declarations
 class InputParameters;
@@ -30,11 +31,12 @@ class InputParameters;
  * Macros
  */
 #define stringifyName(name) #name
-#define registerObject(name) factory.reg<name>(stringifyName(name))
-#define registerNamedObject(obj, name) factory.reg<obj>(name)
-#define registerDeprecatedObject(name, time) factory.regDeprecated<name>(stringifyName(name), time)
+#define registerObject(name) factory.reg<name>(stringifyName(name), __FILE__, __LINE__)
+#define registerNamedObject(obj, name) factory.reg<obj>(name, __FILE__, __LINE__)
+#define registerDeprecatedObject(name, time)                                                       \
+  factory.regDeprecated<name>(stringifyName(name), time, __FILE__, __LINE__)
 #define registerDeprecatedObjectName(obj, name, time)                                              \
-  factory.regReplaced<obj>(stringifyName(obj), name, time)
+  factory.regReplaced<obj>(stringifyName(obj), name, time, __FILE__, __LINE__)
 
 // for backward compatibility
 #define registerKernel(name) registerObject(name)
@@ -52,6 +54,7 @@ class InputParameters;
 #define registerInterfaceKernel(name) registerObject(name)
 #define registerExecutioner(name) registerObject(name)
 #define registerFunction(name) registerObject(name)
+#define registerDistribution(name) registerObject(name)
 #define registerMesh(name) registerObject(name)
 #define registerMeshModifier(name) registerObject(name)
 #define registerConstraint(name) registerObject(name)
@@ -85,6 +88,7 @@ class InputParameters;
 #define registerNamedDGKernel(obj, name) registerNamedObject(obj, name)
 #define registerNamedExecutioner(obj, name) registerNamedObject(obj, name)
 #define registerNamedFunction(obj, name) registerNamedObject(obj, name)
+#define registerNamedDistribution(obj, name) registerNamedObject(obj, name)
 #define registerNamedMesh(obj, name) registerNamedObject(obj, name)
 #define registerNamedMeshModifier(name) registerNamedObject(obj, name)
 #define registerNamedConstraint(obj, name) registerNamedObject(obj, name)
@@ -147,7 +151,7 @@ public:
    * @param obj_name Name of the object to register
    */
   template <typename T>
-  void reg(const std::string & obj_name)
+  void reg(const std::string & obj_name, const std::string & file = "", int line = -1)
   {
 
     /*
@@ -170,8 +174,15 @@ public:
       else
         mooseError("Object '" + obj_name + "' already registered.");
     }
+    _name_to_line.addInfo(obj_name, file, line);
     // TODO: Possibly store and print information about objects that are skipped here?
   }
+  /**
+   * Gets file and line information where an object was initially registered.
+   * @param name Object name
+   * @return The FileLineInfo associated with name
+   */
+  FileLineInfo getLineInfo(const std::string & name) const;
 
   /**
    * Register a deprecated object that expires
@@ -179,10 +190,13 @@ public:
    * @param t_str String containing the expiration date for the object
    */
   template <typename T>
-  void regDeprecated(const std::string & obj_name, const std::string t_str)
+  void regDeprecated(const std::string & obj_name,
+                     const std::string t_str,
+                     const std::string & file,
+                     int line)
   {
     // Register the name
-    reg<T>(obj_name);
+    reg<T>(obj_name, file, line);
 
     // Store the time
     _deprecated_time[obj_name] = parseTime(t_str);
@@ -195,10 +209,14 @@ public:
    * @param t_str String containing the expiration date for the object
    */
   template <typename T>
-  void regReplaced(const std::string & obj_name, const std::string & name, const std::string t_str)
+  void regReplaced(const std::string & obj_name,
+                   const std::string & name,
+                   const std::string t_str,
+                   const std::string & file,
+                   int line)
   {
     // Register the name
-    regDeprecated<T>(name, t_str);
+    regDeprecated<T>(name, t_str, file, line);
 
     // Store the new name
     _deprecated_name[name] = obj_name;
@@ -300,6 +318,8 @@ protected:
 
   /// Storage for pointers to the parameters objects
   std::map<std::string, paramsPtr> _name_to_params_pointer;
+
+  FileLineInfoMap _name_to_line;
 
   /// Storage for deprecated object experiation dates
   std::map<std::string, time_t> _deprecated_time;

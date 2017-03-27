@@ -40,6 +40,7 @@
 #include "ElementH1Error.h"
 #include "Function.h"
 #include "NonlinearSystem.h"
+#include "Distribution.h"
 #include "PetscSupport.h"
 #include "RandomInterface.h"
 #include "RandomData.h"
@@ -1542,6 +1543,28 @@ FEProblemBase::getNonlinearSystem()
   mooseDeprecated("FEProblemBase::getNonlinearSystem() is deprecated, please use "
                   "FEProblemBase::getNonlinearSystemBase() \n");
   return *(dynamic_cast<NonlinearSystem *>(_nl));
+}
+
+void
+FEProblemBase::addDistribution(std::string type,
+                               const std::string & name,
+                               InputParameters parameters)
+{
+  setInputParametersFEProblem(parameters);
+  for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+  {
+    std::shared_ptr<Distribution> dist = _factory.create<Distribution>(type, name, parameters, tid);
+    _distributions.addObject(dist, tid);
+  }
+}
+
+Distribution &
+FEProblemBase::getDistribution(const std::string & name, THREAD_ID tid)
+{
+  if (!_distributions.hasActiveObject(name, tid))
+    mooseError("Unable to find distribution " + name);
+
+  return *(_distributions.getActiveObject(name, tid));
 }
 
 void
@@ -4578,6 +4601,8 @@ void
 FEProblemBase::checkDependMaterialsHelper(
     const std::map<SubdomainID, std::vector<std::shared_ptr<Material>>> & materials_map)
 {
+  auto & prop_names = _material_props.statefulPropNames();
+
   for (const auto & it : materials_map)
   {
     /// These two sets are used to make sure that all dependent props on a block are actually supplied
@@ -4587,6 +4612,13 @@ FEProblemBase::checkDependMaterialsHelper(
     {
       const std::set<std::string> & depend_props = mat1->getRequestedItems();
       block_depend_props.insert(depend_props.begin(), depend_props.end());
+
+      auto & alldeps = mat1->getMatPropDependencies(); // includes requested stateful props
+      for (auto & dep : alldeps)
+      {
+        if (prop_names.count(dep) > 0)
+          block_depend_props.insert(prop_names.at(dep));
+      }
 
       // See if any of the active materials supply this property
       for (const auto & mat2 : it.second)
