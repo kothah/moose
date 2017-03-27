@@ -1,5 +1,6 @@
 [Mesh]
     file = mug.e
+    uniform_refine = 2
 []
 
 [Variables]

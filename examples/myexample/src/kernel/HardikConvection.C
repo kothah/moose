@@ -1,6 +1,4 @@
 #include "HardikConvection.h"
-
-
 // valid parameters for the kernel and default values
 
 template <>

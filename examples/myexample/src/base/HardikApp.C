@@ -5,6 +5,11 @@
 #include "MooseSyntax.h"
 
 #include "HardikConvection.h"
+#include "HardikGradConvection.h"
+#include "HardikGaussContForcing.h"
+
+#include "HCoupledDirichletBC.h"
+#include "HCoupledNeumannBC.h"
 
 template <>
 InputParameters
@@ -28,6 +33,11 @@ HardikApp::~HardikApp(){}
 void HardikApp::registerObjects(Factory & factory){
     // Register any custom objects you have built on the MOOSE Framework
     registerKernel(HardikConvection); // <- registration
+    registerKernel(HardikGradConvection); // <- registration
+
+    registerKernel(HardikGaussContForcing); // <- registration
+    registerKernel(HCoupledDirichletBC); // <- registration
+    registerKernel(HCoupledNeumannBC); // <- registration
 }
 
 void HardikApp::registerApps(){
