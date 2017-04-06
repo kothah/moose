@@ -28,7 +28,7 @@ class HardikGradConvection : public Kernel{
 
     private:
         // A vector object for storing grad velocity.  Convenient for dot products.
-        const VariableGradient & _grad_velocity;
+        const VariableGradient & _grad_variable;
 };
 
 #endif //HARDIK_CONVECTION_H

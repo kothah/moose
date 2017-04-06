@@ -7,10 +7,18 @@
 #include "HardikConvection.h"
 #include "HardikGradConvection.h"
 #include "HardikGaussContForcing.h"
+#include "HardikCoefDiffusion.h"
 
 #include "HCoupledDirichletBC.h"
 #include "HCoupledNeumannBC.h"
+#include "HardikTimeDerivative.h"
+#include "HardikIC.h"
+#include "HardikMaterial.h"
+#include "HStatefulMaterial.h"
+#include "HardikMaterialDiffusion.h"
+#include "HardikNewConvection.h"
 
+#include "HardikAux.h"
 template <>
 InputParameters
 validParams<HardikApp>(){
@@ -38,6 +46,16 @@ void HardikApp::registerObjects(Factory & factory){
     registerKernel(HardikGaussContForcing); // <- registration
     registerKernel(HCoupledDirichletBC); // <- registration
     registerKernel(HCoupledNeumannBC); // <- registration
+    registerKernel(HardikCoefDiffusion); // <- registration
+    registerKernel(HardikTimeDerivative); // <- registration
+    registerKernel(HardikIC); // <- registration
+    registerKernel(HardikMaterial); // <- registration
+    
+    registerKernel(HardikMaterialDiffusion); // <- registration
+    registerKernel(HardikNewConvection); // <- registration
+
+    registerKernel(HStatefulMaterial); // <- registration
+    registerKernel(HardikAux); // <- registration
 }
 
 void HardikApp::registerApps(){

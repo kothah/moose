@@ -8,14 +8,14 @@ validParams<HCoupledNeumannBC>()
 
     // adding parameter that will be extracted from the input file by the parser
     params.addParam<Real>("alpha",1.0,"Value multiplied by the coupled value on the boundary");
-    params.addRequiredCoupledVar("some_var","Flux Value at the boundary");
+    params.addRequiredCoupledVar("hardik_var","Flux Value at the boundary");
     return params;
 }
 
 HCoupledNeumannBC::HCoupledNeumannBC(const InputParameters & parameters)
     : IntegratedBC(parameters),
     _alpha(getParam<Real>("alpha")),
-    _hardik_var_value(coupledValue("some_var"))
+    _hardik_var_value(coupledValue("hardik_var"))
 {
 }
 
