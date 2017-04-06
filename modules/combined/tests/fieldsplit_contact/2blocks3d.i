@@ -1,28 +1,29 @@
 [GlobalParams]
-  order = FIRST
-  family = LAGRANGE
-  disp_x = disp_x
-  disp_y = disp_y
-  disp_z = disp_z
+  displacements = 'disp_x disp_y disp_z'
+  volumetric_locking_correction = true
 []
 
 [Mesh]
   file = 2blocks3d.e
-  displacements = 'disp_x disp_y disp_z'
   patch_size = 5
 []
 
-[Variables]
-  [./disp_x]
-  [../]
-  [./disp_y]
-  [../]
-  [./disp_z]
+[Problem]
+  error_on_jacobian_nonzero_reallocation = true;
+[]
+
+[Modules/TensorMechanics/Master]
+  [./all]
+    strain = FINITE
+    incremental = true
+    add_variables = true
   [../]
 []
 
 [AuxVariables]
   [./penetration]
+    order = FIRST
+    family = LAGRANGE
   [../]
 []
 
@@ -33,20 +34,13 @@
   [../]
 []
 
-[SolidMechanics]
-  [./solid]
-    disp_x = disp_x
-    disp_y = disp_y
-    disp_z = disp_z
-  [../]
-[]
-
 [AuxKernels]
   [./penetration]
     type = PenetrationAux
     variable = penetration
     boundary = 2
     paired_boundary = 3
+    order = FIRST
   [../]
 []
 
@@ -58,19 +52,19 @@
     function = horizontal_movement
   [../]
   [./fix_x]
-    type = DirichletBC
+    type = PresetBC
     variable = disp_x
     boundary = 4
     value = 0.0
   [../]
   [./fix_y]
-    type = DirichletBC
+    type = PresetBC
     variable = disp_y
     boundary = '1 4'
     value = 0.0
   [../]
   [./fix_z]
-    type = DirichletBC
+    type = PresetBC
     variable = disp_z
     boundary = '1 4'
     value = 0.0
@@ -78,17 +72,26 @@
 []
 
 [Materials]
-  [./left]
-    type = Elastic
+  [./elasticity_tensor_left]
+    type = ComputeIsotropicElasticityTensor
     block = 1
+    youngs_modulus = 1.0e6
     poissons_ratio = 0.3
-    youngs_modulus = 1e6
   [../]
-  [./right]
-    type = Elastic
+  [./stress_left]
+    type = ComputeFiniteStrainElasticStress
+    block = 1
+  [../]
+
+  [./elasticity_tensor_right]
+    type = ComputeIsotropicElasticityTensor
     block = 2
+    youngs_modulus = 1.0e6
     poissons_ratio = 0.3
-    youngs_modulus = 1e6
+  [../]
+  [./stress_right]
+    type = ComputeFiniteStrainElasticStress
+    block = 2
   [../]
 []
 
@@ -106,8 +109,6 @@
 []
 
 [Preconditioning]
-  active = 'FSP'
-
   [./FSP]
     type = FSP
     # It is the starting point of splitting
@@ -138,10 +139,6 @@
       petsc_options_value = '  preonly 10 asm  1 lu 0'
     [../]
   [../]
-[]
-
-[Problem]
-  error_on_jacobian_nonzero_reallocation = true;
 []
 
 [Executioner]
