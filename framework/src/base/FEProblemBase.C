@@ -82,10 +82,24 @@
 #include "NonlocalIntegratedBC.h"
 #include "ShapeElementUserObject.h"
 #include "ShapeSideUserObject.h"
+#include "MooseVariableScalar.h"
 
 #include "libmesh/exodusII_io.h"
 #include "libmesh/quadrature.h"
 #include "libmesh/coupling_matrix.h"
+
+// Anonymous namespace for helper function
+namespace
+{
+/**
+ * Method for sorting the MooseVariables based on variable numbers
+ */
+bool
+sortMooseVariables(MooseVariable * a, MooseVariable * b)
+{
+  return a->number() < b->number();
+}
+}
 
 Threads::spin_mutex get_function_mutex;
 
@@ -1360,7 +1374,7 @@ FEProblemBase::reinitOffDiagScalars(THREAD_ID tid)
 void
 FEProblemBase::reinitNeighbor(const Elem * elem, unsigned int side, THREAD_ID tid)
 {
-  const Elem * neighbor = elem->neighbor(side);
+  const Elem * neighbor = elem->neighbor_ptr(side);
   unsigned int neighbor_side = neighbor->which_neighbor_am_i(elem);
 
   _assembly[tid]->reinitElemAndNeighbor(elem, side, neighbor, neighbor_side);

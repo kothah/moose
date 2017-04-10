@@ -13,16 +13,18 @@
 /****************************************************************/
 
 #include "ComputeJacobianThread.h"
-#include "NonlinearSystem.h"
-#include "FEProblem.h"
-#include "TimeDerivative.h"
-#include "IntegratedBC.h"
+
 #include "DGKernel.h"
+#include "FEProblem.h"
+#include "IntegratedBC.h"
 #include "InterfaceKernel.h"
 #include "KernelWarehouse.h"
+#include "MooseVariable.h"
+#include "NonlinearSystem.h"
+#include "NonlocalIntegratedBC.h"
 #include "NonlocalKernel.h"
 #include "SwapBackSentinel.h"
-#include "NonlocalIntegratedBC.h"
+#include "TimeDerivative.h"
 
 // libmesh includes
 #include "libmesh/threads.h"
@@ -233,7 +235,7 @@ ComputeJacobianThread::onInternalSide(const Elem * elem, unsigned int side)
   if (_dg_kernels.hasActiveBlockObjects(_subdomain, _tid))
   {
     // Pointer to the neighbor we are currently working on.
-    const Elem * neighbor = elem->neighbor(side);
+    const Elem * neighbor = elem->neighbor_ptr(side);
 
     // Get the global id of the element and the neighbor
     const dof_id_type elem_id = elem->id(), neighbor_id = neighbor->id();
@@ -267,7 +269,7 @@ ComputeJacobianThread::onInterface(const Elem * elem, unsigned int side, Boundar
   if (_interface_kernels.hasActiveBoundaryObjects(bnd_id, _tid))
   {
     // Pointer to the neighbor we are currently working on.
-    const Elem * neighbor = elem->neighbor(side);
+    const Elem * neighbor = elem->neighbor_ptr(side);
 
     if (neighbor->active())
     {

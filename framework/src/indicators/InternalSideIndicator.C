@@ -13,11 +13,14 @@
 /****************************************************************/
 
 #include "InternalSideIndicator.h"
+
+// MOOSE includes
 #include "Assembly.h"
+#include "MooseTypes.h"
+#include "MooseVariable.h"
 #include "Problem.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
-#include "ParallelUniqueId.h"
 
 // libMesh includes
 #include "libmesh/dof_map.h"
@@ -112,7 +115,7 @@ InternalSideIndicator::finalize()
     // Figure out the total number of sides contributing to the error.
     // We'll scale by this so boundary elements are less penalized
     for (unsigned int side = 0; side < _current_elem->n_sides(); side++)
-      if (_current_elem->neighbor(side) != NULL)
+      if (_current_elem->neighbor_ptr(side) != nullptr)
         n_flux_faces++;
   }
   else

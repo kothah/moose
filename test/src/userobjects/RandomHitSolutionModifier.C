@@ -13,8 +13,11 @@
 /****************************************************************/
 
 #include "RandomHitSolutionModifier.h"
-#include "RandomHitUserObject.h"
+
+// MOOSE includes
+#include "MooseVariable.h"
 #include "NonlinearSystemBase.h"
+#include "RandomHitUserObject.h"
 
 template <>
 InputParameters
@@ -41,6 +44,7 @@ void
 RandomHitSolutionModifier::execute()
 {
   UniquePtr<PointLocatorBase> pl = _mesh.getMesh().sub_point_locator();
+  pl->enable_out_of_mesh_mode();
 
   const std::vector<Point> & hits = _random_hits.hits();
 

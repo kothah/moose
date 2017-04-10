@@ -13,14 +13,16 @@
 /****************************************************************/
 #include "ComputeIndicatorThread.h"
 
+// MOOSE includes
 #include "AuxiliarySystem.h"
-#include "Problem.h"
 #include "FEProblem.h"
 #include "Indicator.h"
 #include "InternalSideIndicator.h"
+#include "MooseVariable.h"
+#include "Problem.h"
 #include "SwapBackSentinel.h"
 
-// libmesh includes
+// libMesh includes
 #include "libmesh/threads.h"
 
 ComputeIndicatorThread::ComputeIndicatorThread(FEProblemBase & fe_problem, bool finalize)
@@ -142,7 +144,7 @@ ComputeIndicatorThread::onInternalSide(const Elem * elem, unsigned int side)
     return;
 
   // Pointer to the neighbor we are currently working on.
-  const Elem * neighbor = elem->neighbor(side);
+  const Elem * neighbor = elem->neighbor_ptr(side);
 
   // Get the global id of the element and the neighbor
   const dof_id_type elem_id = elem->id(), neighbor_id = neighbor->id();
