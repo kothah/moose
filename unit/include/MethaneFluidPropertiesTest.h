@@ -15,56 +15,54 @@
 #ifndef METHANEFLUIDPROPERTIESTEST_H
 #define METHANEFLUIDPROPERTIESTEST_H
 
-// CPPUnit includes
-#include "GuardedHelperMacros.h"
+#include "gtest/gtest.h"
 
-class MooseMesh;
-class FEProblem;
-class MethaneFluidProperties;
+#include "FEProblem.h"
+#include "AppFactory.h"
+#include "GeneratedMesh.h"
+#include "MethaneFluidProperties.h"
+#include "MooseApp.h"
+#include "Utils.h"
 
-class MethaneFluidPropertiesTest : public CppUnit::TestFixture
+class MethaneFluidPropertiesTest : public ::testing::Test
 {
-  CPPUNIT_TEST_SUITE(MethaneFluidPropertiesTest);
+protected:
+  void SetUp()
+  {
+    const char * argv[] = {"foo", NULL};
 
-  /**
-   * Verify calculation of Henry's constant using data from
-   * Guidelines on the Henry's constant and vapour liquid distribution constant
-   * for gases in H20 and D20 at high temperatures, IAPWS (2004).
-   */
-  CPPUNIT_TEST(henry);
+    _app.reset(AppFactory::createApp("MooseUnitApp", 1, (char **)argv));
+    _factory = &_app->getFactory();
 
-  /**
-   * Verify calculation of thermophysical properties of methane using
-   * verification data provided in
-   * Irvine Jr, T. F. and Liley, P. E. (1984) Steam and Gas Tables with
-   * Computer Equations
-   */
-  CPPUNIT_TEST(properties);
+    registerObjects(*_factory);
+    buildObjects();
+  }
 
-  /**
-   * Verify calculation of the derivatives of all properties by comparing with finite
-   * differences
-   */
-  CPPUNIT_TEST(derivatives);
+  void registerObjects(Factory & factory) { registerUserObject(MethaneFluidProperties); }
 
-  CPPUNIT_TEST_SUITE_END();
+  void buildObjects()
+  {
+    InputParameters mesh_params = _factory->getValidParams("GeneratedMesh");
+    mesh_params.set<MooseEnum>("dim") = "3";
+    mesh_params.set<std::string>("name") = "mesh";
+    mesh_params.set<std::string>("_object_name") = "name1";
+    _mesh = libmesh_make_unique<GeneratedMesh>(mesh_params);
 
-public:
-  void registerObjects(Factory & factory);
-  void buildObjects();
+    InputParameters problem_params = _factory->getValidParams("FEProblem");
+    problem_params.set<MooseMesh *>("mesh") = _mesh.get();
+    problem_params.set<std::string>("name") = "problem";
+    problem_params.set<std::string>("_object_name") = "name2";
+    _fe_problem = libmesh_make_unique<FEProblem>(problem_params);
 
-  void setUp();
-  void tearDown();
+    InputParameters uo_pars = _factory->getValidParams("MethaneFluidProperties");
+    _fe_problem->addUserObject("MethaneFluidProperties", "fp", uo_pars);
+    _fp = &_fe_problem->getUserObject<MethaneFluidProperties>("fp");
+  }
 
-  void henry();
-  void properties();
-  void derivatives();
-
-private:
-  MooseApp * _app;
+  std::unique_ptr<MooseApp> _app;
+  std::unique_ptr<MooseMesh> _mesh;
+  std::unique_ptr<FEProblem> _fe_problem;
   Factory * _factory;
-  MooseMesh * _mesh;
-  FEProblem * _fe_problem;
   const MethaneFluidProperties * _fp;
 };
 

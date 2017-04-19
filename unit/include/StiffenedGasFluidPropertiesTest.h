@@ -15,35 +15,60 @@
 #ifndef StiffenedGasFluidPropertiesTest_H
 #define StiffenedGasFluidPropertiesTest_H
 
-// CPPUnit includes
-#include "cppunit/extensions/HelperMacros.h"
+#include "gtest/gtest.h"
 
-class MooseMesh;
-class FEProblem;
-class StiffenedGasFluidProperties;
+#include "MooseApp.h"
+#include "Utils.h"
+#include "FEProblem.h"
+#include "AppFactory.h"
+#include "GeneratedMesh.h"
+#include "StiffenedGasFluidProperties.h"
 
-class StiffenedGasFluidPropertiesTest : public CppUnit::TestFixture
+class StiffenedGasFluidPropertiesTest : public ::testing::Test
 {
-  CPPUNIT_TEST_SUITE(StiffenedGasFluidPropertiesTest);
-
-  CPPUNIT_TEST(testAll);
-
-  CPPUNIT_TEST_SUITE_END();
-
-public:
-  void registerObjects(Factory & factory);
-  void buildObjects();
-
-  void setUp();
-  void tearDown();
-  // test
-  void testAll();
-
 protected:
-  MooseApp * _app;
+  void SetUp()
+  {
+    const char * argv[] = {"foo", NULL};
+
+    _app.reset(AppFactory::createApp("MooseUnitApp", 1, (char **)argv));
+    _factory = &_app->getFactory();
+
+    registerObjects(*_factory);
+    buildObjects();
+  }
+
+  void registerObjects(Factory & factory) { registerUserObject(StiffenedGasFluidProperties); }
+
+  void buildObjects()
+  {
+    InputParameters mesh_params = _factory->getValidParams("GeneratedMesh");
+    mesh_params.set<MooseEnum>("dim") = "3";
+    mesh_params.set<std::string>("name") = "mesh";
+    mesh_params.set<std::string>("_object_name") = "name1";
+    _mesh = libmesh_make_unique<GeneratedMesh>(mesh_params);
+
+    InputParameters problem_params = _factory->getValidParams("FEProblem");
+    problem_params.set<MooseMesh *>("mesh") = _mesh.get();
+    problem_params.set<std::string>("name") = "problem";
+    problem_params.set<std::string>("_object_name") = "name2";
+    _fe_problem = libmesh_make_unique<FEProblem>(problem_params);
+
+    InputParameters eos_pars = _factory->getValidParams("StiffenedGasFluidProperties");
+    eos_pars.set<Real>("gamma") = 2.35;
+    eos_pars.set<Real>("q") = -1167e3;
+    eos_pars.set<Real>("q_prime") = 0;
+    eos_pars.set<Real>("p_inf") = 1.e9;
+    eos_pars.set<Real>("cv") = 1816;
+    eos_pars.set<std::string>("_object_name") = "name3";
+    _fe_problem->addUserObject("StiffenedGasFluidProperties", "fp", eos_pars);
+    _fp = &_fe_problem->getUserObject<StiffenedGasFluidProperties>("fp");
+  }
+
+  std::unique_ptr<MooseApp> _app;
+  std::unique_ptr<MooseMesh> _mesh;
+  std::unique_ptr<FEProblem> _fe_problem;
   Factory * _factory;
-  MooseMesh * _mesh;
-  FEProblem * _fe_problem;
   const StiffenedGasFluidProperties * _fp;
 };
 
