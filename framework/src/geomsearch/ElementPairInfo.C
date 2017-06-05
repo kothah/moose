@@ -14,8 +14,10 @@
 
 #include "ElementPairInfo.h"
 
-ElementPairInfo::ElementPairInfo(const Elem * elem1,
-                                 const Elem * elem2,
+// ElementPairInfo::ElementPairInfo(const Elem * elem1,
+//                                 const Elem * elem2,
+ElementPairInfo::ElementPairInfo(Elem * elem1,
+                                 Elem * elem2,
                                  const std::vector<Point> & elem1_constraint_q_point,
                                  const std::vector<Point> & elem2_constraint_q_point,
                                  const std::vector<Real> & elem1_constraint_JxW,

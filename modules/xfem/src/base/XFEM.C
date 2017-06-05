@@ -983,7 +983,8 @@ XFEM::cutMeshWithEFA(NonlinearSystemBase & nl, AuxiliarySystem & aux)
   }
 
   // Add new elements
-  std::map<unsigned int, std::vector<const Elem *>> temporary_parent_children_map;
+  // std::map<unsigned int, std::vector<const Elem *>> temporary_parent_children_map;
+  std::map<unsigned int, std::vector<Elem *>> temporary_parent_children_map;
 
   for (unsigned int i = 0; i < new_elements.size(); ++i)
   {
@@ -1235,12 +1236,14 @@ XFEM::cutMeshWithEFA(NonlinearSystemBase & nl, AuxiliarySystem & aux)
     }
   }
 
-  for (std::map<unsigned int, std::vector<const Elem *>>::iterator it =
+  // for (std::map<unsigned int, std::vector<const Elem *>>::iterator it =
+  for (std::map<unsigned int, std::vector<Elem *>>::iterator it =
            temporary_parent_children_map.begin();
        it != temporary_parent_children_map.end();
        ++it)
   {
-    std::vector<const Elem *> & sibling_elem_vec = it->second;
+    // std::vector<const Elem *> & sibling_elem_vec = it->second;
+    std::vector<Elem *> & sibling_elem_vec = it->second;
     if (sibling_elem_vec.size() != 2)
       mooseError("Must have exactly 2 sibling elements");
     _sibling_elems.push_back(std::make_pair(sibling_elem_vec[0], sibling_elem_vec[1]));

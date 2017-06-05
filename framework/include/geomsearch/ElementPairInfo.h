@@ -37,8 +37,10 @@ class Elem;
 class ElementPairInfo
 {
 public:
-  ElementPairInfo(const Elem * elem1,
-                  const Elem * elem2,
+  //  ElementPairInfo(const Elem * elem1,
+  //                const Elem * elem2,
+  ElementPairInfo(Elem * elem1,
+                  Elem * elem2,
                   const std::vector<Point> & elem1_constraint_q_point,
                   const std::vector<Point> & elem2_constraint_q_point,
                   const std::vector<Real> & elem1_constraint_JxW,
@@ -55,8 +57,10 @@ public:
                       const Point & elem1_normal,
                       const Point & elem2_normal);
 
-  const Elem * _elem1;
-  const Elem * _elem2;
+  //  const Elem * _elem1;
+  // const Elem * _elem2;
+  Elem * _elem1;
+  Elem * _elem2;
   std::vector<Point> _elem1_constraint_q_point;
   std::vector<Point> _elem2_constraint_q_point;
   std::vector<Real> _elem1_constraint_JxW;

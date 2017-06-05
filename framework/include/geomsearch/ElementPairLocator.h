@@ -48,7 +48,8 @@ public:
 
   virtual ~ElementPairLocator() {}
 
-  typedef std::list<std::pair<const Elem *, const Elem *>> ElementPairList;
+  // typedef std::list<std::pair<const Elem *, const Elem *>> ElementPairList;
+  typedef std::list<std::pair<Elem *, Elem *>> ElementPairList;
 
   virtual void reinit(){};
 
@@ -62,9 +63,11 @@ public:
     return *_elem_pairs;
   }
 
-  const ElementPairInfo & getElemPairInfo(std::pair<const Elem *, const Elem *> elem_pair) const
+  // const ElementPairInfo & getElemPairInfo(std::pair<const Elem *, const Elem *> elem_pair) const
+  const ElementPairInfo & getElemPairInfo(std::pair<Elem *, Elem *> elem_pair) const
   {
-    std::map<std::pair<const Elem *, const Elem *>, ElementPairInfo>::const_iterator it =
+    // std::map<std::pair<const Elem *, const Elem *>, ElementPairInfo>::const_iterator it =
+    std::map<std::pair<Elem *, Elem *>, ElementPairInfo>::const_iterator it =
         _element_pair_info.find(elem_pair);
     if (it == _element_pair_info.end())
       mooseError("Could not find ElemenPairInfo for specified element pair");
@@ -73,7 +76,8 @@ public:
 
 protected:
   const ElementPairList * _elem_pairs;
-  std::map<std::pair<const Elem *, const Elem *>, ElementPairInfo> _element_pair_info;
+  // std::map<std::pair<const Elem *, const Elem *>, ElementPairInfo> _element_pair_info;
+  std::map<std::pair<Elem *, Elem *>, ElementPairInfo> _element_pair_info;
   unsigned int _interface_id;
 };
 

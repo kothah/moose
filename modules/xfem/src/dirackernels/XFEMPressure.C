@@ -44,15 +44,17 @@ XFEMPressure::addPoints()
   {
     ElementPairLocator & elem_pair_loc = *it_epl->second;
     // go over pair elements
-    const std::list<std::pair<const Elem *, const Elem *>> & elem_pairs =
-        elem_pair_loc.getElemPairs();
-    for (std::list<std::pair<const Elem *, const Elem *>>::const_iterator it_ep =
-             elem_pairs.begin();
+    // const std::list<std::pair<const Elem *, const Elem *>> & elem_pairs =
+    const std::list<std::pair<Elem *, Elem *>> & elem_pairs = elem_pair_loc.getElemPairs();
+    // for (std::list<std::pair<const Elem *, const Elem *>>::const_iterator it_ep =
+    for (std::list<std::pair<Elem *, Elem *>>::const_iterator it_ep = elem_pairs.begin();
          it_ep != elem_pairs.end();
          ++it_ep)
     {
-      const Elem * elem1 = it_ep->first;
-      const Elem * elem2 = it_ep->second;
+      // const Elem * elem1 = it_ep->first;
+      Elem * elem1 = it_ep->first;
+      // const Elem * elem2 = it_ep->second;
+      Elem * elem2 = it_ep->second;
       const ElementPairInfo & info = elem_pair_loc.getElemPairInfo(*it_ep);
 
       for (unsigned int i = 0; i < info._elem1_constraint_q_point.size(); ++i)
