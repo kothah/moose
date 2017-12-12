@@ -7,24 +7,24 @@
 
 #include "XFEMAction.h"
 
+// MOOSE includes
 #include "FEProblem.h"
 #include "DisplacedProblem.h"
 #include "NonlinearSystem.h"
-#include "XFEM.h"
 #include "Executioner.h"
 #include "MooseEnum.h"
 #include "Parser.h"
 #include "Factory.h"
 
-#include "XFEMElementPairLocator.h"
-#include "XFEMCircleCut.h"
-#include "XFEMGeometricCut2D.h"
-#include "XFEMSquareCut.h"
-#include "XFEMEllipseCut.h"
+#include "GeometricCutUserObject.h"
+#include "CrackFrontDefinition.h"
 
-// libMesh includes
 #include "libmesh/transient_system.h"
 #include "libmesh/string_to_enum.h"
+
+// XFEM includes
+#include "XFEM.h"
+#include "XFEMElementPairLocator.h"
 
 template <>
 InputParameters
@@ -32,29 +32,80 @@ validParams<XFEMAction>()
 {
   InputParameters params = validParams<Action>();
 
-  params.addParam<std::string>("cut_type", "line_segment_2d", "The type of XFEM cuts");
-  params.addParam<std::vector<Real>>("cut_data", "Data for XFEM geometric cuts");
-  params.addParam<std::vector<Real>>("cut_scale", "X,Y scale factors for XFEM geometric cuts");
-  params.addParam<std::vector<Real>>("cut_translate", "X,Y translations for XFEM geometric cuts");
+  params.addParam<std::vector<UserObjectName>>(
+      "geometric_cut_userobjects",
+      "List of names of GeometricCutUserObjects with cut info and methods");
   params.addParam<std::string>("qrule", "volfrac", "XFEM quadrature rule to use");
   params.addParam<bool>("output_cut_plane", false, "Output the XFEM cut plane and volume fraction");
   params.addParam<bool>("use_crack_growth_increment", false, "Use fixed crack growth increment");
   params.addParam<Real>("crack_growth_increment", 0.1, "Crack growth increment");
+  params.addParam<bool>("use_crack_tip_enrichment", false, "Use crack tip enrichment functions");
+  params.addParam<UserObjectName>("crack_front_definition",
+                                  "The CrackFrontDefinition user object name (only "
+                                  "needed if 'use_crack_tip_enrichment=true')");
+  params.addParam<std::vector<VariableName>>("displacements",
+                                             "Names of displacement variables (only "
+                                             "needed if 'use_crack_tip_enrichment=true')");
+  params.addParam<std::vector<VariableName>>("enrichment_displacements",
+                                             "Names of enrichment displacement variables (only "
+                                             "needed if 'use_crack_tip_enrichment=true')");
+  params.addParam<std::vector<BoundaryName>>("cut_off_boundary",
+                                             "Boundary that contains all nodes for which "
+                                             "enrichment DOFs should be fixed away from crack tip "
+                                             "(only needed if 'use_crack_tip_enrichment=true')");
+  params.addParam<Real>("cut_off_radius",
+                        "The cut off radius of crack tip enrichment functions (only needed if "
+                        "'use_crack_tip_enrichment=true')");
   return params;
 }
 
 XFEMAction::XFEMAction(InputParameters params)
   : Action(params),
-    _xfem_cut_type(getParam<std::string>("cut_type")),
+    _geom_cut_userobjects(getParam<std::vector<UserObjectName>>("geometric_cut_userobjects")),
     _xfem_qrule(getParam<std::string>("qrule")),
     _xfem_cut_plane(false),
     _xfem_use_crack_growth_increment(getParam<bool>("use_crack_growth_increment")),
-    _xfem_crack_growth_increment(getParam<Real>("crack_growth_increment"))
+    _xfem_crack_growth_increment(getParam<Real>("crack_growth_increment")),
+    _use_crack_tip_enrichment(getParam<bool>("use_crack_tip_enrichment"))
 {
   _order = "CONSTANT";
   _family = "MONOMIAL";
   if (isParamValid("output_cut_plane"))
     _xfem_cut_plane = getParam<bool>("output_cut_plane");
+
+  if (_use_crack_tip_enrichment)
+  {
+    if (isParamValid("crack_front_definition"))
+      _crack_front_definition = getParam<UserObjectName>("crack_front_definition");
+    else
+      mooseError("To add crack tip enrichment, crack_front_definition must be provided.");
+
+    if (isParamValid("displacements"))
+      _displacements = getParam<std::vector<VariableName>>("displacements");
+    else
+      mooseError("To add crack tip enrichment, displacements must be provided.");
+
+    if (isParamValid("enrichment_displacements"))
+    {
+      _enrich_displacements = getParam<std::vector<VariableName>>("enrichment_displacements");
+      if (_enrich_displacements.size() != 8 && _displacements.size() == 2)
+        mooseError("The number of enrichment displacements should be total 8 for 2D.");
+      else if (_enrich_displacements.size() != 12 && _displacements.size() == 3)
+        mooseError("The number of enrichment displacements should be total 12 for 3D.");
+    }
+    else
+      mooseError("To add crack tip enrichment, enrichment_displacements must be provided.");
+
+    if (isParamValid("cut_off_boundary"))
+      _cut_off_bc = getParam<std::vector<BoundaryName>>("cut_off_boundary");
+    else
+      mooseError("To add crack tip enrichment, cut_off_boundary must be provided.");
+
+    if (isParamValid("cut_off_radius"))
+      _cut_off_radius = getParam<Real>("cut_off_radius");
+    else
+      mooseError("To add crack tip enrichment, cut_off_radius must be provided.");
+  }
 }
 
 void
@@ -76,9 +127,6 @@ XFEMAction::act()
 
   if (_current_task == "setup_xfem")
   {
-
-    _xfem_cut_data = getParam<std::vector<Real>>("cut_data");
-
     xfem->setXFEMQRule(_xfem_qrule);
 
     xfem->setCrackGrowthMethod(_xfem_use_crack_growth_increment, _xfem_crack_growth_increment);
@@ -93,96 +141,50 @@ XFEMAction::act()
       _problem->getDisplacedProblem()->geomSearchData().addElementPairLocator(0, new_xfem_epl2);
     }
 
-    if (_xfem_cut_type == "line_segment_2d")
+    // Pull in geometric cut user objects by name (getUserObjectByName)
+    // Send to XFEM and store in vector of GeometricCutUserObjects (addGeometricCut)
+    for (unsigned int i = 0; i < _geom_cut_userobjects.size(); ++i)
     {
-      if (_xfem_cut_data.size() % 6 != 0)
-        mooseError("Length of XFEM_cuts must be a multiple of 6.");
-
-      unsigned int num_cuts = _xfem_cut_data.size() / 6;
-
-      std::vector<Real> trans;
-      if (isParamValid("cut_translate"))
-      {
-        trans = getParam<std::vector<Real>>("cut_translate");
-      }
-      else
-      {
-        trans.push_back(0.0);
-        trans.push_back(0.0);
-      }
-
-      std::vector<Real> scale;
-      if (isParamValid("cut_scale"))
-      {
-        scale = getParam<std::vector<Real>>("cut_scale");
-      }
-      else
-      {
-        scale.push_back(1.0);
-        scale.push_back(1.0);
-      }
-
-      for (unsigned int i = 0; i < num_cuts; ++i)
-      {
-        Real x0 = (_xfem_cut_data[i * 6 + 0] + trans[0]) * scale[0];
-        Real y0 = (_xfem_cut_data[i * 6 + 1] + trans[1]) * scale[1];
-        Real x1 = (_xfem_cut_data[i * 6 + 2] + trans[0]) * scale[0];
-        Real y1 = (_xfem_cut_data[i * 6 + 3] + trans[1]) * scale[1];
-        Real t0 = _xfem_cut_data[i * 6 + 4];
-        Real t1 = _xfem_cut_data[i * 6 + 5];
-        xfem->addGeometricCut(new XFEMGeometricCut2D(x0, y0, x1, y1, t0, t1));
-      }
+      const UserObject * uo = &(_problem->getUserObjectBase(_geom_cut_userobjects[i]));
+      xfem->addGeometricCut(dynamic_cast<const GeometricCutUserObject *>(uo));
     }
-    else if (_xfem_cut_type == "square_cut_3d")
+  }
+  else if (_current_task == "add_variable" && _use_crack_tip_enrichment)
+  {
+    for (const auto & enrich_disp : _enrich_displacements)
+      _problem->addVariable(enrich_disp,
+                            FEType(Utility::string_to_enum<Order>("FIRST"),
+                                   Utility::string_to_enum<FEFamily>("LAGRANGE")),
+                            1.0);
+  }
+  else if (_current_task == "add_kernel" && _use_crack_tip_enrichment)
+  {
+    for (unsigned int i = 0; i < _enrich_displacements.size(); ++i)
     {
-      if (_xfem_cut_data.size() % 12 != 0)
-        mooseError("Length of XFEM_cuts must be 12 when square_cut_3d");
-
-      unsigned int num_cuts = _xfem_cut_data.size() / 12;
-      std::vector<Real> square_cut_data(12);
-      for (unsigned i = 0; i < num_cuts; ++i)
-      {
-        for (unsigned j = 0; j < 12; j++)
-        {
-          square_cut_data[j] = _xfem_cut_data[i * 12 + j];
-        }
-        xfem->addGeometricCut(new XFEMSquareCut(square_cut_data));
-      }
+      InputParameters params = _factory.getValidParams("CrackTipEnrichmentStressDivergenceTensors");
+      params.set<NonlinearVariableName>("variable") = _enrich_displacements[i];
+      params.set<unsigned int>("component") = i / 4;
+      params.set<unsigned int>("enrichment_component") = i % 4;
+      params.set<UserObjectName>("crack_front_definition") = _crack_front_definition;
+      params.set<std::vector<VariableName>>("enrichment_displacements") = _enrich_displacements;
+      params.set<std::vector<VariableName>>("displacements") = _displacements;
+      _problem->addKernel(
+          "CrackTipEnrichmentStressDivergenceTensors", _enrich_displacements[i], params);
     }
-    else if (_xfem_cut_type == "circle_cut_3d")
+  }
+  else if (_current_task == "add_bc" && _use_crack_tip_enrichment)
+  {
+    for (unsigned int i = 0; i < _enrich_displacements.size(); ++i)
     {
-      if (_xfem_cut_data.size() % 9 != 0)
-        mooseError("Length of XFEM_cuts must be 9 when circle_cut_3d");
-
-      unsigned int num_cuts = _xfem_cut_data.size() / 9;
-      std::vector<Real> circle_cut_data(9);
-      for (unsigned i = 0; i < num_cuts; ++i)
-      {
-        for (unsigned j = 0; j < 9; j++)
-        {
-          circle_cut_data[j] = _xfem_cut_data[i * 9 + j];
-        }
-        xfem->addGeometricCut(new XFEMCircleCut(circle_cut_data));
-      }
+      InputParameters params = _factory.getValidParams("CrackTipEnrichmentCutOffBC");
+      params.set<NonlinearVariableName>("variable") = _enrich_displacements[i];
+      params.set<Real>("value") = 0;
+      params.set<std::vector<BoundaryName>>("boundary") = _cut_off_bc;
+      params.set<Real>("cut_off_radius") = _cut_off_radius;
+      params.set<UserObjectName>("crack_front_definition") = _crack_front_definition;
+      _problem->addBoundaryCondition(
+          "CrackTipEnrichmentCutOffBC", _enrich_displacements[i], params);
     }
-    else if (_xfem_cut_type == "ellipse_cut_3d")
-    {
-      if (_xfem_cut_data.size() % 9 != 0)
-        mooseError("Length of XFEM_cuts must be 9 when ellipse_cut_3d");
-
-      unsigned int num_cuts = _xfem_cut_data.size() / 9;
-      std::vector<Real> ellipse_cut_data(9);
-      for (unsigned i = 0; i < num_cuts; ++i)
-      {
-        for (unsigned j = 0; j < 9; j++)
-        {
-          ellipse_cut_data[j] = _xfem_cut_data[i * 9 + j];
-        }
-        xfem->addGeometricCut(new XFEMEllipseCut(ellipse_cut_data));
-      }
-    }
-    else
-      mooseError("unrecognized XFEM cut type");
   }
   else if (_current_task == "add_aux_variable" && _xfem_cut_plane)
   {

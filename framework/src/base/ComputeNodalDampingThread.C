@@ -18,7 +18,6 @@
 #include "Problem.h"
 #include "NodalDamper.h"
 
-// libMesh includes
 #include "libmesh/threads.h"
 
 ComputeNodalDampingThread::ComputeNodalDampingThread(FEProblemBase & feproblem)
@@ -59,6 +58,7 @@ ComputeNodalDampingThread::onNode(ConstNodeRange::const_iterator & node_it)
   for (const auto & obj : objects)
   {
     Real cur_damping = obj->computeDamping();
+    obj->checkMinDamping(cur_damping);
     if (cur_damping < _damping)
       _damping = cur_damping;
   }

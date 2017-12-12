@@ -22,12 +22,13 @@ validParams<InternalSideUserObject>()
   InputParameters params = validParams<UserObject>();
   params += validParams<BlockRestrictable>();
   params += validParams<TwoMaterialPropertyInterface>();
+  params += validParams<TransientInterface>();
   return params;
 }
 
 InternalSideUserObject::InternalSideUserObject(const InputParameters & parameters)
   : UserObject(parameters),
-    BlockRestrictable(parameters),
+    BlockRestrictable(this),
     TwoMaterialPropertyInterface(this, blockIDs()),
     NeighborCoupleable(this, false, false),
     MooseVariableDependencyInterface(),

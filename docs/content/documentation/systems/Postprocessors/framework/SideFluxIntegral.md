@@ -1,10 +1,12 @@
-<!-- MOOSE Documentation Stub: Remove this when content is added. -->
-
 # SideFluxIntegral
-!description /Postprocessors/SideFluxIntegral
+!syntax description /Postprocessors/SideFluxIntegral
 
-!parameters /Postprocessors/SideFluxIntegral
+## Example Input Syntax
 
-!inputfiles /Postprocessors/SideFluxIntegral
+!listing tutorials/darcy_thermo_mech/step08_postprocessors/problems/step8.i block=Postprocessors
 
-!childobjects /Postprocessors/SideFluxIntegral
+!syntax parameters /Postprocessors/SideFluxIntegral
+
+!syntax inputs /Postprocessors/SideFluxIntegral
+
+!syntax children /Postprocessors/SideFluxIntegral

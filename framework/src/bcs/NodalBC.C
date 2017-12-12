@@ -45,7 +45,8 @@ NodalBC::NodalBC(const InputParameters & parameters)
     _current_node(_var.node()),
     _u(_var.nodalSln()),
     _save_in_strings(parameters.get<std::vector<AuxVariableName>>("save_in")),
-    _diag_save_in_strings(parameters.get<std::vector<AuxVariableName>>("diag_save_in"))
+    _diag_save_in_strings(parameters.get<std::vector<AuxVariableName>>("diag_save_in")),
+    _is_eigen(false)
 {
   _save_in.resize(_save_in_strings.size());
   _diag_save_in.resize(_diag_save_in_strings.size());
@@ -55,9 +56,10 @@ NodalBC::NodalBC(const InputParameters & parameters)
     MooseVariable * var = &_subproblem.getVariable(_tid, _save_in_strings[i]);
 
     if (var->feType() != _var.feType())
-      mooseError("Error in " + name() + ". When saving residual values in an Auxiliary variable "
-                                        "the AuxVariable must be the same type as the nonlinear "
-                                        "variable the object is acting on.");
+      paramError(
+          "save_in",
+          "saved-in auxiliary variable is incompatible with the object's nonlinear variable: ",
+          moose::internal::incompatVarMsg(*var, _var));
 
     _save_in[i] = var;
     var->sys().addVariableToZeroOnResidual(_save_in_strings[i]);
@@ -71,9 +73,10 @@ NodalBC::NodalBC(const InputParameters & parameters)
     MooseVariable * var = &_subproblem.getVariable(_tid, _diag_save_in_strings[i]);
 
     if (var->feType() != _var.feType())
-      mooseError("Error in " + name() + ". When saving diagonal Jacobian values in an Auxiliary "
-                                        "variable the AuxVariable must be the same type as the "
-                                        "nonlinear variable the object is acting on.");
+      paramError(
+          "diag_save_in",
+          "saved-in auxiliary variable is incompatible with the object's nonlinear variable: ",
+          moose::internal::incompatVarMsg(*var, _var));
 
     _diag_save_in[i] = var;
     var->sys().addVariableToZeroOnJacobian(_diag_save_in_strings[i]);
@@ -90,7 +93,11 @@ NodalBC::computeResidual(NumericVector<Number> & residual)
   {
     dof_id_type & dof_idx = _var.nodalDofIndex();
     _qp = 0;
-    Real res = computeQpResidual();
+    Real res = 0;
+
+    if (!_is_eigen)
+      res = computeQpResidual();
+
     residual.set(dof_idx, res);
 
     if (_has_save_in)

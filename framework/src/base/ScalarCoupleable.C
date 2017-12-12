@@ -28,7 +28,7 @@ ScalarCoupleable::ScalarCoupleable(const MooseObject * moose_object)
                         : true),
     _coupleable_params(_sc_parameters)
 {
-  SubProblem & problem = *_sc_parameters.get<SubProblem *>("_subproblem");
+  SubProblem & problem = *_sc_parameters.getCheckedPointerParam<SubProblem *>("_subproblem");
 
   THREAD_ID tid =
       _sc_parameters.have_parameter<THREAD_ID>("_tid") ? _sc_parameters.get<THREAD_ID>("_tid") : 0;
@@ -142,6 +142,19 @@ ScalarCoupleable::coupledScalarValueOld(const std::string & var_name, unsigned i
 
   MooseVariableScalar * var = getScalarVar(var_name, comp);
   return (_sc_is_implicit) ? var->slnOld() : var->slnOlder();
+}
+
+VariableValue &
+ScalarCoupleable::coupledScalarValueOlder(const std::string & var_name, unsigned int comp)
+{
+  if (!isCoupledScalar(var_name, comp))
+    return *getDefaultValue(var_name);
+
+  MooseVariableScalar * var = getScalarVar(var_name, comp);
+  if (_sc_is_implicit)
+    return var->slnOlder();
+  else
+    mooseError("Older values not available for explicit schemes");
 }
 
 VariableValue &

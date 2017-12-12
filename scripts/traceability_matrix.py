@@ -2,8 +2,7 @@
 
 import re, os, sys, argparse
 from reportlab.lib import colors
-from reportlab.lib.units import cm
-from reportlab.lib.pagesizes import A4, inch, landscape
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 
@@ -100,14 +99,11 @@ def extractTestedRequirements(args, data):
     os.chdir(test_app_dir)
 
     sys.path.append(os.path.join(args.moose_dir, 'python'))
-    import path_tool
-    path_tool.activate_module('TestHarness')
 
     from TestHarness import TestHarness
-    from Tester import Tester
 
     # Build the TestHarness object here
-    harness = TestHarness([], test_app_name, args.moose_dir)
+    harness = TestHarness([], args.moose_dir, test_app_name)
 
     # Tell it to parse the test files only, not run them
     harness.findAndRunTests(find_only=True)

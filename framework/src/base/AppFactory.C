@@ -27,7 +27,7 @@ AppFactory::instance()
 AppFactory::~AppFactory() {}
 
 MooseApp *
-AppFactory::createApp(std::string app_type, int argc, char ** argv)
+AppFactory::createApp(std::string app_type, int argc, char ** argv, MPI_Comm COMM_WORLD_IN)
 {
   auto command_line = std::make_shared<CommandLine>(argc, argv);
   InputParameters app_params = AppFactory::instance().getValidParams(app_type);
@@ -36,7 +36,7 @@ AppFactory::createApp(std::string app_type, int argc, char ** argv)
   app_params.set<char **>("_argv") = argv;
   app_params.set<std::shared_ptr<CommandLine>>("_command_line") = command_line;
 
-  MooseApp * app = AppFactory::instance().create(app_type, "main", app_params, MPI_COMM_WORLD);
+  MooseApp * app = AppFactory::instance().create(app_type, "main", app_params, COMM_WORLD_IN);
   return app;
 }
 
@@ -86,6 +86,15 @@ AppFactory::create(const std::string & app_type,
   command_line->populateInputParams(parameters);
 
   return (*_name_to_build_pointer[app_type])(parameters);
+}
+
+std::shared_ptr<MooseApp>
+AppFactory::createShared(const std::string & app_type,
+                         const std::string & name,
+                         InputParameters parameters,
+                         MPI_Comm COMM_WORLD_IN)
+{
+  return std::shared_ptr<MooseApp>(create(app_type, name, parameters, COMM_WORLD_IN));
 }
 
 bool

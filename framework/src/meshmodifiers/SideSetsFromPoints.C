@@ -17,7 +17,6 @@
 #include "InputParameters.h"
 #include "MooseMesh.h"
 
-// libMesh includes
 #include "libmesh/mesh_generation.h"
 #include "libmesh/mesh.h"
 #include "libmesh/string_to_enum.h"
@@ -29,6 +28,8 @@ InputParameters
 validParams<SideSetsFromPoints>()
 {
   InputParameters params = validParams<AddSideSetsBase>();
+  params.addClassDescription("Adds a new sideset starting at the specified point containing all "
+                             "connected element faces with the same normal.");
   params.addRequiredParam<std::vector<BoundaryName>>("new_boundary",
                                                      "The name of the boundary to create");
   params.addRequiredParam<std::vector<Point>>(

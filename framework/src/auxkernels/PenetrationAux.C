@@ -19,7 +19,6 @@
 #include "MooseEnum.h"
 #include "MooseMesh.h"
 
-// libMesh includes
 #include "libmesh/string_to_enum.h"
 
 const Real PenetrationAux::NotPenetrated = -999999;
@@ -31,6 +30,9 @@ validParams<PenetrationAux>()
   MooseEnum orders("FIRST SECOND THIRD FOURTH", "FIRST");
 
   InputParameters params = validParams<AuxKernel>();
+  params.addClassDescription("Auxililary Kernel for computing several geometry related quantities "
+                             "between two contacting bodies.");
+
   params.addRequiredParam<BoundaryName>("paired_boundary", "The boundary to be penetrated");
   params.addParam<Real>("tangential_tolerance",
                         "Tangential distance to extend edges of contact surfaces");

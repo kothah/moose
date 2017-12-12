@@ -19,7 +19,6 @@
 #include "FileMesh.h"
 #include "MooseApp.h"
 
-// libMesh includes
 #include "libmesh/distributed_mesh.h"
 #include "libmesh/equation_systems.h"
 #include "libmesh/mesh_function.h"
@@ -30,7 +29,7 @@ validParams<OversampleOutput>()
 {
 
   // Get the parameters from the parent object
-  InputParameters params = validParams<FileOutput>();
+  InputParameters params = validParams<AdvancedOutput>();
   params.addParam<unsigned int>("refinements",
                                 0,
                                 "Number of uniform refinements for oversampling "
@@ -60,7 +59,7 @@ validParams<OversampleOutput>()
 }
 
 OversampleOutput::OversampleOutput(const InputParameters & parameters)
-  : FileOutput(parameters),
+  : AdvancedOutput(parameters),
     _mesh_ptr(getParam<bool>("use_displaced") ? &_problem_ptr->getDisplacedProblem()->mesh()
                                               : &_problem_ptr->mesh()),
     _refinements(getParam<unsigned int>("refinements")),
@@ -75,6 +74,30 @@ OversampleOutput::OversampleOutput(const InputParameters & parameters)
 
   // Creates and initializes the oversampled mesh
   initOversample();
+}
+
+void
+OversampleOutput::outputStep(const ExecFlagType & type)
+{
+  // Output is not allowed
+  if (!_allow_output && type != EXEC_FORCED)
+    return;
+
+  // If recovering disable output of initial condition, it was already output
+  if (type == EXEC_INITIAL && _app.isRecovering())
+    return;
+
+  // Return if the current output is not on the desired interval
+  if (type != EXEC_FINAL && !onInterval())
+    return;
+
+  // Call the output method (this has the file checking built in b/c OversampleOutput is a
+  // FileOutput)
+  if (shouldOutput(type))
+  {
+    updateOversample();
+    output(type);
+  }
 }
 
 OversampleOutput::~OversampleOutput()
@@ -101,10 +124,8 @@ OversampleOutput::initOversample()
 
   // Re-position the oversampled mesh
   if (_change_position)
-    for (MeshBase::node_iterator nd = _mesh_ptr->getMesh().nodes_begin();
-         nd != _mesh_ptr->getMesh().nodes_end();
-         ++nd)
-      *(*nd) += _position;
+    for (auto & node : _mesh_ptr->getMesh().node_ptr_range())
+      *node += _position;
 
   // Perform the mesh refinement
   if (_oversample)

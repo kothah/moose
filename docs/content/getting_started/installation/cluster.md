@@ -1,14 +1,12 @@
 # HPC Cluster Setup
 The following document aims at setting up a baseline multi-user environment for building MOOSE based applications in a job scheduling capable environment.
 
----
 ## Prerequisites
 Both of these pre-reqs are in the hands of the admins of the cluster.
 
 * Modules. If not already installed. ['Modules Environment'](http://modules.sourceforge.net/) (Or some kind of environment management software)
 * Whatever compiler you choose to use on your cluster (GCC/Clang/Intel, MPICH/OpenMPI/MVAPICH), the minimum requirement, is that it must be C++11 compatible. If you are unsure, please consult with your system admins for your cluster on which compiler to use (and how to use it).
 
----
 ## Environment Setup
 * Begin by creating an area for which to build.
 
@@ -66,7 +64,7 @@ setenv F90      mpif90
 setenv F77      mpif77
 setenv FC       mpif90
 
-setenv          PETSC_DIR       $base_path/petsc/petsc-{!docs/content/getting_started/petsc_default_version.md!}/gcc-opt
+setenv          PETSC_DIR       $base_path/petsc/petsc-!include docs/content/getting_started/petsc_default_version.md/gcc-opt
 ```
 
 !!! note
@@ -109,7 +107,7 @@ me@some_machine#>
 ```
 * The point being, some HPC clusters can have hundreds of available modules. While using this method, you can group and display certain modules pertinent to your MOOSE users at the end of stdout.
 
----
+
 ## Building PETSc
 * Now that we have our environment ready, we will load it up as a user would. This will ensure that everything we did above is going to work for our end-users.
 
@@ -119,21 +117,20 @@ echo $PETSC_DIR
 ```
 
 !!! note
-    Verify that the environment variable 'PETSC_DIR' is available and returning $PACKAGES_DIR/petsc/petsc-{!docs/content/getting_started/petsc_default_version.md!}. If not, something went wrong with creating the moose-dev-gcc module above.
+    Verify that the environment variable 'PETSC_DIR' is available and returning $PACKAGES_DIR/petsc/petsc-!include docs/content/getting_started/petsc_default_version.md. If not, something went wrong with creating the moose-dev-gcc module above.
 
 * Download and extract PETSc:
 ```bash
-curl -L -O http://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-{!docs/content/getting_started/petsc_default_version.md!}.tar.gz
-tar -xf petsc-{!docs/content/getting_started/petsc_default_version.md!}.tar.gz
-cd petsc-{!docs/content/getting_started/petsc_default_version.md!}
+curl -L -O http://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-!include docs/content/getting_started/petsc_default_version.md.tar.gz
+tar -xf petsc-!include docs/content/getting_started/petsc_default_version.md.tar.gz
+cd petsc-!include docs/content/getting_started/petsc_default_version.md
 ```
 * Configure PETSc using the following options (see Info admonition below):
 
-{!docs/content/getting_started/petsc_default.md!}
+!include docs/content/getting_started/petsc_default.md
 
 During the configure/build process, you will be prompted to enter proper make commands. This can be different from system to system, so I leave that task to the reader.
 
----
 ## Clean Up
 * Clean all the temporary stuff:
 
@@ -141,5 +138,12 @@ During the configure/build process, you will be prompted to enter proper make co
 rm -rf $CLUSTER_TEMP
 ```
 
-{!docs/content/getting_started/installation/clone_moose.md!}
-{!docs/content/getting_started/installation/build_libmesh.md!}
+!include docs/content/getting_started/installation/clone_moose.md
+
+!include docs/content/getting_started/installation/build_libmesh.md
+
+!include docs/content/getting_started/installation/test_moose.md
+
+!include docs/content/getting_started/installation/create_an_app.md
+
+!include docs/content/getting_started/installation/update_moose.md

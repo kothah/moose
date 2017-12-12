@@ -1,6 +1,6 @@
 
 # DiscreteNucleationMap
-!description /UserObjects/DiscreteNucleationMap
+!syntax description /UserObjects/DiscreteNucleationMap
 
 The map objects builds a smooth map of nucleation sites in the simulation domain, expanding the point description from the ```DiscreteNucleationInserter``` to a description in which nucleation sites have a finite size and a smooth interface. This object takes three parameters
 
@@ -10,10 +10,10 @@ The map objects builds a smooth map of nucleation sites in the simulation domain
 
 The map object only updates the map if during a timestep the nucleus list was changed.
 
-The `DiscreteNucleationMap` is part of the [Discrete Nucleation system](Nucleation/Discrete Nucleation.md).
+The `DiscreteNucleationMap` is part of the [Discrete Nucleation system](Nucleation/DiscreteNucleation.md).
 
-!parameters /UserObjects/DiscreteNucleationMap
+!syntax parameters /UserObjects/DiscreteNucleationMap
 
-!inputfiles /UserObjects/DiscreteNucleationMap
+!syntax inputs /UserObjects/DiscreteNucleationMap
 
-!childobjects /UserObjects/DiscreteNucleationMap
+!syntax children /UserObjects/DiscreteNucleationMap

@@ -22,6 +22,8 @@ validParams<BoundingBoxNodeSet>()
   MooseEnum location("INSIDE OUTSIDE", "INSIDE");
 
   InputParameters params = validParams<MeshModifier>();
+  params.addClassDescription(
+      "Assigns all of the nodes either inside or outside of a bounding box to a new nodeset.");
   params.addRequiredParam<std::vector<BoundaryName>>("new_boundary",
                                                      "The name of the nodeset to create");
   params.addRequiredParam<RealVectorValue>(
@@ -73,6 +75,10 @@ BoundingBoxNodeSet::modify()
       found_node = true;
     }
   }
+
+  // Unless at least one processor found a node in the bounding box,
+  // the user probably specified it incorrectly.
+  this->comm().max(found_node);
 
   if (!found_node)
     mooseError("No nodes found within the bounding box");

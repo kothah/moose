@@ -19,7 +19,6 @@
 #include "Problem.h"
 #include "ElementDamper.h"
 
-// libMesh includes
 #include "libmesh/threads.h"
 
 ComputeElemDampingThread::ComputeElemDampingThread(FEProblemBase & feproblem)
@@ -62,6 +61,7 @@ ComputeElemDampingThread::onElement(const Elem * elem)
   for (const auto & obj : objects)
   {
     Real cur_damping = obj->computeDamping();
+    obj->checkMinDamping(cur_damping);
     if (cur_damping < _damping)
       _damping = cur_damping;
   }

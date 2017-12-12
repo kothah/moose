@@ -23,6 +23,29 @@ INSMomentumLaplaceFormRZ::INSMomentumLaplaceFormRZ(const InputParameters & param
 {
 }
 
+RealVectorValue
+INSMomentumLaplaceFormRZ::strongViscousTermLaplace()
+{
+  const Real & r = _q_point[_qp](0);
+  return INSBase::strongViscousTermLaplace() +
+         RealVectorValue(_mu[_qp] * (_u_vel[_qp] / (r * r) - _grad_u_vel[_qp](0) / r),
+                         -_mu[_qp] * _grad_v_vel[_qp](0) / r,
+                         0);
+}
+
+RealVectorValue
+INSMomentumLaplaceFormRZ::dStrongViscDUCompLaplace(unsigned comp)
+{
+  const Real & r = _q_point[_qp](0);
+  RealVectorValue add_jac(0, 0, 0);
+  if (comp == 0)
+    add_jac(0) = _mu[_qp] * (_phi[_j][_qp] / (r * r) - _grad_phi[_j][_qp](0) / r);
+  else if (comp == 1)
+    add_jac(1) = -_mu[_qp] * _grad_phi[_j][_qp](0) / r;
+
+  return INSBase::dStrongViscDUCompLaplace(comp) + add_jac;
+}
+
 Real
 INSMomentumLaplaceFormRZ::computeQpResidual()
 {
@@ -35,7 +58,7 @@ INSMomentumLaplaceFormRZ::computeQpResidual()
 
     // If this is the radial component of momentum, there is an extra term for RZ.
     // The only difference between this and the traction form is a factor of 2.
-    res_base += _mu * _u_vel[_qp] / (r * r) * _test[_i][_qp];
+    res_base += _mu[_qp] * _u_vel[_qp] / (r * r) * _test[_i][_qp];
 
     // If the pressure is also integrated by parts, there is an extra term in RZ.
     if (_integrate_p_by_parts)
@@ -56,7 +79,7 @@ INSMomentumLaplaceFormRZ::computeQpJacobian()
   {
     const Real r = _q_point[_qp](0);
     // The only difference between this and the traction form is a factor of 2.
-    jac_base += _mu * _phi[_j][_qp] * _test[_i][_qp] / (r * r);
+    jac_base += _mu[_qp] * _phi[_j][_qp] * _test[_i][_qp] / (r * r);
   }
 
   return jac_base;

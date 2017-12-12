@@ -19,15 +19,16 @@ InputParameters
 validParams<SideFluxIntegral>()
 {
   InputParameters params = validParams<SideIntegralVariablePostprocessor>();
-  params.addRequiredParam<std::string>(
+  params.addRequiredParam<MaterialPropertyName>(
       "diffusivity",
       "The name of the diffusivity material property that will be used in the flux computation.");
+  params.addClassDescription("Computes the integral of the flux over the specified boundary");
   return params;
 }
 
 SideFluxIntegral::SideFluxIntegral(const InputParameters & parameters)
   : SideIntegralVariablePostprocessor(parameters),
-    _diffusivity(parameters.get<std::string>("diffusivity")),
+    _diffusivity(parameters.get<MaterialPropertyName>("diffusivity")),
     _diffusion_coef(getMaterialProperty<Real>(_diffusivity))
 {
 }

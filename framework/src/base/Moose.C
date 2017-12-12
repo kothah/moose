@@ -32,6 +32,7 @@
 #include "ImageMesh.h"
 #include "PatternedMesh.h"
 #include "StitchedMesh.h"
+#include "AnnularMesh.h"
 
 // MeshModifiers
 #include "MeshExtruder.h"
@@ -53,6 +54,8 @@
 #include "BreakBoundaryOnSubdomain.h"
 #include "ParsedAddSideset.h"
 #include "AssignSubdomainID.h"
+#include "MeshSideSet.h"
+#include "AddSideSetsFromBoundingBox.h"
 
 // problems
 #include "DisplacedProblem.h"
@@ -67,12 +70,13 @@
 #include "Diffusion.h"
 #include "AnisotropicDiffusion.h"
 #include "CoupledForce.h"
-#include "UserForcingFunction.h"
 #include "BodyForce.h"
 #include "Reaction.h"
 #include "MassEigenKernel.h"
 #include "NullKernel.h"
 #include "MaterialDerivativeTestKernel.h"
+#include "MaterialDerivativeRankTwoTestKernel.h"
+#include "MaterialDerivativeRankFourTestKernel.h"
 
 // bcs
 #include "ConvectiveFluxBC.h"
@@ -125,9 +129,11 @@
 #include "ElementLpNormAux.h"
 #include "ElementL2ErrorFunctionAux.h"
 #include "ElementH1ErrorFunctionAux.h"
+#include "DiffusionFluxAux.h"
 
 // dirac kernels
 #include "ConstantPointSource.h"
+#include "FunctionDiracSource.h"
 
 // DG
 #include "DGDiffusion.h"
@@ -148,6 +154,7 @@
 #include "Transient.h"
 #include "InversePowerMethod.h"
 #include "NonlinearEigen.h"
+#include "Eigenvalue.h"
 
 // functions
 #include "Axisymmetric2D3DSolutionFunction.h"
@@ -177,6 +184,7 @@
 #include "AverageElementSize.h"
 #include "AverageNodalVariableValue.h"
 #include "CumulativeValuePostprocessor.h"
+#include "ChangeOverTimePostprocessor.h"
 #include "ChangeOverTimestepPostprocessor.h"
 #include "NodalSum.h"
 #include "ElementAverageValue.h"
@@ -194,7 +202,6 @@
 #include "NodalVariableValue.h"
 #include "NumDOFs.h"
 #include "TimestepSize.h"
-#include "RunTime.h"
 #include "PerformanceData.h"
 #include "MemoryUsage.h"
 #include "NumElems.h"
@@ -224,7 +231,9 @@
 #include "NodalExtremeValue.h"
 #include "ElementExtremeValue.h"
 #include "DifferencePostprocessor.h"
+#include "RelativeDifferencePostprocessor.h"
 #include "ScalePostprocessor.h"
+#include "LinearCombinationPostprocessor.h"
 #include "NumPicardIterations.h"
 #include "FunctionSideIntegral.h"
 #include "ExecutionerAttributeReporter.h"
@@ -237,24 +246,27 @@
 #include "VariableResidual.h"
 
 // vector PPS
-#include "MaterialVectorPostprocessor.h"
+#include "CSVReader.h"
 #include "ConstantVectorPostprocessor.h"
 #include "Eigenvalues.h"
-#include "NodalValueSampler.h"
-#include "SideValueSampler.h"
-#include "PointValueSampler.h"
-#include "LineValueSampler.h"
-#include "VectorOfPostprocessors.h"
-#include "LeastSquaresFit.h"
+#include "ElementVariablesDifferenceMax.h"
 #include "ElementsAlongLine.h"
 #include "ElementsAlongPlane.h"
 #include "IntersectionPointsAlongLine.h"
-#include "LineMaterialRealSampler.h"
+#include "LeastSquaresFit.h"
 #include "LineFunctionSampler.h"
-#include "VolumeHistogram.h"
+#include "LineMaterialRealSampler.h"
+#include "LineValueSampler.h"
+#include "MaterialVectorPostprocessor.h"
+#include "NodalValueSampler.h"
+#include "PointValueSampler.h"
+#include "SideValueSampler.h"
 #include "SphericalAverage.h"
+#include "VectorOfPostprocessors.h"
+#include "VolumeHistogram.h"
 
 // user objects
+#include "GeometrySphere.h"
 #include "LayeredIntegral.h"
 #include "LayeredAverage.h"
 #include "LayeredSideIntegral.h"
@@ -266,6 +278,7 @@
 #include "NodalNormalsCorner.h"
 #include "NodalNormalsPreprocessor.h"
 #include "SolutionUserObject.h"
+#include "PerflogDumper.h"
 #ifdef LIBMESH_HAVE_FPARSER
 #include "Terminator.h"
 #endif
@@ -296,6 +309,7 @@
 
 // ScalarKernels
 #include "ODETimeDerivative.h"
+#include "CoupledODETimeDerivative.h"
 #include "FunctionScalarAux.h"
 #include "NodalEqualValueConstraint.h"
 #include "ParsedODEKernel.h"
@@ -318,9 +332,11 @@
 
 // time steppers
 #include "ConstantDT.h"
+#include "LogConstantDT.h"
 #include "FunctionDT.h"
 #include "TimeSequenceStepper.h"
 #include "ExodusTimeSequenceStepper.h"
+#include "CSVTimeSequenceStepper.h"
 #include "IterationAdaptiveDT.h"
 #include "SolutionTimeAdaptiveDT.h"
 #include "DT2.h"
@@ -328,7 +344,6 @@
 #include "AB2PredictorCorrector.h"
 
 // time integrators
-#include "SteadyState.h"
 #include "ImplicitEuler.h"
 #include "BDF2.h"
 #include "CrankNicolson.h"
@@ -366,6 +381,7 @@
 #include "MultiAppPostprocessorTransfer.h"
 #include "MultiAppProjectionTransfer.h"
 #include "MultiAppPostprocessorToAuxScalarTransfer.h"
+#include "MultiAppScalarToAuxScalarTransfer.h"
 
 // Actions
 #include "AddBCAction.h"
@@ -384,6 +400,7 @@
 #include "AddDamperAction.h"
 #include "AddFunctionAction.h"
 #include "AddDistributionAction.h"
+#include "AddSamplerAction.h"
 #include "CreateExecutionerAction.h"
 #include "DetermineSystemType.h"
 #include "EmptyAction.h"
@@ -427,6 +444,7 @@
 #include "CheckOutputAction.h"
 #include "SetupRecoverFileBaseAction.h"
 #include "AddNodalKernelAction.h"
+#include "MaterialDerivativeTestAction.h"
 
 // Outputs
 #ifdef LIBMESH_HAVE_EXODUS_API
@@ -477,6 +495,7 @@ registerObjects(Factory & factory)
   registerMesh(ImageMesh);
   registerMesh(PatternedMesh);
   registerMesh(StitchedMesh);
+  registerMesh(AnnularMesh);
 
   // mesh modifiers
   registerMeshModifier(MeshExtruder);
@@ -498,6 +517,8 @@ registerObjects(Factory & factory)
   registerMeshModifier(BreakBoundaryOnSubdomain);
   registerMeshModifier(ParsedAddSideset);
   registerMeshModifier(AssignSubdomainID);
+  registerMeshModifier(MeshSideSet);
+  registerMeshModifier(AddSideSetsFromBoundingBox);
 
   // problems
   registerProblem(DisplacedProblem);
@@ -512,12 +533,15 @@ registerObjects(Factory & factory)
   registerKernel(Diffusion);
   registerKernel(AnisotropicDiffusion);
   registerKernel(CoupledForce);
-  registerKernel(UserForcingFunction);
+  registerNamedObject(BodyForce, "UserForcingFunction");
+  factory.deprecateObject("UserForcingFunction", "BodyForce");
   registerKernel(BodyForce);
   registerKernel(Reaction);
   registerKernel(MassEigenKernel);
   registerKernel(NullKernel);
   registerKernel(MaterialDerivativeTestKernel);
+  registerKernel(MaterialDerivativeRankTwoTestKernel);
+  registerKernel(MaterialDerivativeRankFourTestKernel);
 
   // bcs
   registerBoundaryCondition(ConvectiveFluxBC);
@@ -543,6 +567,7 @@ registerObjects(Factory & factory)
 
   // dirac kernels
   registerDiracKernel(ConstantPointSource);
+  registerDiracKernel(FunctionDiracSource);
 
   // aux kernels
   registerAux(ConstantAux);
@@ -575,6 +600,7 @@ registerObjects(Factory & factory)
   registerAux(ElementLpNormAux);
   registerAux(ElementL2ErrorFunctionAux);
   registerAux(ElementH1ErrorFunctionAux);
+  registerAux(DiffusionFluxAux);
 
   // Initial Conditions
   registerInitialCondition(ConstantIC);
@@ -590,6 +616,7 @@ registerObjects(Factory & factory)
   registerExecutioner(Transient);
   registerExecutioner(InversePowerMethod);
   registerExecutioner(NonlinearEigen);
+  registerExecutioner(Eigenvalue);
 
   // functions
   registerFunction(Axisymmetric2D3DSolutionFunction);
@@ -619,6 +646,7 @@ registerObjects(Factory & factory)
   registerPostprocessor(AverageElementSize);
   registerPostprocessor(AverageNodalVariableValue);
   registerPostprocessor(CumulativeValuePostprocessor);
+  registerPostprocessor(ChangeOverTimePostprocessor);
   registerPostprocessor(ChangeOverTimestepPostprocessor);
   registerPostprocessor(NodalSum);
   registerPostprocessor(ElementAverageValue);
@@ -636,7 +664,6 @@ registerObjects(Factory & factory)
   registerPostprocessor(NodalVariableValue);
   registerPostprocessor(NumDOFs);
   registerPostprocessor(TimestepSize);
-  registerPostprocessor(RunTime);
   registerPostprocessor(PerformanceData);
   registerPostprocessor(MemoryUsage);
   registerPostprocessor(NumElems);
@@ -665,7 +692,9 @@ registerObjects(Factory & factory)
   registerPostprocessor(NodalExtremeValue);
   registerPostprocessor(ElementExtremeValue);
   registerPostprocessor(DifferencePostprocessor);
+  registerPostprocessor(RelativeDifferencePostprocessor);
   registerPostprocessor(ScalePostprocessor);
+  registerPostprocessor(LinearCombinationPostprocessor);
   registerPostprocessor(FunctionValuePostprocessor);
   registerPostprocessor(NumPicardIterations);
   registerPostprocessor(FunctionSideIntegral);
@@ -679,24 +708,27 @@ registerObjects(Factory & factory)
   registerPostprocessor(VariableResidual);
 
   // vector PPS
+  registerVectorPostprocessor(CSVReader);
   registerVectorPostprocessor(ConstantVectorPostprocessor);
-  registerVectorPostprocessor(MaterialVectorPostprocessor);
   registerVectorPostprocessor(Eigenvalues);
-  registerVectorPostprocessor(NodalValueSampler);
-  registerVectorPostprocessor(SideValueSampler);
-  registerVectorPostprocessor(PointValueSampler);
-  registerVectorPostprocessor(LineValueSampler);
-  registerVectorPostprocessor(VectorOfPostprocessors);
-  registerVectorPostprocessor(LeastSquaresFit);
+  registerVectorPostprocessor(ElementVariablesDifferenceMax);
   registerVectorPostprocessor(ElementsAlongLine);
   registerVectorPostprocessor(ElementsAlongPlane);
   registerVectorPostprocessor(IntersectionPointsAlongLine);
-  registerVectorPostprocessor(LineMaterialRealSampler);
+  registerVectorPostprocessor(LeastSquaresFit);
   registerVectorPostprocessor(LineFunctionSampler);
-  registerVectorPostprocessor(VolumeHistogram);
+  registerVectorPostprocessor(LineMaterialRealSampler);
+  registerVectorPostprocessor(LineValueSampler);
+  registerVectorPostprocessor(MaterialVectorPostprocessor);
+  registerVectorPostprocessor(NodalValueSampler);
+  registerVectorPostprocessor(PointValueSampler);
+  registerVectorPostprocessor(SideValueSampler);
   registerVectorPostprocessor(SphericalAverage);
+  registerVectorPostprocessor(VectorOfPostprocessors);
+  registerVectorPostprocessor(VolumeHistogram);
 
   // user objects
+  registerUserObject(GeometrySphere);
   registerUserObject(LayeredIntegral);
   registerUserObject(LayeredAverage);
   registerUserObject(LayeredSideIntegral);
@@ -708,6 +740,7 @@ registerObjects(Factory & factory)
   registerUserObject(NodalNormalsCorner);
   registerUserObject(NodalNormalsEvaluator);
   registerUserObject(SolutionUserObject);
+  registerUserObject(PerflogDumper);
 #ifdef LIBMESH_HAVE_FPARSER
   registerUserObject(Terminator);
 #endif
@@ -739,6 +772,7 @@ registerObjects(Factory & factory)
 
   // Scalar kernels
   registerScalarKernel(ODETimeDerivative);
+  registerScalarKernel(CoupledODETimeDerivative);
   registerScalarKernel(NodalEqualValueConstraint);
   registerScalarKernel(ParsedODEKernel);
   registerScalarKernel(QuotientScalarAux);
@@ -768,16 +802,17 @@ registerObjects(Factory & factory)
 
   // time steppers
   registerTimeStepper(ConstantDT);
+  registerTimeStepper(LogConstantDT);
   registerTimeStepper(FunctionDT);
   registerTimeStepper(TimeSequenceStepper);
   registerTimeStepper(ExodusTimeSequenceStepper);
+  registerTimeStepper(CSVTimeSequenceStepper);
   registerTimeStepper(IterationAdaptiveDT);
   registerTimeStepper(SolutionTimeAdaptiveDT);
   registerTimeStepper(DT2);
   registerTimeStepper(PostprocessorDT);
   registerTimeStepper(AB2PredictorCorrector);
   // time integrators
-  registerTimeIntegrator(SteadyState);
   registerTimeIntegrator(ImplicitEuler);
   registerTimeIntegrator(BDF2);
   registerTimeIntegrator(CrankNicolson);
@@ -811,6 +846,7 @@ registerObjects(Factory & factory)
   registerTransfer(MultiAppPostprocessorTransfer);
   registerTransfer(MultiAppProjectionTransfer);
   registerTransfer(MultiAppPostprocessorToAuxScalarTransfer);
+  registerTransfer(MultiAppScalarToAuxScalarTransfer);
 
 // Outputs
 #ifdef LIBMESH_HAVE_EXODUS_API
@@ -872,7 +908,7 @@ addActionTypes(Syntax & syntax)
   /**************************/
   /**** Register Actions ****/
   /**************************/
-  registerMooseObjectTask("create_problem",               Problem,                 true);
+  registerMooseObjectTask("create_problem",               Problem,                 false);
   registerMooseObjectTask("setup_executioner",            Executioner,             true);
 
   // This task does not construct an object, but it needs all of the parameters that
@@ -892,6 +928,7 @@ addActionTypes(Syntax & syntax)
   registerMooseObjectTask("add_bc",                       BoundaryCondition,      false);
   registerMooseObjectTask("add_function",                 Function,               false);
   registerMooseObjectTask("add_distribution",             Distribution,           false);
+  registerMooseObjectTask("add_sampler",                  Sampler,                false);
 
   registerMooseObjectTask("add_aux_kernel",               AuxKernel,              false);
   registerMooseObjectTask("add_elemental_field_variable", AuxKernel,              false);
@@ -1021,6 +1058,7 @@ addActionTypes(Syntax & syntax)
                            "(setup_quadrature)"
                            "(add_function)"
                            "(add_distribution)"
+                           "(add_sampler)"
                            "(add_periodic_bc)"
                            "(add_user_object)"
                            "(setup_function_complete)"
@@ -1103,6 +1141,7 @@ registerActions(Syntax & syntax, ActionFactory & action_factory)
 
   registerAction(AddFunctionAction, "add_function");
   registerAction(AddDistributionAction, "add_distribution");
+  registerAction(AddSamplerAction, "add_sampler");
   registerAction(CreateExecutionerAction, "setup_executioner");
   registerAction(SetupTimeStepperAction, "setup_time_stepper");
   registerAction(SetupTimeIntegratorAction, "setup_time_integrator");
@@ -1184,6 +1223,10 @@ registerActions(Syntax & syntax, ActionFactory & action_factory)
   registerTask("finish_input_file_output", false);
   registerAction(EmptyAction, "finish_input_file_output");
 
+  registerAction(MaterialDerivativeTestAction, "add_variable");
+  registerAction(MaterialDerivativeTestAction, "add_kernel");
+  registerAction(MaterialDerivativeTestAction, "add_preconditioning");
+
 #undef registerAction
 #define registerAction(tplt, action) action_factory.regLegacy<tplt>(stringifyName(tplt), action)
 }
@@ -1213,8 +1256,6 @@ enableFPE(bool on)
   if (_trap_fpe)
     libMesh::enableFPE(on);
 }
-
-PerfLog setup_perf_log("Setup");
 
 /**
  * Initialize global variables

@@ -39,4 +39,48 @@
     type = PythonUnitTest
     input = test_DisplayRequired.py
   [../]
+  [./ignore]
+    type = PythonUnitTest
+    input = test_Ignore.py
+  [../]
+  [./timeout]
+    type = PythonUnitTest
+    input = test_Timeout.py
+  [../]
+  [./unknown_prereq]
+    type = PythonUnitTest
+    input = test_UnknownPrereq.py
+  [../]
+  [./syntax]
+    type = PythonUnitTest
+    input = test_Syntax.py
+  [../]
+  [./required_objects]
+    type = PythonUnitTest
+    input = test_RequiredObjects.py
+  [../]
+   [./should_execute]
+    type = PythonUnitTest
+    input = test_ShouldExecute.py
+  [../]
+  [./queue_pbs]
+    type = PythonUnitTest
+    input = test_QueuePBS.py
+  [../]
+  [./report_skipped]
+    type = PythonUnitTest
+    input = test_ReportSkipped.py
+  [../]
+  [./distributed_mesh]
+    type = PythonUnitTest
+    input = test_DistributedMesh.py
+  [../]
+  [./allocations]
+    type = PythonUnitTest
+    input = test_Allocations.py
+  [../]
+  [./exra_info]
+    type = PythonUnitTest
+    input = test_ExtraInfo.py
+  [../]
 []

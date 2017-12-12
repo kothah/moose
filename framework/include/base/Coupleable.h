@@ -22,6 +22,11 @@
 class InputParameters;
 class MooseVariable;
 class MooseObject;
+namespace libMesh
+{
+template <typename T>
+class DenseVector;
+}
 
 /**
  * Interface for objects that needs coupling capabilities
@@ -278,6 +283,33 @@ protected:
   virtual const VariableValue & coupledNodalDot(const std::string & var_name,
                                                 unsigned int comp = 0);
 
+  /**
+   * Returns DoFs in the current solution vector of a coupled variable for the local element
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to a DenseVector for the DoFs of the coupled variable
+   */
+  virtual const DenseVector<Number> & coupledSolutionDoFs(const std::string & var_name,
+                                                          unsigned int comp = 0);
+
+  /**
+   * Returns DoFs in the old solution vector of a coupled variable for the local element
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to a DenseVector for the old DoFs of the coupled variable
+   */
+  virtual const DenseVector<Number> & coupledSolutionDoFsOld(const std::string & var_name,
+                                                             unsigned int comp = 0);
+
+  /**
+   * Returns DoFs in the older solution vector of a coupled variable for the local element
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to a DenseVector for the older DoFs of the coupled variable
+   */
+  virtual const DenseVector<Number> & coupledSolutionDoFsOlder(const std::string & var_name,
+                                                               unsigned int comp = 0);
+
 protected:
   // Reference to the interface's input parameters
   const InputParameters & _c_parameters;
@@ -292,7 +324,7 @@ protected:
   std::vector<MooseVariable *> _coupled_moose_vars;
 
   /// True if we provide coupling to nodal values
-  bool _nodal;
+  bool _c_nodal;
 
   /// True if implicit value is required
   bool _c_is_implicit;

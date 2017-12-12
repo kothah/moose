@@ -1,33 +1,19 @@
 # Fedora
 
-{!docs/content/getting_started/minimum_requirements.md!}
+!include docs/content/getting_started/installation/fedora_pre_req.md
 
----
-## Pre-Reqs
-* Install the following using dnf
+!include docs/content/getting_started/installation/bash_profile.md
 
-```bash
-  sudo -E dnf install gcc \
-gcc-c++ \
-gcc-gfortran \
-tcl \
-tk \
-findutils \
-make \
-freeglut-devel \
-libXt-devel \
-libX11-devel \
-m4 \
-blas-devel \
-lapack-devel \
-git
-```
+!include docs/content/getting_started/installation/post_package_install.md
 
-* Download one our redistributables according to your version of Fedora
+!include docs/content/getting_started/installation/clone_moose.md
 
-    * Fedora 25: !MOOSEPACKAGE arch=fedora25 return=link!
+!include docs/content/getting_started/installation/build_libmesh.md
 
-{!docs/content/getting_started/installation/install_redistributable_rpm.md!}
-{!docs/content/getting_started/installation/clone_moose.md!}
-{!docs/content/getting_started/installation/build_libmesh.md!}
-{!docs/content/getting_started/installation/conclusion.md!}
+!include docs/content/getting_started/installation/test_moose.md
+
+!include docs/content/getting_started/installation/create_an_app.md
+
+!include docs/content/getting_started/installation/update_moose.md
+
+!include docs/content/getting_started/minimum_requirements.md

@@ -1,10 +1,14 @@
-<!-- MOOSE Documentation Stub: Remove this when content is added. -->
-
 # AxisymmetricCenterlineAverageValue
-!description /Postprocessors/AxisymmetricCenterlineAverageValue
+!syntax description /Postprocessors/AxisymmetricCenterlineAverageValue
 
-!parameters /Postprocessors/AxisymmetricCenterlineAverageValue
+## Description
+'AxisymmetricCenterlineAverageValue' is a specialized case of the [SideAverageValue](/SideAverageValue.md) postprocessor for cases in which the sideset on which the average value is being calculated is along the centerline axis in axisymmetric simulations.
 
-!inputfiles /Postprocessors/AxisymmetricCenterlineAverageValue
+## Example Input syntax
+!listing test/tests/postprocessors/axisymmetric_centerline_average_value/axisymmetric_centerline_average_value_test.i block=Postprocessors
 
-!childobjects /Postprocessors/AxisymmetricCenterlineAverageValue
+!syntax parameters /Postprocessors/AxisymmetricCenterlineAverageValue
+
+!syntax inputs /Postprocessors/AxisymmetricCenterlineAverageValue
+
+!syntax children /Postprocessors/AxisymmetricCenterlineAverageValue

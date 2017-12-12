@@ -26,8 +26,25 @@ protected:
   virtual void computeQpProperties() override;
   virtual void computeQpStress() = 0;
 
-  /// check if all materials responsible for providing the elasticity tensor guarantee an isotropic tensor
-  bool isElasticityTensorGuaranteedIsotropic();
+  /**
+   * InitialStress Deprecation: remove this method
+   *
+   * Adds initial stress, if it is provided, to _stress[_qp].  This
+   * function should NOT be used if you calculate stress using
+   *
+   * stress = stress_old + elasticity * strain_increment
+   *
+   * because stress_old will already include initial stress.  However
+   * this function SHOULD be used if your code uses
+   *
+   * stress = elasticity * (elastic_strain_old + strain_increment)
+   * or
+   * stress = elasticity * elastic_strain
+   *
+   * since in these cases the elastic_strain and elastic_strain_old
+   * will not include any contribution from initial stress.
+   */
+  void addQpInitialStress();
 
   const std::string _base_name;
   const std::string _elasticity_tensor_name;
@@ -42,7 +59,7 @@ protected:
   const MaterialProperty<RankTwoTensor> & _extra_stress;
 
   /// initial stress components
-  std::vector<Function *> _initial_stress;
+  std::vector<Function *> _initial_stress_fcn;
 
   /// derivative of stress w.r.t. strain (_dstress_dstrain)
   MaterialProperty<RankFourTensor> & _Jacobian_mult;
@@ -50,16 +67,14 @@ protected:
   /// Parameter which decides whether to store old stress. This is required for HHT time integration and Rayleigh damping
   const bool _store_stress_old;
 
-private:
-  enum class OptionalBool
-  {
-    VALUE_UNDEFINED = -1,
-    VALUE_FALSE = 0,
-    VALUE_TRUE = 1
-  };
+  /// Whether initial stress was provided.  InitialStress Deprecation: remove this.
+  const bool _initial_stress_provided;
 
-  /// store
-  OptionalBool _elasticity_tensor_isotropic_guarantee;
+  /// Initial stress, if provided. InitialStress Deprecation: remove this.
+  MaterialProperty<RankTwoTensor> * _initial_stress;
+
+  /// Old value of initial stress, which is needed to correctly implement finite-strain rotations.  InitialStress Deprecation: remove this.
+  const MaterialProperty<RankTwoTensor> * _initial_stress_old;
 };
 
 #endif // COMPUTESTRESSBASE_H

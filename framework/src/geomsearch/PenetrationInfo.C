@@ -25,7 +25,7 @@
 
 PenetrationInfo::PenetrationInfo(const Node * node,
                                  const Elem * elem,
-                                 Elem * side,
+                                 const Elem * side,
                                  unsigned int side_num,
                                  RealVectorValue norm,
                                  Real norm_distance,
@@ -66,6 +66,7 @@ PenetrationInfo::PenetrationInfo(const Node * node,
     _contact_force(0),
     _contact_force_old(0),
     _lagrange_multiplier(0),
+    _lagrange_multiplier_slip(0),
     _locked_this_step(0),
     _mech_status(MS_NO_CONTACT),
     _mech_status_old(MS_NO_CONTACT),
@@ -75,6 +76,7 @@ PenetrationInfo::PenetrationInfo(const Node * node,
 {
 }
 
+/*
 PenetrationInfo::PenetrationInfo(const PenetrationInfo & p)
   : _node(p._node),
     _elem(p._elem),
@@ -104,6 +106,8 @@ PenetrationInfo::PenetrationInfo(const PenetrationInfo & p)
     _contact_force(p._contact_force),
     _contact_force_old(p._contact_force_old),
     _lagrange_multiplier(p._lagrange_multiplier),
+    _lagrange_multiplier_slip(p._lagrange_multiplier_slip),
+
     _locked_this_step(p._locked_this_step),
     _mech_status(p._mech_status),
     _mech_status_old(p._mech_status_old),
@@ -112,6 +116,7 @@ PenetrationInfo::PenetrationInfo(const PenetrationInfo & p)
     _slip_tol(p._slip_tol)
 {
 }
+*/
 
 PenetrationInfo::PenetrationInfo()
   : _node(NULL),
@@ -141,6 +146,7 @@ PenetrationInfo::PenetrationInfo()
     _contact_force(0),
     _contact_force_old(0),
     _lagrange_multiplier(0),
+    _lagrange_multiplier_slip(0),
     _locked_this_step(0),
     _mech_status(MS_NO_CONTACT),
     _mech_status_old(MS_NO_CONTACT),
@@ -189,6 +195,7 @@ dataStore(std::ostream & stream, PenetrationInfo *& pinfo, void * context)
     storeHelper(stream, pinfo->_frictional_energy, context);
     storeHelper(stream, pinfo->_contact_force, context);
     storeHelper(stream, pinfo->_lagrange_multiplier, context);
+    storeHelper(stream, pinfo->_lagrange_multiplier_slip, context);
     storeHelper(stream, pinfo->_mech_status, context);
     storeHelper(stream, pinfo->_mech_status_old, context);
 
@@ -222,7 +229,7 @@ dataLoad(std::istream & stream, PenetrationInfo *& pinfo, void * context)
     loadHelper(stream, pinfo->_elem, context);
     loadHelper(stream, pinfo->_side_num, context);
     // Rebuild the side element.
-    pinfo->_side = pinfo->_elem->build_side(pinfo->_side_num, false).release();
+    pinfo->_side = pinfo->_elem->build_side_ptr(pinfo->_side_num, false).release();
 
     loadHelper(stream, pinfo->_normal, context);
     loadHelper(stream, pinfo->_distance, context);
@@ -244,6 +251,7 @@ dataLoad(std::istream & stream, PenetrationInfo *& pinfo, void * context)
     loadHelper(stream, pinfo->_frictional_energy, context);
     loadHelper(stream, pinfo->_contact_force, context);
     loadHelper(stream, pinfo->_lagrange_multiplier, context);
+    loadHelper(stream, pinfo->_lagrange_multiplier_slip, context);
     loadHelper(stream, pinfo->_mech_status, context);
     loadHelper(stream, pinfo->_mech_status_old, context);
 

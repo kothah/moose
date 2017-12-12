@@ -17,7 +17,6 @@
 #include "MooseError.h"
 #include "MultiMooseEnum.h"
 
-// libMesh includes
 #include "libmesh/string_to_enum.h"
 
 // system includes
@@ -33,6 +32,8 @@ std::map<std::string, EigenSolveType> eigen_solve_type_to_enum;
 std::map<std::string, EigenProblemType> eigen_problem_type_to_enum;
 std::map<std::string, WhichEigenPairs> which_eigen_pairs_to_enum;
 std::map<std::string, LineSearchType> line_search_type_to_enum;
+std::map<std::string, TimeIntegratorType> time_integrator_to_enum;
+std::map<std::string, MffdType> mffd_type_to_enum;
 
 void
 initExecStoreType()
@@ -44,6 +45,7 @@ initExecStoreType()
     execstore_type_to_enum["NONLINEAR"] = EXEC_NONLINEAR;
     execstore_type_to_enum["TIMESTEP_END"] = EXEC_TIMESTEP_END;
     execstore_type_to_enum["TIMESTEP_BEGIN"] = EXEC_TIMESTEP_BEGIN;
+    execstore_type_to_enum["FINAL"] = EXEC_FINAL;
     execstore_type_to_enum["CUSTOM"] = EXEC_CUSTOM;
   }
 }
@@ -97,6 +99,10 @@ initEigenSolveType()
     eigen_solve_type_to_enum["ARNOLDI"] = EST_ARNOLDI;
     eigen_solve_type_to_enum["KRYLOVSCHUR"] = EST_KRYLOVSCHUR;
     eigen_solve_type_to_enum["JACOBI_DAVIDSON"] = EST_JACOBI_DAVIDSON;
+    eigen_solve_type_to_enum["NONLINEAR_POWER"] = EST_NONLINEAR_POWER;
+    eigen_solve_type_to_enum["MF_NONLINEAR_POWER"] = EST_MF_NONLINEAR_POWER;
+    eigen_solve_type_to_enum["MONOLITH_NEWTON"] = EST_MONOLITH_NEWTON;
+    eigen_solve_type_to_enum["MF_MONOLITH_NEWTON"] = EST_MF_MONOLITH_NEWTON;
   }
 }
 
@@ -111,6 +117,7 @@ initEigenProlemType()
     eigen_problem_type_to_enum["GEN_NON_HERMITIAN"] = EPT_GEN_NON_HERMITIAN;
     eigen_problem_type_to_enum["GEN_INDEFINITE"] = EPT_GEN_INDEFINITE;
     eigen_problem_type_to_enum["POS_GEN_NON_HERMITIAN"] = EPT_POS_GEN_NON_HERMITIAN;
+    eigen_problem_type_to_enum["SLEPC_DEFAULT"] = EPT_SLEPC_DEFAULT;
   }
 }
 
@@ -129,6 +136,7 @@ initWhichEigenPairs()
     which_eigen_pairs_to_enum["TARGET_REAL"] = WEP_TARGET_REAL;
     which_eigen_pairs_to_enum["TARGET_IMAGINARY"] = WEP_TARGET_IMAGINARY;
     which_eigen_pairs_to_enum["ALL_EIGENVALUES"] = WEP_ALL_EIGENVALUES;
+    which_eigen_pairs_to_enum["SLEPC_DEFAULT"] = WEP_SLEPC_DEFAULT;
   }
 }
 
@@ -152,6 +160,31 @@ initLineSearchType()
     line_search_type_to_enum["CP"] = LS_CP;
 #endif
 #endif
+  }
+}
+
+void
+initTimeIntegratorsType()
+{
+  if (time_integrator_to_enum.empty())
+  {
+    time_integrator_to_enum["IMPLICIT_EULER"] = TI_IMPLICIT_EULER;
+    time_integrator_to_enum["EXPLICIT_EULER"] = TI_EXPLICIT_EULER;
+    time_integrator_to_enum["CRANK_NICOLSON"] = TI_CRANK_NICOLSON;
+    time_integrator_to_enum["BDF2"] = TI_BDF2;
+    time_integrator_to_enum["EXPLICIT_MIDPOINT"] = TI_EXPLICIT_MIDPOINT;
+    time_integrator_to_enum["LSTABLE_DIRK2"] = TI_LSTABLE_DIRK2;
+    time_integrator_to_enum["EXPLICIT_TVDRK2"] = TI_EXPLICIT_TVD_RK_2;
+  }
+}
+
+void
+initMffdType()
+{
+  if (mffd_type_to_enum.empty())
+  {
+    mffd_type_to_enum["DS"] = MFFD_DS;
+    mffd_type_to_enum["WP"] = MFFD_WP;
   }
 }
 
@@ -289,6 +322,36 @@ stringToEnum<LineSearchType>(const std::string & s)
 }
 
 template <>
+TimeIntegratorType
+stringToEnum<TimeIntegratorType>(const std::string & s)
+{
+  initTimeIntegratorsType();
+
+  std::string upper(s);
+  std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+
+  if (!time_integrator_to_enum.count(upper))
+    mooseError("Unknown time integrator: ", upper);
+
+  return time_integrator_to_enum[upper];
+}
+
+template <>
+MffdType
+stringToEnum<MffdType>(const std::string & s)
+{
+  initMffdType();
+
+  std::string upper(s);
+  std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+
+  if (!mffd_type_to_enum.count(upper))
+    mooseError("Unknown mffd type: ", upper);
+
+  return mffd_type_to_enum[upper];
+}
+
+template <>
 std::vector<ExecFlagType>
 vectorStringsToEnum<ExecFlagType>(const MultiMooseEnum & v)
 {
@@ -299,7 +362,6 @@ vectorStringsToEnum<ExecFlagType>(const MultiMooseEnum & v)
   return exec_flags;
 }
 
-template <>
 std::string
 stringify(const SolveType & t)
 {
@@ -319,7 +381,6 @@ stringify(const SolveType & t)
   return "";
 }
 
-template <>
 std::string
 stringify(const ExecFlagType & t)
 {
@@ -352,6 +413,12 @@ stringify(const ExecFlagType & t)
 }
 
 std::string
+stringify(const std::string & s)
+{
+  return s;
+}
+
+std::string
 stringifyExact(Real t)
 {
   // this or std::numeric_limits<T>::max_digits10
@@ -362,11 +429,11 @@ stringifyExact(Real t)
   os << std::setprecision(max_digits10) << t;
   return os.str();
 }
-}
 
 Point
 toPoint(const std::vector<Real> & pos)
 {
   mooseAssert(pos.size() == LIBMESH_DIM, "Wrong array size while converting into a point");
   return Point(pos[0], pos[1], pos[2]);
+}
 }

@@ -19,7 +19,6 @@
 #include "InputParameters.h"
 #include "ConsoleStreamInterface.h"
 
-// libMesh includes
 #include "libmesh/parallel_object.h"
 
 class MooseApp;
@@ -30,6 +29,14 @@ InputParameters validParams<MooseObject>();
 
 // needed to avoid #include cycle with MooseApp and MooseObject
 [[noreturn]] void callMooseErrorRaw(std::string & msg, MooseApp * app);
+
+/// returns a string representing a special parameter name that the parser injects into object
+/// parameters holding the file+linenum for the parameter.
+std::string paramLocName(std::string param);
+
+/// returns a string representing a special parameter name that the parser injects into object
+/// parameters holding the file+linenum for the parameter.
+std::string paramPathName(std::string param);
 
 /**
  * Every object that can be built by the factory should be derived from this class.
@@ -62,6 +69,16 @@ public:
   const T & getParam(const std::string & name) const;
 
   /**
+   * Verifies that the requested parameter exists and is not NULL and returns it to the caller.
+   * The template parameter must be a pointer or an error will be thrown.
+   */
+  template <typename T>
+  T getCheckedPointerParam(const std::string & name, const std::string & error_string = "") const
+  {
+    return parameters().getCheckedPointerParam<T>(name, error_string);
+  }
+
+  /**
    * Test if the supplied parameter is valid
    * @param name The name of the parameter to test
    */
@@ -76,6 +93,22 @@ public:
    * Return the enabled status of the object.
    */
   virtual bool enabled() { return _enabled; }
+
+  /**
+   * Emits an error prefixed with the file and line number of the given param (from the input
+   * file) along with the full parameter path+name followed by the given args as the message.
+   * If this object's parameters were not created directly by the Parser, then this function falls
+   * back to the normal behavior of mooseError - only printing a message using the given args.
+   */
+  template <typename... Args>
+  [[noreturn]] void paramError(const std::string & param, Args... args)
+  {
+    auto prefix = param + ": ";
+    if (_pars.have_parameter<std::string>(paramLocName(param)))
+      prefix = _pars.get<std::string>(paramLocName(param)) + ": (" +
+               _pars.get<std::string>(paramPathName(param)) + ") ";
+    mooseError(prefix, args...);
+  }
 
   template <typename... Args>
   [[noreturn]] void mooseError(Args &&... args) const
@@ -105,11 +138,11 @@ public:
   }
 
 protected:
-  /// The MooseApp this object is associated with
-  MooseApp & _app;
-
   /// Parameters of this object, references the InputParameters stored in the InputParametersWarehouse
   const InputParameters & _pars;
+
+  /// The MooseApp this object is associated with
+  MooseApp & _app;
 
   /// The name of this object, reference to value stored in InputParameters
   const std::string & _name;

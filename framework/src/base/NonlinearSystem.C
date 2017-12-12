@@ -16,8 +16,8 @@
 #include "NonlinearSystem.h"
 #include "FEProblem.h"
 #include "TimeIntegrator.h"
+#include "FiniteDifferencePreconditioner.h"
 
-// libmesh includes
 #include "libmesh/nonlinear_solver.h"
 #include "libmesh/petsc_nonlinear_solver.h"
 #include "libmesh/sparse_matrix.h"
@@ -98,7 +98,8 @@ compute_postcheck(const NumericVector<Number> & old_soln,
 NonlinearSystem::NonlinearSystem(FEProblemBase & fe_problem, const std::string & name)
   : NonlinearSystemBase(
         fe_problem, fe_problem.es().add_system<TransientNonlinearImplicitSystem>(name), name),
-    _transient_sys(fe_problem.es().get_system<TransientNonlinearImplicitSystem>(name))
+    _transient_sys(fe_problem.es().get_system<TransientNonlinearImplicitSystem>(name)),
+    _use_coloring_finite_difference(false)
 {
   nonlinearSolver()->residual = Moose::compute_residual;
   nonlinearSolver()->jacobian = Moose::compute_jacobian;
@@ -155,8 +156,13 @@ NonlinearSystem::solve()
   if (_use_finite_differenced_preconditioner)
     setupFiniteDifferencedPreconditioner();
 
-  _time_integrator->solve();
-  _time_integrator->postSolve();
+  if (_time_integrator)
+  {
+    _time_integrator->solve();
+    _time_integrator->postSolve();
+  }
+  else
+    system().solve();
 
   // store info about the solve
   _n_iters = _transient_sys.n_nonlinear_iterations();
@@ -168,7 +174,7 @@ NonlinearSystem::solve()
 #endif
 
 #ifdef LIBMESH_HAVE_PETSC
-  if (_use_finite_differenced_preconditioner)
+  if (_use_coloring_finite_difference)
 #if PETSC_VERSION_LESS_THAN(3, 2, 0)
     MatFDColoringDestroy(_fdcoloring);
 #else
@@ -192,24 +198,74 @@ NonlinearSystem::stopSolve()
   // Insert a NaN into the residual vector.  As of PETSc-3.6, this
   // should make PETSc return DIVERGED_NANORINF the next time it does
   // a reduction.  We'll write to the first local dof on every
-  // processor I guess?
-  _transient_sys.rhs->set(_transient_sys.rhs->first_local_index(),
-                          std::numeric_limits<Real>::quiet_NaN());
+  // processor that has any dofs.
+  if (_transient_sys.rhs->local_size())
+    _transient_sys.rhs->set(_transient_sys.rhs->first_local_index(),
+                            std::numeric_limits<Real>::quiet_NaN());
   _transient_sys.rhs->close();
 
   // Clean up by getting other vectors into a valid state for a
   // (possible) subsequent solve.  There may be more than just
   // these...
-  residualVector(Moose::KT_TIME).close();
-  residualVector(Moose::KT_NONTIME).close();
+  if (_Re_time)
+    _Re_time->close();
+  _Re_non_time->close();
 }
 
 void
 NonlinearSystem::setupFiniteDifferencedPreconditioner()
 {
+  std::shared_ptr<FiniteDifferencePreconditioner> fdp =
+      std::dynamic_pointer_cast<FiniteDifferencePreconditioner>(_preconditioner);
+  if (!fdp)
+    mooseError("Did not setup finite difference preconditioner, and please add a preconditioning "
+               "block with type = fdp");
+
+  if (fdp->finiteDifferenceType() == "coloring")
+  {
+    setupColoringFiniteDifferencedPreconditioner();
+    _use_coloring_finite_difference = true;
+  }
+
+  else if (fdp->finiteDifferenceType() == "standard")
+  {
+    setupStandardFiniteDifferencedPreconditioner();
+    _use_coloring_finite_difference = false;
+  }
+  else
+    mooseError("Unknown finite difference type");
+}
+
+void
+NonlinearSystem::setupStandardFiniteDifferencedPreconditioner()
+{
+#if LIBMESH_HAVE_PETSC
+  // Make sure that libMesh isn't going to override our preconditioner
+  _transient_sys.nonlinear_solver->jacobian = nullptr;
+
+  PetscNonlinearSolver<Number> * petsc_nonlinear_solver =
+      static_cast<PetscNonlinearSolver<Number> *>(_transient_sys.nonlinear_solver.get());
+
+  PetscMatrix<Number> * petsc_mat = static_cast<PetscMatrix<Number> *>(_transient_sys.matrix);
+
+  SNESSetJacobian(petsc_nonlinear_solver->snes(),
+                  petsc_mat->mat(),
+                  petsc_mat->mat(),
+#if PETSC_VERSION_LESS_THAN(3, 4, 0)
+                  SNESDefaultComputeJacobian,
+#else
+                  SNESComputeJacobianDefault,
+#endif
+                  nullptr);
+#endif
+}
+
+void
+NonlinearSystem::setupColoringFiniteDifferencedPreconditioner()
+{
 #ifdef LIBMESH_HAVE_PETSC
   // Make sure that libMesh isn't going to override our preconditioner
-  _transient_sys.nonlinear_solver->jacobian = NULL;
+  _transient_sys.nonlinear_solver->jacobian = nullptr;
 
   PetscNonlinearSolver<Number> & petsc_nonlinear_solver =
       dynamic_cast<PetscNonlinearSolver<Number> &>(*_transient_sys.nonlinear_solver);

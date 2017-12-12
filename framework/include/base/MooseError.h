@@ -19,7 +19,6 @@
 #include "MooseException.h"
 #include "libmesh/threads.h"
 
-// libMesh includes
 #include "libmesh/print_trace.h"
 #include "libmesh/libmesh_common.h"
 
@@ -105,10 +104,20 @@
 template <typename... Args>
 [[noreturn]] void mooseError(Args &&... args);
 
+class MooseVariable;
+
 namespace moose
 {
 namespace internal
 {
+
+/// Builds and returns a string of the form:
+///
+///     [var1-elemtype],ORDER[var1-order] != [var2-elemtype],ORDER[var2-order]
+///
+/// This is a convenience function to be used when error messages (especially with paramError)
+/// need to report that variable types are incompatible (e.g. with residual save-in).
+std::string incompatVarMsg(MooseVariable & var1, MooseVariable & var2);
 
 std::string
 mooseMsgFmt(const std::string & msg, const std::string & title, const std::string & color);

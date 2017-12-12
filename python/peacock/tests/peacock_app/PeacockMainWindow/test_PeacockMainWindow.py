@@ -2,8 +2,11 @@
 from peacock.PeacockMainWindow import PeacockMainWindow
 from peacock.utils import Testing
 import argparse, os
+from PyQt5 import QtWidgets
 
 class Tests(Testing.PeacockTester):
+    qapp = QtWidgets.QApplication([])
+
     def newWidget(self, args=[]):
         parser = argparse.ArgumentParser()
         PeacockMainWindow.commandLineArgs(parser)
@@ -18,6 +21,7 @@ class Tests(Testing.PeacockTester):
         w._showConsole()
         self.assertEqual(w.console.isVisible(), True)
         w.setPythonVariable("foo", "bar")
+        w.tab_plugin.InputFileEditorWithMesh.MeshViewerPlugin.reset()
 
     def testConnections(self):
         w = self.newWidget(args=[])
@@ -28,13 +32,17 @@ class Tests(Testing.PeacockTester):
         self.assertEqual(runner._total_steps, 0)
 
         w.tab_plugin.InputFileEditorWithMesh.setInputFile("../../common/transient.i")
+        w.setTab(w.tab_plugin.ExecuteTabPlugin.tabName())
+        w.tab_plugin.ExecuteTabPlugin.ExecuteOptionsPlugin.setWorkingDir(self.starting_directory)
         self.assertIn("transient.i", w.windowTitle())
 
         self.assertEqual(runner._total_steps, 8)
 
         w.tab_plugin.ExecuteTabPlugin.ExecuteRunnerPlugin.runClicked()
-        Testing.process_events(self.qapp, t=2)
+        Testing.process_events(t=2)
         self.assertTrue(os.path.exists("out_transient.e"))
+
+        w.tab_plugin.InputFileEditorWithMesh.MeshViewerPlugin.reset()
 
 
 if __name__ == '__main__':

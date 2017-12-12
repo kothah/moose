@@ -25,7 +25,6 @@
 #include "RestartableData.h"
 #include "ConsoleStreamInterface.h"
 
-// libMesh includes
 #include "libmesh/parallel_object.h"
 
 // C++ includes
@@ -62,10 +61,18 @@ public:
   virtual ~MooseApp();
 
   /**
-   * Get the name of the object
+   * Get the name of the object. In the case of MooseApp, the name of the object is *NOT* the name
+   * of the application. It's the name of the created application which is usually "main". If you
+   * have subapps, then each individual subapp will have a unique name which typically comes from
+   * the input file (e.g. sub0, sub1, etc...).
    * @return The name of the object
    */
-  const std::string & name() { return _name; }
+  const std::string & name() const { return _name; }
+
+  /**
+   * Get printable name of the application.
+   */
+  virtual std::string getPrintableName() const { return "Application"; }
 
   /**
    * Get the parameters of the object
@@ -74,7 +81,8 @@ public:
   InputParameters & parameters() { return _pars; }
 
   /**
-   * Get the type of this object as a string
+   * Get the type of this object as a string. This is a string version of the class name (e.g.
+   * MooseTestApp).
    * @return The the type of the object
    */
   const std::string & type() const { return _type; }
@@ -98,6 +106,21 @@ public:
    * Run the application
    */
   virtual void run();
+
+  /**
+   * Returns the framework version.
+   */
+  std::string getFrameworkVersion() const;
+
+  /**
+   * Returns the current version of the framework or application (default: framework version).
+   */
+  virtual std::string getVersion() const;
+
+  /**
+   * Non-virtual method for printing out the version string in a consistent format.
+   */
+  std::string getPrintableVersion() const;
 
   /**
    * Setup options based on InputParameters.
@@ -218,6 +241,11 @@ public:
    * Set a Boolean indicating whether this app will use a Nonlinear or Eigen System.
    */
   bool & useNonlinear() { return _use_nonlinear; }
+
+  /**
+   * Set a Boolean indicating whether this app will use an eigenvalue executioner.
+   */
+  bool & useEigenvalue() { return _use_eigen_value; }
 
   /**
    * Retrieve the Factory associated with this App.
@@ -437,10 +465,10 @@ public:
   unsigned int multiAppLevel() const { return _multiapp_level; }
 
   /**
-   * Set the MultiApp Level
-   * @param level The level to assign to this app.
+   * The MultiApp number
+   * @return The numbering in all the sub-apps on the same level
    */
-  void setMultiAppLevel(const unsigned int level) { _multiapp_level = level; }
+  unsigned int multiAppNumber() const { return _multiapp_number; }
 
   /**
    * Whether or not this app is the ultimate master app. (ie level == 0)
@@ -455,9 +483,18 @@ public:
                        InputParameters parameters);
 
   /**
-   * Get a mesh modifer with its name
+   * Get a mesh modifier with its name
    */
   const MeshModifier & getMeshModifier(const std::string & name) const;
+
+  /**
+   * Get names of all mesh modifiers
+   * Note: This function should be called after all mesh modifiers are added with the
+   * 'add_mesh_modifier' task. The returned value will be undefined and depends on the ordering that
+   * mesh modifiers are added by MOOSE if the function is called during the 'add_mesh_modifier'
+   * task.
+   */
+  std::vector<std::string> getMeshModifierNames() const;
 
   /**
    * Clear all mesh modifers
@@ -521,6 +558,12 @@ protected:
    */
   virtual void registerRecoverableData(std::string name);
 
+  /**
+   * Runs post-initialization error checking that cannot be run correctly unless the simulation
+   * has been fully set up and initialized.
+   */
+  void errorCheck();
+
   /// The name of this object
   std::string _name;
 
@@ -581,8 +624,11 @@ protected:
   /// Boolean to indicate whether to use a Nonlinear or EigenSystem (inspected by actions)
   bool _use_nonlinear;
 
+  /// Boolean to indicate whether to use an eigenvalue executioner
+  bool _use_eigen_value;
+
   /// System Information
-  std::shared_ptr<SystemInfo> _sys_info;
+  std::unique_ptr<SystemInfo> _sys_info;
 
   /// Indicates whether warnings, errors, or no output is displayed when unused parameters are detected
   enum UNUSED_CHECK
@@ -671,6 +717,9 @@ private:
 
   /// Level of multiapp, the master is level 0. This used by the Console to indent output
   unsigned int _multiapp_level;
+
+  /// Numbering in all the sub-apps on the same level
+  unsigned int _multiapp_number;
 
   /// Holds the mesh modifiers until they have completed, then this structure is cleared
   std::map<std::string, std::shared_ptr<MeshModifier>> _mesh_modifiers;

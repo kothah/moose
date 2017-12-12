@@ -26,7 +26,6 @@
 #include "SwapBackSentinel.h"
 #include "FEProblem.h"
 
-// libMesh includes
 #include "libmesh/quadrature.h" // _qrule->n_points()
 
 // Forward Declarations
@@ -108,7 +107,7 @@ template <typename T>
 LineMaterialSamplerBase<T>::LineMaterialSamplerBase(const InputParameters & parameters)
   : GeneralVectorPostprocessor(parameters),
     SamplerBase(parameters, this, _communicator),
-    BlockRestrictable(parameters),
+    BlockRestrictable(this),
     _start(getParam<Point>("start")),
     _end(getParam<Point>("end")),
     _mesh(_subproblem.mesh()),

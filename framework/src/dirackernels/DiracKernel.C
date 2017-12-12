@@ -19,7 +19,6 @@
 #include "Problem.h"
 #include "MooseMesh.h"
 
-// libMesh includes
 #include "libmesh/quadrature.h"
 
 template <>
@@ -65,8 +64,8 @@ DiracKernel::DiracKernel(const InputParameters & parameters)
     Restartable(parameters, "DiracKernels"),
     ZeroInterface(parameters),
     MeshChangedInterface(parameters),
-    _subproblem(*parameters.get<SubProblem *>("_subproblem")),
-    _sys(*parameters.get<SystemBase *>("_sys")),
+    _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
+    _sys(*getCheckedPointerParam<SystemBase *>("_sys")),
     _tid(parameters.get<THREAD_ID>("_tid")),
     _assembly(_subproblem.assembly(_tid)),
     _var(_sys.getVariable(_tid, parameters.get<NonlinearVariableName>("variable"))),
@@ -433,6 +432,13 @@ void
 DiracKernel::clearPoints()
 {
   _local_dirac_kernel_info.clearPoints();
+}
+
+void
+DiracKernel::meshChanged()
+{
+  _point_cache.clear();
+  _reverse_point_cache.clear();
 }
 
 MooseVariable &

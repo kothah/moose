@@ -18,7 +18,6 @@
 #include "Assembly.h"
 #include "MooseVariable.h"
 
-// libMesh includes
 #include "libmesh/fe_interface.h"
 #include "libmesh/quadrature.h"
 
@@ -30,8 +29,16 @@ validParams<InitialCondition>()
   params += validParams<BlockRestrictable>();
   params += validParams<BoundaryRestrictable>();
 
-  params.addRequiredParam<VariableName>(
-      "variable", "The variable this initial condition is supposed to provide values for.");
+  params.addRequiredParam<VariableName>("variable",
+                                        "The variable this initial condition is "
+                                        "supposed to provide values for.");
+  params.addParam<bool>("ignore_uo_dependency",
+                        false,
+                        "When set to true, a UserObject retrieved "
+                        "by this IC will not be executed before the "
+                        "this IC");
+
+  params.addParamNamesToGroup("ignore_uo_dependency", "Advanced");
 
   params.registerBase("InitialCondition");
 
@@ -40,6 +47,7 @@ validParams<InitialCondition>()
 
 InitialCondition::InitialCondition(const InputParameters & parameters)
   : MooseObject(parameters),
+    BlockRestrictable(this),
     Coupleable(this,
                getParam<SystemBase *>("_sys")
                    ->getVariable(parameters.get<THREAD_ID>("_tid"),
@@ -47,13 +55,12 @@ InitialCondition::InitialCondition(const InputParameters & parameters)
                    .isNodal()),
     FunctionInterface(this),
     UserObjectInterface(this),
-    BlockRestrictable(parameters),
-    BoundaryRestrictable(parameters, true), // true for being nodal
+    BoundaryRestrictable(this, _c_nodal),
     DependencyResolverInterface(),
     Restartable(parameters, "InitialConditions"),
     ZeroInterface(parameters),
-    _fe_problem(*parameters.getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
-    _sys(*parameters.getCheckedPointerParam<SystemBase *>("_sys")),
+    _fe_problem(*getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
+    _sys(*getCheckedPointerParam<SystemBase *>("_sys")),
     _tid(getParam<THREAD_ID>("_tid")),
     _assembly(_fe_problem.assembly(_tid)),
     _t(_fe_problem.time()),
@@ -62,7 +69,8 @@ InitialCondition::InitialCondition(const InputParameters & parameters)
 
     _current_elem(_var.currentElem()),
     _current_node(NULL),
-    _qp(0)
+    _qp(0),
+    _ignore_uo_dependency(getParam<bool>("ignore_uo_dependency"))
 {
   _supplied_vars.insert(getParam<VariableName>("variable"));
 
@@ -84,6 +92,14 @@ const std::set<std::string> &
 InitialCondition::getSuppliedItems()
 {
   return _supplied_vars;
+}
+
+const UserObject &
+InitialCondition::getUserObjectBase(const std::string & name)
+{
+  if (!_ignore_uo_dependency)
+    _depend_uo.insert(_pars.get<UserObjectName>(name));
+  return UserObjectInterface::getUserObjectBase(name);
 }
 
 void

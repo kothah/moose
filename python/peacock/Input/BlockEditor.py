@@ -103,13 +103,8 @@ class BlockEditor(QWidget, MooseWidget):
         """
         self.button_layout = WidgetUtils.addLayout()
 
-        if self.block.user_added:
-            self.clone_button = WidgetUtils.addButton(self.button_layout, self, "Clone Block", self._cloneBlock)
-            self.clone_shortcut = WidgetUtils.addShortcut(self, "Ctrl+N", self._cloneBlock, shortcut_with_children=True)
-            self.clone_button.setToolTip("Clone this block with the same parameters")
-
-            self.remove_button = WidgetUtils.addButton(self.button_layout, self, "Remove Block", self._removeBlock)
-            self.remove_button.setToolTip("Remove this block")
+        self.close_button = WidgetUtils.addButton(self.button_layout, self, "Apply && Close", self._applyAndClose)
+        self.close_button.setToolTip("Apply any changes and close the window")
 
         self.apply_button = WidgetUtils.addButton(self.button_layout, self, "Apply", self.applyChanges)
         self.apply_button.setEnabled(False)
@@ -122,8 +117,13 @@ class BlockEditor(QWidget, MooseWidget):
         self.new_parameter_button = WidgetUtils.addButton(self.button_layout, self, "Add parameter", self.addUserParamPressed)
         self.new_parameter_button.setToolTip("Add a non standard parameter")
 
-        self.close_button = WidgetUtils.addButton(self.button_layout, self, "Close", self._applyAndClose)
-        self.close_button.setToolTip("Apply any changes and close the window")
+        if self.block.user_added:
+            self.clone_button = WidgetUtils.addButton(self.button_layout, self, "Clone Block", self._cloneBlock)
+            self.clone_shortcut = WidgetUtils.addShortcut(self, "Ctrl+N", self._cloneBlock, shortcut_with_children=True)
+            self.clone_button.setToolTip("Clone this block with the same parameters")
+
+            self.remove_button = WidgetUtils.addButton(self.button_layout, self, "Remove Block", self._removeBlock)
+            self.remove_button.setToolTip("Remove this block")
 
     def _findFreeParamName(self, max_params=1000):
         """
@@ -168,6 +168,7 @@ class BlockEditor(QWidget, MooseWidget):
         """
         self.block.comments = self.comment_edit.getComments()
         self.param_editor.save()
+        self.block.changed_by_user = True
         self._blockChanged(enabled=False)
         self.blockChanged.emit(self.block)
 
@@ -200,7 +201,6 @@ class BlockEditor(QWidget, MooseWidget):
         The user is done editing.
         """
         self.editingFinished.emit()
-
 
 if __name__ == "__main__":
     from PyQt5.QtWidgets import QApplication, QMainWindow

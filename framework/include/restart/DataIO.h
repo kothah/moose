@@ -21,7 +21,6 @@
 #include "MooseError.h"
 #include "Backup.h"
 
-// libMesh includes
 #include "libmesh/vector_value.h"
 #include "libmesh/tensor_value.h"
 #include "libmesh/parallel.h"
@@ -182,8 +181,8 @@ template <typename T, typename U>
 inline void
 dataStore(std::ostream & stream, std::pair<T, U> & p, void * context)
 {
-  dataStore(stream, p.first, context);
-  dataStore(stream, p.second, context);
+  storeHelper(stream, p.first, context);
+  storeHelper(stream, p.second, context);
 }
 
 template <typename T>
@@ -367,8 +366,8 @@ template <typename T, typename U>
 inline void
 dataLoad(std::istream & stream, std::pair<T, U> & p, void * context)
 {
-  dataLoad(stream, p.first, context);
-  dataLoad(stream, p.second, context);
+  loadHelper(stream, p.first, context);
+  loadHelper(stream, p.second, context);
 }
 
 template <typename T>

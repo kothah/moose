@@ -21,7 +21,6 @@
 #include "MooseMesh.h"
 #include "MooseVariable.h"
 
-// libMesh includes
 #include "libmesh/quadrature.h"
 
 template <>
@@ -36,7 +35,7 @@ validParams<ElemElemConstraint>()
 ElemElemConstraint::ElemElemConstraint(const InputParameters & parameters)
   : Constraint(parameters),
     NeighborCoupleableMooseVariableDependencyIntermediateInterface(this, false, false),
-    _fe_problem(*parameters.get<FEProblemBase *>("_fe_problem_base")),
+    _fe_problem(*getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
     _dim(_mesh.dimension()),
 
     _current_elem(_assembly.elem()),

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from peacock.Input.BlockEditor import BlockEditor
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QMessageBox, QApplication
 from peacock.Input.ExecutableInfo import ExecutableInfo
 from peacock.Input.InputTree import InputTree
 from peacock.Input.ParamsTable import ParamsTable
@@ -12,6 +12,8 @@ from peacock.utils import Testing
 
 
 class Tests(Testing.PeacockTester):
+    qapp = QApplication([])
+
     def setUp(self):
         super(Tests, self).setUp()
         self.test_input_file = "../../common/fsp_test.i"
@@ -202,8 +204,8 @@ class Tests(Testing.PeacockTester):
         self.checkAddParam("/GlobalParams", False, False)
         # Has types
         self.checkAddParam("/Mesh", True, True)
-        # Is star node, has an existing 'active' parameter
-        self.checkAddParam("/Kernels", False, True)
+        # Is star node, had an 'active' parameter but we get rid of it
+        self.checkAddParam("/Kernels", False, False)
         # Is user block
         self.checkAddParam("/Kernels/diff_u", True, True, True)
 

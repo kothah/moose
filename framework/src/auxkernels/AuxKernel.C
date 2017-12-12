@@ -21,7 +21,6 @@
 #include "MooseTypes.h"
 #include "Assembly.h"
 
-// libmesh includes
 #include "libmesh/numeric_vector.h"
 #include "libmesh/dof_map.h"
 #include "libmesh/quadrature.h"
@@ -63,16 +62,16 @@ validParams<AuxKernel>()
 
 AuxKernel::AuxKernel(const InputParameters & parameters)
   : MooseObject(parameters),
-    BlockRestrictable(parameters),
-    BoundaryRestrictable(parameters,
-                         parameters.get<AuxiliarySystem *>("_aux_sys")
+    BlockRestrictable(this),
+    BoundaryRestrictable(this,
+                         parameters.getCheckedPointerParam<AuxiliarySystem *>("_aux_sys")
                              ->getVariable(parameters.get<THREAD_ID>("_tid"),
                                            parameters.get<AuxVariableName>("variable"))
                              .isNodal()),
     SetupInterface(this),
     CoupleableMooseVariableDependencyIntermediateInterface(
         this,
-        parameters.get<AuxiliarySystem *>("_aux_sys")
+        parameters.getCheckedPointerParam<AuxiliarySystem *>("_aux_sys")
             ->getVariable(parameters.get<THREAD_ID>("_tid"),
                           parameters.get<AuxVariableName>("variable"))
             .isNodal()),
@@ -83,9 +82,9 @@ AuxKernel::AuxKernel(const InputParameters & parameters)
     PostprocessorInterface(this),
     DependencyResolverInterface(),
     RandomInterface(parameters,
-                    *parameters.get<FEProblemBase *>("_fe_problem_base"),
+                    *parameters.getCheckedPointerParam<FEProblemBase *>("_fe_problem_base"),
                     parameters.get<THREAD_ID>("_tid"),
-                    parameters.get<AuxiliarySystem *>("_aux_sys")
+                    parameters.getCheckedPointerParam<AuxiliarySystem *>("_aux_sys")
                         ->getVariable(parameters.get<THREAD_ID>("_tid"),
                                       parameters.get<AuxVariableName>("variable"))
                         .isNodal()),
@@ -94,10 +93,10 @@ AuxKernel::AuxKernel(const InputParameters & parameters)
     ZeroInterface(parameters),
     MeshChangedInterface(parameters),
     VectorPostprocessorInterface(this),
-    _subproblem(*parameters.get<SubProblem *>("_subproblem")),
-    _sys(*parameters.get<SystemBase *>("_sys")),
-    _nl_sys(*parameters.get<SystemBase *>("_nl_sys")),
-    _aux_sys(*parameters.get<AuxiliarySystem *>("_aux_sys")),
+    _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
+    _sys(*getCheckedPointerParam<SystemBase *>("_sys")),
+    _nl_sys(*getCheckedPointerParam<SystemBase *>("_nl_sys")),
+    _aux_sys(*getCheckedPointerParam<AuxiliarySystem *>("_aux_sys")),
     _tid(parameters.get<THREAD_ID>("_tid")),
     _assembly(_subproblem.assembly(_tid)),
 
@@ -249,12 +248,6 @@ AuxKernel::compute()
       _var.setNodalValue(_local_sol);
     }
   }
-}
-
-bool
-AuxKernel::isNodal()
-{
-  return _nodal;
 }
 
 const VariableValue &

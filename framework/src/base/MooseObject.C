@@ -17,6 +17,18 @@
 #include "MooseApp.h"
 #include "MooseUtils.h"
 
+std::string
+paramLocName(std::string param)
+{
+  return "_" + param + "_fileloc";
+}
+
+std::string
+paramPathName(std::string param)
+{
+  return "_" + param + "_fullpath";
+}
+
 template <>
 InputParameters
 validParams<MooseObject>()
@@ -33,12 +45,10 @@ validParams<MooseObject>()
 }
 
 MooseObject::MooseObject(const InputParameters & parameters)
-  : ConsoleStreamInterface(
-        *parameters.get<MooseApp *>("_moose_app")), // Can't call getParam before pars is set
-    ParallelObject(
-        *parameters.get<MooseApp *>("_moose_app")), // Can't call getParam before pars is set
-    _app(*parameters.getCheckedPointerParam<MooseApp *>("_moose_app")),
+  : ConsoleStreamInterface(*parameters.getCheckedPointerParam<MooseApp *>("_moose_app")),
+    ParallelObject(*parameters.getCheckedPointerParam<MooseApp *>("_moose_app")),
     _pars(parameters),
+    _app(*getCheckedPointerParam<MooseApp *>("_moose_app")),
     _name(getParam<std::string>("_object_name")),
     _enabled(getParam<bool>("enable")){}
 

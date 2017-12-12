@@ -36,7 +36,13 @@
   [./mat_cyclic_dep_error_test]
     type = 'RunException'
     input = 'mat_cyclic_coupling.i'
-    expect_err = 'Cyclic dependency detected'
+    expect_err = 'Cyclic dependency detected in object ordering:\nmat2 -> mat1'
+  [../]
+
+  [./mat_block_boundary_check]
+    type = 'RunException'
+    input = 'material_block_bound_check.i'
+    expect_err = 'Material property \S+, requested by \S+ is not defined on block \S'
   [../]
 
   [./three_coupled_mat_test]

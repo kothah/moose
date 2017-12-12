@@ -17,7 +17,6 @@
 #include "MooseTypes.h"
 #include "MooseMesh.h"
 
-// libMesh includes
 #include "libmesh/mesh.h"
 #include "libmesh/remote_elem.h"
 
@@ -26,9 +25,10 @@ InputParameters
 validParams<SideSetsAroundSubdomain>()
 {
   InputParameters params = validParams<AddSideSetsBase>();
-  params += validParams<BlockRestrictable>();
   params.addRequiredParam<std::vector<BoundaryName>>(
       "new_boundary", "The list of boundary IDs to create on the supplied subdomain");
+  params.addRequiredParam<std::vector<SubdomainName>>("block",
+                                                      "The blocks around which to create sidesets");
   params.addParam<Point>("normal",
                          "If supplied, only faces with normal equal to this, up to "
                          "normal_tol, will be added to the sidesets specified");
@@ -40,9 +40,6 @@ validParams<SideSetsAroundSubdomain>()
                                     "1 - normal_tol, where normal_hat = "
                                     "normal/|normal|");
 
-  // We can't perform block/boundary restrictable checks on construction for MeshModifiers
-  params.set<bool>("delay_initialization") = true;
-
   params.addClassDescription(
       "Adds element faces that are on the exterior of the given block to the sidesets specified");
   return params;
@@ -50,7 +47,6 @@ validParams<SideSetsAroundSubdomain>()
 
 SideSetsAroundSubdomain::SideSetsAroundSubdomain(const InputParameters & parameters)
   : AddSideSetsBase(parameters),
-    BlockRestrictable(parameters),
     _boundary_names(getParam<std::vector<BoundaryName>>("new_boundary")),
     _using_normal(isParamValid("normal")),
     _normal_tol(getParam<Real>("normal_tol")),
@@ -65,27 +61,14 @@ SideSetsAroundSubdomain::SideSetsAroundSubdomain(const InputParameters & paramet
 }
 
 void
-SideSetsAroundSubdomain::initialize()
-{
-  // Initialize the BlockRestrictable parent
-  initializeBlockRestrictable(_pars);
-}
-
-void
 SideSetsAroundSubdomain::modify()
 {
   // Reference the the libMesh::MeshBase
   MeshBase & mesh = _mesh_ptr->getMesh();
 
-  // Extract the 'first' block ID
-  SubdomainID block_id = *blockIDs().begin();
-
-  // Extract the SubdomainID
-  if (numBlocks() > 1)
-    mooseWarning("SideSetsAroundSubdomain only acts on a single subdomain, but multiple were "
-                 "provided: only the ",
-                 block_id,
-                 "' subdomain is being used.");
+  // Extract the block ID
+  auto blocks = _mesh_ptr->getSubdomainIDs(getParam<std::vector<SubdomainName>>("block"));
+  std::set<SubdomainID> block_ids(blocks.begin(), blocks.end());
 
   // Create the boundary IDs from the list of names provided (the true flag creates ids from unknown
   // names)
@@ -107,16 +90,12 @@ SideSetsAroundSubdomain::modify()
   std::vector<vec_type> queries(my_n_proc);
 
   // Loop over the elements
-  for (MeshBase::const_element_iterator el = mesh.active_elements_begin(),
-                                        end_el = mesh.active_elements_end();
-       el != end_el;
-       ++el)
+  for (const auto & elem : mesh.active_element_ptr_range())
   {
-    const Elem * elem = *el;
     SubdomainID curr_subdomain = elem->subdomain_id();
 
     // We only need to loop over elements in the source subdomain
-    if (curr_subdomain != block_id)
+    if (block_ids.count(curr_subdomain) == 0)
       continue;
 
     for (unsigned int side = 0; side < elem->n_sides(); ++side)
@@ -130,9 +109,9 @@ SideSetsAroundSubdomain::modify()
       {
         queries[elem->processor_id()].push_back(std::make_pair(elem->id(), side));
       }
-      else if (neighbor == NULL || // element on boundary OR
-               neighbor->subdomain_id() !=
-                   block_id) // neighboring element is on a different subdomain
+      else if (neighbor == nullptr || // element on boundary OR
+               block_ids.count(neighbor->subdomain_id()) ==
+                   0) // neighboring element is on a different subdomain
       {
         if (_using_normal)
         {
@@ -187,8 +166,9 @@ SideSetsAroundSubdomain::modify()
         const unsigned int side = q.second;
         const Elem * neighbor = elem->neighbor_ptr(side);
 
-        if (neighbor == NULL ||                   // element on boundary OR
-            neighbor->subdomain_id() != block_id) // neighboring element is on a different subdomain
+        if (neighbor == nullptr || // element on boundary OR
+            block_ids.count(neighbor->subdomain_id()) ==
+                0) // neighboring element is on a different subdomain
         {
           if (_using_normal)
           {

@@ -1,10 +1,11 @@
-<!-- MOOSE Documentation Stub: Remove this when content is added. -->
-
 # SideSetsFromPoints
-!description /MeshModifiers/SideSetsFromPoints
 
-!parameters /MeshModifiers/SideSetsFromPoints
+This MeshModifier adds a new sideset to the mesh starting at a specific point (on an element surface) and including all element faces with the same normal. This is similar to the [SideSetFromNormals](/SideSetsFromNormals.md) MeshModifier but may be easier to use if the user knows the external coordinates of the mesh without knowing the normal vectors.
 
-!inputfiles /MeshModifiers/SideSetsFromPoints
+!syntax description /MeshModifiers/SideSetsFromPoints
 
-!childobjects /MeshModifiers/SideSetsFromPoints
+!syntax parameters /MeshModifiers/SideSetsFromPoints
+
+!syntax inputs /MeshModifiers/SideSetsFromPoints
+
+!syntax children /MeshModifiers/SideSetsFromPoints

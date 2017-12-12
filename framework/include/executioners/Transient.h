@@ -139,7 +139,7 @@ public:
    * Get the time scheme used
    * @return MooseEnum with the time scheme
    */
-  MooseEnum getTimeScheme() { return _time_scheme; }
+  Moose::TimeIntegratorType getTimeScheme() { return _time_scheme; }
 
   /**
    * Get the set of sync times
@@ -205,6 +205,11 @@ public:
   // iteration count (which starts at 0), increment by 1.
   Real numPicardIts() { return _picard_it + 1; }
 
+  /**
+   * The relative L2 norm of the difference between solution and old solution vector.
+   */
+  virtual Real relativeSolutionDifferenceNorm();
+
 protected:
   /**
    * This should execute the solve for one timestep.
@@ -214,7 +219,7 @@ protected:
   /// Here for backward compatibility
   FEProblemBase & _problem;
 
-  MooseEnum _time_scheme;
+  Moose::TimeIntegratorType _time_scheme;
   std::shared_ptr<TimeStepper> _time_stepper;
 
   /// Current timestep.
@@ -292,7 +297,24 @@ protected:
 
   Real _solution_change_norm;
 
+  /// The difference of current and old solutions
+  NumericVector<Number> & _sln_diff;
+
   void setupTimeIntegrator();
+
+  /// Relaxation factor for Picard Iteration
+  Real _relax_factor;
+
+  /// The _time when this app solved last.
+  /// This allows a sub-app to know if this is the first
+  /// Picard iteration or not.
+  Real _prev_time;
+
+  /// The transferred variables that are going to be relaxed
+  std::vector<std::string> _relaxed_vars;
+
+  /// The DoFs associates with all of the relaxed variables
+  std::set<dof_id_type> _relaxed_dofs;
 };
 
 #endif // TRANSIENTEXECUTIONER_H

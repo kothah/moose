@@ -45,10 +45,10 @@ InputParameters validParams<InitialCondition>();
  * InitialConditions are objects that set the initial value of variables.
  */
 class InitialCondition : public MooseObject,
+                         public BlockRestrictable,
                          public Coupleable,
                          public FunctionInterface,
                          public UserObjectInterface,
-                         public BlockRestrictable,
                          public BoundaryRestrictable,
                          public DependencyResolverInterface,
                          public Restartable,
@@ -65,6 +65,8 @@ public:
   virtual ~InitialCondition();
 
   MooseVariable & variable() { return _var; }
+
+  const std::set<std::string> & getDependObjects() const { return _depend_uo; }
 
   virtual void compute();
 
@@ -94,6 +96,13 @@ public:
   virtual const std::set<std::string> & getRequestedItems() override;
 
   virtual const std::set<std::string> & getSuppliedItems() override;
+
+  template <typename T>
+  const T & getUserObject(const std::string & name);
+  template <typename T>
+  const T & getUserObjectByName(const UserObjectName & name);
+
+  const UserObject & getUserObjectBase(const std::string & name);
 
 protected:
   FEProblemBase & _fe_problem;
@@ -129,6 +138,30 @@ protected:
 
   std::set<std::string> _depend_vars;
   std::set<std::string> _supplied_vars;
+
+  /// Depend UserObjects
+  std::set<std::string> _depend_uo;
+
+  /// If set, UOs retrieved by this IC will not be executed before this IC
+  const bool _ignore_uo_dependency;
 };
+
+template <typename T>
+const T &
+InitialCondition::getUserObject(const std::string & name)
+{
+  if (!_ignore_uo_dependency)
+    _depend_uo.insert(_pars.get<UserObjectName>(name));
+  return UserObjectInterface::getUserObject<T>(name);
+}
+
+template <typename T>
+const T &
+InitialCondition::getUserObjectByName(const UserObjectName & name)
+{
+  if (!_ignore_uo_dependency)
+    _depend_uo.insert(name);
+  return UserObjectInterface::getUserObjectByName<T>(name);
+}
 
 #endif // INITIALCONDITION_H

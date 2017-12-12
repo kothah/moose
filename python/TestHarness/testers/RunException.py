@@ -1,4 +1,4 @@
-import util
+from TestHarness import util
 from RunApp import RunApp
 
 class RunException(RunApp):
@@ -18,6 +18,8 @@ class RunException(RunApp):
 
     def __init__(self, name, params):
         RunApp.__init__(self, name, params)
+        if (params.isValid("expect_err") == False and params.isValid("expect_assert") == False):
+            raise RuntimeError('Either "expect_err" or "expect_assert" must be supplied in RunException')
 
     def checkRunnable(self, options):
         if options.enable_recover:
@@ -32,22 +34,30 @@ class RunException(RunApp):
                 file_paths.append(self.name() + '.processor.{}'.format(processor_id))
             util.deleteFilesAndFolders(self.specs['test_dir'], file_paths, False)
 
-    def processResults(self, moose_dir, retcode, options, output):
+    def processResults(self, moose_dir, options, output):
         reason = ''
         specs = self.specs
+
+        if self.hasRedirectedOutput(options):
+            redirected_output = util.getOutputFromFiles(self, options)
+            output += redirected_output
 
         # Expected errors and assertions might do a lot of things including crash so we
         # will handle them seperately
         if specs.isValid('expect_err'):
             if not util.checkOutputForPattern(output, specs['expect_err']):
-                reason = 'NO EXPECTED ERR'
+                reason = 'EXPECTED ERROR MISSING'
         elif specs.isValid('expect_assert'):
-            if options.method == 'dbg':  # Only check asserts in debug mode
+            if options.method in ['dbg', 'devel']:  # Only check asserts in debug and devel modes
                 if not util.checkOutputForPattern(output, specs['expect_assert']):
-                    reason = 'NO EXPECTED ASSERT'
+                    reason = 'EXPECTED ASSERT MISSING'
+
+        # If we've set a reason right here, we should report the pattern that we were unable to match.
+        if reason != '':
+            output += "#"*80 + "\n\nUnable to match the following pattern against the program's output:\n\n" + specs['expect_err'] + "\n"
 
         if reason == '':
-            output = RunApp.processResults(self, moose_dir, retcode, options, output)
+            RunApp.testFileOutput(self, moose_dir, options, output)
 
         if reason != '':
             self.setStatus(reason, self.bucket_fail)

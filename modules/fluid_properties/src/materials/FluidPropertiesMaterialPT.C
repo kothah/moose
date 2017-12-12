@@ -13,10 +13,9 @@ validParams<FluidPropertiesMaterialPT>()
 {
   InputParameters params = validParams<Material>();
   params.addRequiredCoupledVar("pressure", "Fluid pressure (Pa)");
-  params.addRequiredCoupledVar("temperature", "Fluid temperature (C)");
+  params.addRequiredCoupledVar("temperature", "Fluid temperature (K)");
   params.addRequiredParam<UserObjectName>("fp", "The name of the user object for fluid properties");
-  params.addClassDescription(
-      "Material properties for a fluid using the (pressure, temperature) formulation");
+  params.addClassDescription("Fluid properties using the (pressure, temperature) formulation");
   return params;
 }
 
@@ -45,10 +44,10 @@ void
 FluidPropertiesMaterialPT::computeQpProperties()
 {
   _rho[_qp] = _fp.rho(_pressure[_qp], _temperature[_qp]);
-  _mu[_qp] = _fp.mu(_rho[_qp], _temperature[_qp]);
+  _mu[_qp] = _fp.mu_from_rho_T(_rho[_qp], _temperature[_qp]);
   _cp[_qp] = _fp.cp(_pressure[_qp], _temperature[_qp]);
   _cv[_qp] = _fp.cv(_pressure[_qp], _temperature[_qp]);
-  _k[_qp] = _fp.k(_rho[_qp], _temperature[_qp]);
+  _k[_qp] = _fp.k_from_rho_T(_rho[_qp], _temperature[_qp]);
   _h[_qp] = _fp.h(_pressure[_qp], _temperature[_qp]);
   _e[_qp] = _fp.e(_pressure[_qp], _temperature[_qp]);
   _s[_qp] = _fp.s(_pressure[_qp], _temperature[_qp]);

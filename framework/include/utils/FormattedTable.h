@@ -41,8 +41,18 @@ void dataLoad(std::istream & stream, FormattedTable & v, void * context);
 class FormattedTable
 {
 public:
+  /**
+   * Default constructor - The default constructor takes an optional parameter to turn off
+   * stateful printing. This means that each time you ask the FormattedTable to print to a file,
+   * it'll, print the entire table. The default is to only print the part of the table that hasn't
+   * already been printed.
+   */
   FormattedTable();
 
+  /**
+   * Copy constructor - The copy constructor will duplicate the data structures but is not
+   * designed to work with FormattedTables with open streams (e.g. CSV Output mode).
+   */
   FormattedTable(const FormattedTable & o);
 
   /**
@@ -56,9 +66,21 @@ public:
   bool empty() const;
 
   /**
+   * Sets append mode which means an existing file is not truncated on opening. This mode
+   * is typically used for recovery.
+   */
+  void append(bool append_existing_file);
+
+  /**
    * Method for adding data to the output table.  The dependent variable is named "time"
    */
   void addData(const std::string & name, Real value, Real time);
+
+  /**
+   * Method for adding an entire vector to a table at a time. Checks are made to ensure that
+   * the dependent variable index lines up with the vector indices.
+   */
+  void addData(const std::string & name, const std::vector<Real> & vector);
 
   /**
    * Retrieve Data for last value of given name
@@ -72,7 +94,7 @@ public:
    */
   void outputTimeColumn(bool output_time) { _output_time = output_time; }
 
-  const std::map<Real, std::map<std::string, Real>> & getData() const { return _data; }
+  //  const std::map<Real, std::map<std::string, Real>> & getData() const { return _data; }
 
   /**
    * Methods for dumping the table to the stream - either by filename or by stream handle.  If
@@ -111,28 +133,33 @@ public:
    */
   void setPrecision(unsigned int precision) { _csv_precision = precision; }
 
+  /**
+   * Sorts columns alphabetically.
+   */
+  void sortColumns();
+
 protected:
   void printTablePiece(std::ostream & out,
                        unsigned int last_n_entries,
                        std::map<std::string, unsigned short> & col_widths,
-                       std::set<std::string>::iterator & col_begin,
-                       std::set<std::string>::iterator & col_end);
+                       std::vector<std::string>::iterator & col_begin,
+                       std::vector<std::string>::iterator & col_end);
 
   void printOmittedRow(std::ostream & out,
                        std::map<std::string, unsigned short> & col_widths,
-                       std::set<std::string>::iterator & col_begin,
-                       std::set<std::string>::iterator & col_end) const;
+                       std::vector<std::string>::iterator & col_begin,
+                       std::vector<std::string>::iterator & col_end) const;
   void printRowDivider(std::ostream & out,
                        std::map<std::string, unsigned short> & col_widths,
-                       std::set<std::string>::iterator & col_begin,
-                       std::set<std::string>::iterator & col_end) const;
+                       std::vector<std::string>::iterator & col_begin,
+                       std::vector<std::string>::iterator & col_end) const;
 
   void printNoDataRow(char intersect_char,
                       char fill_char,
                       std::ostream & out,
                       std::map<std::string, unsigned short> & col_widths,
-                      std::set<std::string>::iterator & col_begin,
-                      std::set<std::string>::iterator & col_end) const;
+                      std::vector<std::string>::iterator & col_begin,
+                      std::vector<std::string>::iterator & col_end) const;
 
   /**
    * Returns the width of the terminal using sys/ioctl
@@ -140,14 +167,18 @@ protected:
   unsigned short getTermWidth(bool use_environment) const;
 
   /**
-   * Data structure for the console table
-   * The first map creates an association from the independent variable (normally time)
-   * to a map of dependent variables and their associated values if they exist
+   * Data structure for the console table:
+   * The first part of the pair tracks the independent variable (normally time) and is associated
+   * with the second part of the table which is the map of dependent variables and their associated
+   * values.
    */
-  std::map<Real, std::map<std::string, Real>> _data;
+  std::vector<std::pair<Real, std::map<std::string, Real>>> _data;
+
+  /// Alignment widths (only used if asked to print aligned to CSV output)
+  std::map<std::string, unsigned int> _align_widths;
 
   /// The set of column names updated when data is inserted through the setter methods
-  std::set<std::string> _column_names;
+  std::vector<std::string> _column_names;
 
   /// The single cell width used for all columns in the table
   static const unsigned short _column_width;
@@ -159,17 +190,28 @@ private:
   /// Close the underlying output file stream if any. This is idempotent.
   void close();
 
-  /// Open or switch the underlying file stream to point to file_name. This is
-  /// idempotent.
+  /// Open or switch the underlying file stream to point to file_name. This is idempotent.
   void open(const std::string & file_name);
+
+  void printRow(std::pair<Real, std::map<std::string, Real>> & row_data, bool align);
 
   /// The optional output file stream
   std::string _output_file_name;
+
+  /// The stream handle (corresponds to _output_file_name)
   std::ofstream _output_file;
+
+  /**
+   * Keeps track of the index indicating which vector elements have been output. All items
+   * with an index less than this index have been output. Higher values have not.
+   */
+  std::size_t _output_row_index;
+
+  /// Keeps track of whether the current stream is open or not.
   bool _stream_open;
 
-  /// The last key value inserted
-  Real _last_key;
+  /// Keeps track of whether we want to open an existing file for appending or overwriting.
+  bool _append;
 
   /// Whether or not to output the Time column
   bool _output_time;
@@ -179,6 +221,9 @@ private:
 
   /// *.csv file precision, defaults to 14
   unsigned int _csv_precision;
+
+  /// Flag indicating that sorting is necessary (used by sortColumns method).
+  bool _column_names_unsorted = true;
 
   friend void
   dataStore<FormattedTable>(std::ostream & stream, FormattedTable & table, void * context);

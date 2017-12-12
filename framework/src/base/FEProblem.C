@@ -30,11 +30,11 @@ validParams<FEProblem>()
 FEProblem::FEProblem(const InputParameters & parameters)
   : FEProblemBase(parameters),
     _use_nonlinear(getParam<bool>("use_nonlinear")),
-    _nl_sys(_use_nonlinear ? (new NonlinearSystem(*this, "nl0"))
-                           : (new MooseEigenSystem(*this, "eigen0")))
+    _nl_sys(_use_nonlinear ? (std::make_shared<NonlinearSystem>(*this, "nl0"))
+                           : (std::make_shared<MooseEigenSystem>(*this, "eigen0")))
 {
   _nl = _nl_sys;
-  _aux = new AuxiliarySystem(*this, "aux0");
+  _aux = std::make_shared<AuxiliarySystem>(*this, "aux0");
 
   newAssemblyArray(*_nl_sys);
 
@@ -43,14 +43,7 @@ FEProblem::FEProblem(const InputParameters & parameters)
   _eq.parameters.set<FEProblem *>("_fe_problem") = this;
 }
 
-FEProblem::~FEProblem()
-{
-  FEProblemBase::deleteAssemblyArray();
-
-  delete _nl;
-
-  delete _aux;
-}
+FEProblem::~FEProblem() { FEProblemBase::deleteAssemblyArray(); }
 
 void
 FEProblem::setInputParametersFEProblem(InputParameters & parameters)

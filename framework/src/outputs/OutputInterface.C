@@ -30,12 +30,14 @@ validParams<OutputInterface>()
                                            "associated with this object");
 
   params.addParamNamesToGroup("outputs", "Advanced");
+  std::set<std::string> reserved = {"all", "none"};
+  params.setReservedValues("outputs", reserved);
 
   return params;
 }
 
 OutputInterface::OutputInterface(const InputParameters & parameters, bool build_list)
-  : _oi_moose_app(*parameters.get<MooseApp *>("_moose_app")),
+  : _oi_moose_app(*parameters.getCheckedPointerParam<MooseApp *>("_moose_app")),
     _oi_output_warehouse(_oi_moose_app.getOutputWarehouse()),
     _oi_outputs(parameters.get<std::vector<OutputName>>("outputs").begin(),
                 parameters.get<std::vector<OutputName>>("outputs").end())

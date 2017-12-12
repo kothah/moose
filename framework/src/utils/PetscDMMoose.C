@@ -38,7 +38,6 @@
 #include "MooseMesh.h"
 #include "NonlinearSystem.h"
 
-// libMesh includes
 #include "libmesh/nonlinear_implicit_system.h"
 #include "libmesh/nonlinear_solver.h"
 #include "libmesh/petsc_vector.h"
@@ -855,7 +854,7 @@ DMMooseGetEmbedding_Private(DM dm, IS * embedding)
             if (bc_id_set.find(boundary_id) == bc_id_set.end())
               continue;
 
-            UniquePtr<Elem> side_bdry = elem_bdry->build_side(side, false);
+            UniquePtr<const Elem> side_bdry = elem_bdry->build_side_ptr(side, false);
             evindices.clear();
             dofmap.dof_indices(side_bdry.get(), evindices, v);
             for (const auto & edof : evindices)
@@ -1714,10 +1713,8 @@ DMMooseGetMeshBlocks_Private(DM dm, std::set<subdomain_id_type> & blocks)
   /* The following effectively is a verbatim copy of MeshBase::n_subdomains(). */
   // This requires an inspection on every processor
   libmesh_parallel_only(mesh.comm());
-  MeshBase::const_element_iterator el = mesh.active_elements_begin();
-  const MeshBase::const_element_iterator end = mesh.active_elements_end();
-  for (; el != end; ++el)
-    blocks.insert((*el)->subdomain_id());
+  for (const auto & elem : mesh.active_element_ptr_range())
+    blocks.insert(elem->subdomain_id());
   // Some subdomains may only live on other processors
   mesh.comm().set_union(blocks);
   PetscFunctionReturn(0);

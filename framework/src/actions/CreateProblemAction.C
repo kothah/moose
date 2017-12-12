@@ -15,6 +15,7 @@
 #include "CreateProblemAction.h"
 #include "Factory.h"
 #include "FEProblem.h"
+#include "EigenProblem.h"
 #include "MooseApp.h"
 
 template <>
@@ -44,6 +45,12 @@ validParams<CreateProblemAction>()
   params.addParam<bool>("material_coverage_check",
                         true,
                         "Set to false to disable material->subdomain coverage check");
+  params.addParam<bool>("parallel_barrier_messaging",
+                        true,
+                        "Displays messaging from parallel "
+                        "barrier notifications when executing "
+                        "or transferring to/from Multiapps "
+                        "(default: true)");
 
   params.addParam<FileNameNoExtension>("restart_file_base",
                                        "File base name used for restart (e.g. "
@@ -81,6 +88,13 @@ CreateProblemAction::act()
           _factory.create<FEProblemBase>(_type, getParam<std::string>("name"), _moose_object_pars);
       if (!_problem.get())
         mooseError("Problem has to be of a FEProblemBase type");
+
+      // if users provide a problem type, the type has to be an EigenProblem or its derived subclass
+      // when uing an eigen executioner
+      if (_app.useEigenvalue() && _type != "EigenProblem" &&
+          !(std::dynamic_pointer_cast<EigenProblem>(_problem)))
+        mooseError("Problem has to be of a EigenProblem (or derived subclass) type when using "
+                   "eigen executioner");
     }
     // set up the problem
     _problem->setCoordSystem(_blocks, _coord_sys);
@@ -88,6 +102,7 @@ CreateProblemAction::act()
     _problem->useFECache(_fe_cache);
     _problem->setKernelCoverageCheck(getParam<bool>("kernel_coverage_check"));
     _problem->setMaterialCoverageCheck(getParam<bool>("material_coverage_check"));
+    _problem->setParallelBarrierMessaging(getParam<bool>("parallel_barrier_messaging"));
 
     if (isParamValid("restart_file_base"))
     {
@@ -105,7 +120,7 @@ CreateProblemAction::act()
       {
         std::list<std::string> dir_list(1, path);
         std::list<std::string> files = MooseUtils::getFilesInDirs(dir_list);
-        restart_file_base = MooseUtils::getRecoveryFileBase(files);
+        restart_file_base = MooseUtils::getLatestAppCheckpointFileBase(files);
 
         if (restart_file_base == "")
           mooseError("Unable to find suitable restart file");

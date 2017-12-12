@@ -1,5 +1,5 @@
 [Mesh]
-  file = out_part1_cp/0005_mesh.cpr
+  file = out_part1_cp/LATEST
   parallel_type = replicated
 []
 
@@ -33,7 +33,7 @@
   [../]
 
   [./ffn]
-    type = UserForcingFunction
+    type = BodyForce
     variable = u
     function = forcing_fn
   [../]

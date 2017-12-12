@@ -29,8 +29,17 @@ validParams<SubProblem>()
   return params;
 }
 
-// SubProblem /////
+namespace
+{
+/**
+ * Templated helper that returns either the any block or any boundary ID depending on the template
+ * parameter.
+ */
+template <typename T>
+T getAnyID();
+}
 
+// SubProblem /////
 SubProblem::SubProblem(const InputParameters & parameters)
   : Problem(parameters),
     _factory(_app.getFactory()),
@@ -144,6 +153,19 @@ SubProblem::getMaterialPropertyBlockNames(const std::string & prop_name)
   return block_names;
 }
 
+bool
+SubProblem::hasBlockMaterialProperty(SubdomainID bid, const std::string & prop_name)
+{
+  auto it = _map_block_material_props.find(bid);
+  if (it == _map_block_material_props.end())
+    return false;
+
+  if (it->second.count(prop_name) > 0)
+    return true;
+  else
+    return false;
+}
+
 // TODO: remove code duplication by templating
 std::set<BoundaryID>
 SubProblem::getMaterialPropertyBoundaryIDs(const std::string & prop_name)
@@ -188,6 +210,19 @@ SubProblem::getMaterialPropertyBoundaryNames(const std::string & prop_name)
   }
 
   return boundary_names;
+}
+
+bool
+SubProblem::hasBoundaryMaterialProperty(BoundaryID bid, const std::string & prop_name)
+{
+  auto it = _map_boundary_material_props.find(bid);
+  if (it == _map_boundary_material_props.end())
+    return false;
+
+  if (it->second.count(prop_name) > 0)
+    return true;
+  else
+    return false;
 }
 
 void
@@ -325,7 +360,7 @@ SubProblem::checkMatProps(std::map<T, std::set<std::string>> & props,
                           std::map<T, std::set<MaterialPropertyName>> & zero_props)
 {
   // Variable for storing the value for ANY_BLOCK_ID/ANY_BOUNDARY_ID
-  T any_id = mesh().getAnyID<T>();
+  T any_id = getAnyID<T>();
 
   // Variable for storing all available blocks/boundaries from the mesh
   std::set<T> all_ids(mesh().getBlockOrBoundaryIDs<T>());
@@ -391,4 +426,22 @@ void
 SubProblem::registerRecoverableData(std::string name)
 {
   _app.registerRecoverableData(this->name() + "/" + name);
+}
+
+// Anonymous namespace for local helper methods
+namespace
+{
+template <>
+SubdomainID
+getAnyID()
+{
+  return Moose::ANY_BLOCK_ID;
+}
+
+template <>
+BoundaryID
+getAnyID()
+{
+  return Moose::ANY_BOUNDARY_ID;
+}
 }
