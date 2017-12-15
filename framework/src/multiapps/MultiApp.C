@@ -580,6 +580,104 @@ MultiApp::createApp(unsigned int i, Real start_time)
   app->runInputFile();
 }
 
+// void
+// MultiApp::buildComm()
+//{
+//  int ierr;
+//
+//  ierr = MPI_Comm_size(_orig_comm, &_orig_num_procs);
+//  mooseCheckMPIErr(ierr);
+//  ierr = MPI_Comm_rank(_orig_comm, &_orig_rank);
+//  mooseCheckMPIErr(ierr);
+//
+//  struct utsname sysInfo;
+//  uname(&sysInfo);
+//
+//  _node_name = sysInfo.nodename;
+//
+//  // If we have more apps than processors then we're just going to divide up the work
+//  if (_total_num_apps >= (unsigned)_orig_num_procs)
+//  {
+//    _my_comm = MPI_COMM_SELF;
+//    _my_rank = 0;
+//
+//    _my_num_apps = _total_num_apps / _orig_num_procs;
+//    unsigned int jobs_left = _total_num_apps - (_my_num_apps * _orig_num_procs);
+//
+//    if (jobs_left != 0)
+//    {
+//      // Spread the remaining jobs out over the first set of processors
+//      if ((unsigned)_orig_rank < jobs_left) // (these are the "jobs_left_pids" ie the pids that
+//      are
+//                                            // snatching up extra jobs)
+//      {
+//        _my_num_apps += 1;
+//        _first_local_app = _my_num_apps * _orig_rank;
+//      }
+//      else
+//      {
+//        unsigned int num_apps_in_jobs_left_pids = (_my_num_apps + 1) * jobs_left;
+//        unsigned int distance_to_jobs_left_pids = _orig_rank - jobs_left;
+//
+//        _first_local_app = num_apps_in_jobs_left_pids + (_my_num_apps *
+//        distance_to_jobs_left_pids);
+//      }
+//    }
+//    else
+//      _first_local_app = _my_num_apps * _orig_rank;
+//
+//    return;
+//  }
+//
+//  // In this case we need to divide up the processors that are going to work on each app
+//  int rank;
+//  ierr = MPI_Comm_rank(_orig_comm, &rank);
+//  mooseCheckMPIErr(ierr);
+//
+//  unsigned int procs_per_app = _orig_num_procs / _total_num_apps;
+//
+//  if (_max_procs_per_app < procs_per_app)
+//    procs_per_app = _max_procs_per_app;
+//
+//  int my_app = rank / procs_per_app;
+//  unsigned int procs_for_my_app = procs_per_app;
+//
+//  if ((unsigned int)my_app > _total_num_apps - 1 && procs_for_my_app == _max_procs_per_app)
+//  {
+//    // If we've already hit the max number of procs per app then this processor
+//    // won't have an app at all
+//    _my_num_apps = 0;
+//    _has_an_app = false;
+//  }
+//  else if ((unsigned int)my_app >=
+//           _total_num_apps - 1) // The last app will gain any left-over procs
+//  {
+//    my_app = _total_num_apps - 1;
+//    //    procs_for_my_app += _orig_num_procs % _total_num_apps;
+//    _first_local_app = my_app;
+//    _my_num_apps = 1;
+//  }
+//  else
+//  {
+//    _first_local_app = my_app;
+//    _my_num_apps = 1;
+//  }
+//
+//  if (_has_an_app)
+//  {
+//    ierr = MPI_Comm_split(_orig_comm, _first_local_app, rank, &_my_comm);
+//    mooseCheckMPIErr(ierr);
+//    ierr = MPI_Comm_rank(_my_comm, &_my_rank);
+//    mooseCheckMPIErr(ierr);
+//  }
+//  else
+//  {
+//    ierr = MPI_Comm_split(_orig_comm, MPI_UNDEFINED, rank, &_my_comm);
+//    mooseCheckMPIErr(ierr);
+//    _my_rank = 0;
+//  }
+//}
+
 void
 MultiApp::buildComm()
 {
@@ -595,85 +693,16 @@ MultiApp::buildComm()
 
   _node_name = sysInfo.nodename;
 
-  // If we have more apps than processors then we're just going to divide up the work
-  if (_total_num_apps >= (unsigned)_orig_num_procs)
-  {
-    _my_comm = MPI_COMM_SELF;
-    _my_rank = 0;
-
-    _my_num_apps = _total_num_apps / _orig_num_procs;
-    unsigned int jobs_left = _total_num_apps - (_my_num_apps * _orig_num_procs);
-
-    if (jobs_left != 0)
-    {
-      // Spread the remaining jobs out over the first set of processors
-      if ((unsigned)_orig_rank < jobs_left) // (these are the "jobs_left_pids" ie the pids that are
-                                            // snatching up extra jobs)
-      {
-        _my_num_apps += 1;
-        _first_local_app = _my_num_apps * _orig_rank;
-      }
-      else
-      {
-        unsigned int num_apps_in_jobs_left_pids = (_my_num_apps + 1) * jobs_left;
-        unsigned int distance_to_jobs_left_pids = _orig_rank - jobs_left;
-
-        _first_local_app = num_apps_in_jobs_left_pids + (_my_num_apps * distance_to_jobs_left_pids);
-      }
-    }
-    else
-      _first_local_app = _my_num_apps * _orig_rank;
-
-    return;
-  }
-
   // In this case we need to divide up the processors that are going to work on each app
   int rank;
   ierr = MPI_Comm_rank(_orig_comm, &rank);
   mooseCheckMPIErr(ierr);
 
-  unsigned int procs_per_app = _orig_num_procs / _total_num_apps;
+  _first_local_app = _my_num_apps * _orig_rank;
+  _my_num_apps = _total_num_apps;
 
-  if (_max_procs_per_app < procs_per_app)
-    procs_per_app = _max_procs_per_app;
-
-  int my_app = rank / procs_per_app;
-  unsigned int procs_for_my_app = procs_per_app;
-
-  if ((unsigned int)my_app > _total_num_apps - 1 && procs_for_my_app == _max_procs_per_app)
-  {
-    // If we've already hit the max number of procs per app then this processor
-    // won't have an app at all
-    _my_num_apps = 0;
-    _has_an_app = false;
-  }
-  else if ((unsigned int)my_app >=
-           _total_num_apps - 1) // The last app will gain any left-over procs
-  {
-    my_app = _total_num_apps - 1;
-    //    procs_for_my_app += _orig_num_procs % _total_num_apps;
-    _first_local_app = my_app;
-    _my_num_apps = 1;
-  }
-  else
-  {
-    _first_local_app = my_app;
-    _my_num_apps = 1;
-  }
-
-  if (_has_an_app)
-  {
-    ierr = MPI_Comm_split(_orig_comm, _first_local_app, rank, &_my_comm);
-    mooseCheckMPIErr(ierr);
-    ierr = MPI_Comm_rank(_my_comm, &_my_rank);
-    mooseCheckMPIErr(ierr);
-  }
-  else
-  {
-    ierr = MPI_Comm_split(_orig_comm, MPI_UNDEFINED, rank, &_my_comm);
-    mooseCheckMPIErr(ierr);
-    _my_rank = 0;
-  }
+  _my_comm = _orig_comm;
+  _my_rank = rank;
 }
 
 unsigned int

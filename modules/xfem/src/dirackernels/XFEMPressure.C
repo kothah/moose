@@ -44,10 +44,8 @@ XFEMPressure::addPoints()
   {
     ElementPairLocator & elem_pair_loc = *it_epl->second;
     // go over pair elements
-    const std::list<std::pair<const Elem *, const Elem *>> & elem_pairs =
-        elem_pair_loc.getElemPairs();
-    for (std::list<std::pair<const Elem *, const Elem *>>::const_iterator it_ep =
-             elem_pairs.begin();
+    const std::list<std::pair<Elem *, Elem *>> & elem_pairs = elem_pair_loc.getElemPairs();
+    for (std::list<std::pair<Elem *, Elem *>>::const_iterator it_ep = elem_pairs.begin();
          it_ep != elem_pairs.end();
          ++it_ep)
     {

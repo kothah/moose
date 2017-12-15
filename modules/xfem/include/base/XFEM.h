@@ -187,7 +187,7 @@ private:
   std::set<const Elem *> _crack_tip_elems;
   ElementPairLocator::ElementPairList _sibling_elems;
   ElementPairLocator::ElementPairList _sibling_displaced_elems;
-
+  std::map<unique_id_type, Real> elementVolumeFractions;
   std::map<const Elem *, std::vector<Point>> _elem_crack_origin_direction_map;
 
   // std::map<const Elem*, Point> _crack_propagation_direction_map;

@@ -1035,8 +1035,7 @@ NonlinearSystemBase::constraintResiduals(NumericVector<Number> & residual, bool 
       const auto & _element_constraints = _constraints.getActiveElemElemConstraints(it.first);
 
       // go over pair elements
-      const std::list<std::pair<const Elem *, const Elem *>> & elem_pairs =
-          elem_pair_loc.getElemPairs();
+      const std::list<std::pair<Elem *, Elem *>> & elem_pairs = elem_pair_loc.getElemPairs();
       for (const auto & pr : elem_pairs)
       {
         const Elem * elem1 = pr.first;
@@ -1743,8 +1742,7 @@ NonlinearSystemBase::constraintJacobians(SparseMatrix<Number> & jacobian, bool d
       const auto & _element_constraints = _constraints.getActiveElemElemConstraints(it.first);
 
       // go over pair elements
-      const std::list<std::pair<const Elem *, const Elem *>> & elem_pairs =
-          elem_pair_loc.getElemPairs();
+      const std::list<std::pair<Elem *, Elem *>> & elem_pairs = elem_pair_loc.getElemPairs();
       for (const auto & pr : elem_pairs)
       {
         const Elem * elem1 = pr.first;
