@@ -54,9 +54,6 @@ XFEMElementPairLocator::reinit()
     elem1_volfrac = _xfem->getPhysicalVolumeFraction(elem1);
     elem2_volfrac = _xfem->getPhysicalVolumeFraction(elem2);
 
-    std::cout << "Elem1 volfrac: " << elem1_volfrac << std::endl;
-    std::cout << "Elem2 volfrac: " << elem2_volfrac << std::endl;
-
     if (!_use_displaced_mesh)
     {
       ElementPairInfo new_elem_info(elem1,
