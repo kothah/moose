@@ -1,4 +1,13 @@
+
 [Tests]
+   [./fictitious_d]
+    type = Exodiff
+    input = fictitious_d.i
+    exodiff = 'fictitious_d_out.e fictitious_d_out.e'
+    map = false
+    # XFEM requires --enable-unique-ids in libmesh
+    unique_id = true
+  [../]
   [./propagating_1field]
     type = Exodiff
     input = propagating_1field.i

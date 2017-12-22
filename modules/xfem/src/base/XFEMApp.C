@@ -20,6 +20,7 @@
 #include "XFEMRankTwoTensorMarkerUserObject.h"
 #include "XFEMAction.h"
 #include "XFEMSingleVariableConstraint.h"
+#include "XFEMSingleVariableBC.h"
 #include "XFEMPressure.h"
 #include "CrackTipEnrichmentStressDivergenceTensors.h"
 #include "CrackTipEnrichmentCutOffBC.h"
@@ -89,6 +90,7 @@ XFEMApp::registerObjects(Factory & factory)
 
   // Constraints
   registerConstraint(XFEMSingleVariableConstraint);
+  registerConstraint(XFEMSingleVariableBC);
 
   // UserObjects
   registerUserObject(XFEMMarkerUserObject);
