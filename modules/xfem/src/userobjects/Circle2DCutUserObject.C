@@ -42,3 +42,9 @@ Circle2DCutUserObject::Circle2DCutUserObject(const InputParameters & parameters)
   _center = Point(_cut_data[0], _cut_data[1], 0.0);
   _radius = _cut_data[2];
 }
+
+const std::vector<Point>
+Circle2DCutUserObject::getCrackFrontPoints(unsigned int number_crack_front_points) const
+{
+  mooseError("getCrackFrontPoints() is not implemented for this object.");
+}

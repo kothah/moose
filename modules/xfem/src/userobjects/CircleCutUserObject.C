@@ -57,8 +57,6 @@ CircleCutUserObject::CircleCutUserObject(const InputParameters & parameters)
 
   _radius = 0.5 * (ray_radii.first + ray_radii.second);
   _angle = std::acos((rays.first * rays.second) / (ray_radii.first * ray_radii.second));
-  std::cout << "In CircleCutUserObject::CircleCutUserObject  " << std::endl;
-  std::cout << "angle is : " << _angle << std::endl;
 }
 
 bool
@@ -73,8 +71,6 @@ CircleCutUserObject::isInsideCutPlane(Point p) const
 const std::vector<Point>
 CircleCutUserObject::getCrackFrontPoints(unsigned int number_crack_front_points) const
 {
-  std::cout << "In CircleCutUserObject::getCrackFrontPoints" << std::endl;
-
   std::vector<Point> crack_front_points(number_crack_front_points);
   Point v1 = _vertices[0] - _center;
   Point v2 = _normal.cross(v1);

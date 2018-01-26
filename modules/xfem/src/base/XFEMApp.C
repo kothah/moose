@@ -99,10 +99,10 @@ XFEMApp::registerObjects(Factory & factory)
   registerUserObject(XFEMRankTwoTensorMarkerUserObject);
 
   // Geometric Cut User Objects
+  registerUserObject(Circle2DCutUserObject);
   registerUserObject(LineSegmentCutUserObject);
   registerUserObject(LineSegmentCutSetUserObject);
   registerUserObject(CircleCutUserObject);
-  registerUserObject(Circle2DCutUserObject);
   registerUserObject(EllipseCutUserObject);
   registerUserObject(RectangleCutUserObject);
 

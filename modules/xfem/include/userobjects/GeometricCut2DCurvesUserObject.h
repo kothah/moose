@@ -36,12 +36,13 @@ public:
 
 protected:
   Point _center;
-  double _radius;
+  Real _radius;
 
-  virtual bool
-  intersectArcWithEdge(const Point & p1, const Point & p2, Real & cutting_line_fraction) const;
+  bool intersectArcWithEdge(const Point & p1,
+                            const Point & p2,
+                            Real & segment_intersection_fraction) const;
 
-  virtual bool isInsideArc(const Point & p) const;
+  bool isInsideArc(const Point & p) const;
 
   Real crossProduct2D(const Point & point_a, const Point & point_b) const;
 };

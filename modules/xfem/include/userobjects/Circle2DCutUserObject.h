@@ -33,7 +33,6 @@ protected:
 
 private:
   std::vector<Point> _vertices;
-  Real _radius;
 };
 
 #endif // CIRCLE2DCUTUSEROBJECT_H

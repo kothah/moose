@@ -125,38 +125,49 @@ GeometricCut2DCurvesUserObject::cutFragmentByGeometry(
 bool
 GeometricCut2DCurvesUserObject::intersectArcWithEdge(const Point & P1,
                                                      const Point & P2,
-                                                     Real & cutting_line_fraction) const
+                                                     Real & segment_intersection_fraction) const
 {
   bool has_intersection = false;
+  //  if (isInsideArc(P1) == isInsideArc(P2))
+  //  {
+  //    // both nodes are either in or out, hence no intersection
+  //    return has_intersection;
+  //  }
+  //  else
+  //  {
+  // https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm/
+  Point seg_dir = P2 - P1;
+  Point CtoP1 = P1 - _center;
 
-  if (isInsideArc(P1) == isInsideArc(P2))
+  // we need to solve a quadratic equation for t.
+  Real delta = -(CtoP1(0) * CtoP1(0) * seg_dir(1) * seg_dir(1)) +
+               (2 * CtoP1(0) * CtoP1(1) * seg_dir(0) * seg_dir(1)) -
+               (CtoP1(1) * CtoP1(1) * seg_dir(0) * seg_dir(0)) +
+               (_radius * _radius * seg_dir(0) * seg_dir(0)) +
+               (_radius * _radius * seg_dir(1) * seg_dir(1));
+  if (delta > 0)
   {
-    // both nodes are either in or out, hence no intersection
-    return has_intersection;
-  }
-  else
-  {
-    // https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm/
-    Point seg_dir = P2 - P1;
-    Point CtoP1 = P1 - _center;
-    // we need to solve a quadratic equation for t.
-    Real delta =
-        (-CtoP1(0) * CtoP1(0) * seg_dir(1) * seg_dir(1) +
-         2 * CtoP1(0) * CtoP1(1) * seg_dir(0) * seg_dir(1) -
-         CtoP1(1) * CtoP1(1) * seg_dir(0) * seg_dir(0) +
-         _radius * _radius * seg_dir(0) * seg_dir(0) + _radius * _radius * seg_dir(1) * seg_dir(1));
-
     Real b = CtoP1(0) * seg_dir(0) + CtoP1(1) * seg_dir(1);
     Real denom = seg_dir(0) * seg_dir(0) + seg_dir(1) * seg_dir(1);
 
     Real t1 = (-b + std::sqrt(delta)) / denom;
     Real t2 = (-b - std::sqrt(delta)) / denom;
-
-    std::cout << "t1 is: " << t1 << std::endl;
-    std::cout << "t2 is: " << t2 << std::endl;
-
-    exit(0);
-    has_intersection = true;
+    //
+    if (t1 < 1.0 && t1 > 0.0)
+    {
+      segment_intersection_fraction = t1;
+      has_intersection = true;
+    }
+    if (t2 < 1.0 && t2 > 0.0)
+    {
+      segment_intersection_fraction = t2;
+      has_intersection = true;
+    }
+  }
+  else
+  {
+    has_intersection = false;
+    // std::cout << "no intersetction " << std::endl;
   }
 
   return has_intersection;
