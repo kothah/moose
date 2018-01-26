@@ -5,21 +5,23 @@
 /*             See LICENSE for full restrictions                */
 /****************************************************************/
 
-#ifndef CIRCULARSEGMENTCUTUSEROBJECT_H
-#define CIRCULARSEGMENTCUTUSEROBJECT_H
+#ifndef CIRCLE2DCUTUSEROBJECT_H
+#define CIRCLE2DCUTUSEROBJECT_H
 
-#include "GeometricCut2DUserObject.h"
+#include "GeometricCut2DCurvesUserObject.h"
 
 // Forward declarations
-class CircularSegmentCutUserObject;
-template <>
-InputParameters validParams<CircularSegmentCutUserObject>();
+class Circle2DCutUserObject;
 
-class CircularSegmentCutUserObject : public GeometricCut2DUserObject
+template <>
+InputParameters validParams<Circle2DCutUserObject>();
+
+class Circle2DCutUserObject : public GeometricCut2DCurvesUserObject
 {
 public:
-  CircularSegmentCutUserObject(const InputParameters & parameters);
+  Circle2DCutUserObject(const InputParameters & parameters);
 
+  virtual void initialSetup() override{};
   virtual void initialize() override{};
   virtual void execute() override{};
   virtual void finalize() override{};
@@ -28,8 +30,10 @@ public:
 
 protected:
   std::vector<Real> _cut_data;
-  std::vector<Real> _center;
-  std::vector<Real> _radius;
+
+private:
+  std::vector<Point> _vertices;
+  Real _radius;
 };
 
-#endif // CIRCULARTSEGMENTCUTUSEROBJECT_H
+#endif // CIRCLE2DCUTUSEROBJECT_H
