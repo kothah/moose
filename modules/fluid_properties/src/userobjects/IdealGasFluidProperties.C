@@ -1,11 +1,14 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "IdealGasFluidProperties.h"
+#include "Conversion.h"
 
 template <>
 InputParameters
@@ -39,7 +42,8 @@ Real
 IdealGasFluidProperties::pressure(Real v, Real u) const
 {
   if (v == 0.0)
-    mooseError(name(), ": Invalid value of specific volume detected (v = ", v, ").");
+    throw MooseException(name() + ": Invalid value of specific volume detected (v = " +
+                         Moose::stringify(v) + ").");
 
   // The std::max function serves as a hard limiter, which will guarantee non-negative pressure
   // when resolving strongly nonlinear waves
@@ -78,7 +82,7 @@ IdealGasFluidProperties::s_from_h_p(Real h, Real p, Real & s, Real & ds_dh, Real
 {
   const Real aux = p * std::pow(h / (_gamma * _cv), -_gamma / (_gamma - 1));
   if (aux <= 0.0)
-    mooseError(name(), ": Non-positive argument in the ln() function.");
+    throw MooseException(name() + ": Non-positive argument in the ln() function.");
 
   const Real daux_dh = p * std::pow(h / (_gamma * _cv), -_gamma / (_gamma - 1) - 1) *
                        (-_gamma / (_gamma - 1)) / (_gamma * _cv);
@@ -124,12 +128,9 @@ Real
 IdealGasFluidProperties::rho(Real pressure, Real temperature) const
 {
   if ((_gamma - 1.0) * pressure == 0.0)
-    mooseError(name(),
-               ": Invalid gamma or pressure detected in rho(pressure = ",
-               pressure,
-               ", gamma = ",
-               _gamma,
-               ")");
+    throw MooseException(name() + ": Invalid gamma or pressure detected in rho(pressure = " +
+                         Moose::stringify(pressure) + ", gamma = " + Moose::stringify(_gamma) +
+                         ")");
 
   return pressure / (_gamma - 1.0) / _cv / temperature;
 }

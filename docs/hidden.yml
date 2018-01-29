@@ -412,7 +412,6 @@ fluid_properties:
     - /AuxKernels/StagnationTemperatureAux
     - /Materials/FluidPropertiesMaterial
     - /Materials/FluidPropertiesMaterialPT
-    - /Materials/MultiComponentFluidPropertiesMaterialPT
     - /Modules/FluidProperties
     - /Modules/FluidProperties/AddFluidPropertiesAction
     - /Modules/FluidProperties/BrineFluidProperties
@@ -425,6 +424,8 @@ fluid_properties:
     - /Modules/FluidProperties/StiffenedGasFluidProperties
     - /Modules/FluidProperties/TabulatedFluidProperties
     - /Modules/FluidProperties/Water97FluidProperties
+fluid_properties_test:
+    - /Materials/MultiComponentFluidPropertiesMaterialPT
 heat_conduction:
     - /BCs/ConvectiveFluxFunction
     - /BCs/CoupledConvectiveFlux
@@ -459,8 +460,6 @@ misc:
 misc_test:
     - /Kernels/Convection
 navier_stokes:
-    - /AuxVariables/InitialCondition/CNSFVMachIC
-    - /AuxVariables/InitialCondition/CNSFVPressureIC
     - /AuxVariables/InitialCondition/NSInitialCondition
     - /Functions/WedgeFunction
     - /Modules/NavierStokes
@@ -475,8 +474,6 @@ navier_stokes:
     - /Modules/NavierStokes/Kernels/AddNavierStokesKernelsAction
     - /Modules/NavierStokes/Variables
     - /Modules/NavierStokes/Variables/AddNavierStokesVariablesAction
-    - /Variables/InitialCondition/CNSFVMachIC
-    - /Variables/InitialCondition/CNSFVPressureIC
     - /Variables/InitialCondition/NSInitialCondition
 phase_field:
     - /AuxKernels
@@ -716,6 +713,8 @@ phase_field:
 phase_field_test:
     - /Kernels/GaussContForcing
 porous_flow:
+    - /AuxVariables/InitialCondition/PorousFlowFluidStateBrineCO2IC
+    - /AuxVariables/InitialCondition/PorousFlowFluidStateWaterNCGIC
     - /Functions/MovingPlanarFront
     - /Kernels/PorousFlowFullySaturatedDarcyBase
     - /Kernels/PorousFlowFullySaturatedDarcyFlow
@@ -728,6 +727,8 @@ porous_flow:
     - /PorousFlowFullySaturated/PorousFlowFullySaturated
     - /PorousFlowUnsaturated
     - /PorousFlowUnsaturated/PorousFlowUnsaturated
+    - /Variables/InitialCondition/PorousFlowFluidStateBrineCO2IC
+    - /Variables/InitialCondition/PorousFlowFluidStateWaterNCGIC
 richards:
     - /AuxKernels/DarcyFluxComponent
     - /AuxKernels/RichardsDensityAux
@@ -858,15 +859,11 @@ stochastic_tools_test:
 tensor_mechanics:
     - /AuxKernels/AccumulateAux
     - /AuxKernels/CrystalPlasticityRotationOutAux
-    - /AuxKernels/CylindricalRankTwoAux
     - /AuxKernels/ElasticEnergyAux
     - /AuxKernels/NewmarkAccelAux
     - /AuxKernels/NewmarkVelAux
     - /AuxKernels/RadialDisplacementCylinderAux
     - /AuxKernels/RadialDisplacementSphereAux
-    - /AuxKernels/RankFourAux
-    - /AuxKernels/RankTwoAux
-    - /AuxKernels/RankTwoScalarAux
     - /BCs
     - /BCs/DashpotBC
     - /BCs/DisplacementAboutAxis
@@ -918,12 +915,10 @@ tensor_mechanics:
     - /Materials/ComputeDeformGradBasedStress
     - /Materials/ComputeEigenstrain
     - /Materials/ComputeElasticSmearedCrackingStress
-    - /Materials/ComputeElasticityTensor
     - /Materials/ComputeElasticityTensorCP
     - /Materials/ComputeExtraStressConstant
     - /Materials/ComputeFiniteStrainElasticStress
     - /Materials/ComputeIncrementalSmallStrain
-    - /Materials/ComputeIsotropicElasticityTensor
     - /Materials/ComputeLayeredCosseratElasticityTensor
     - /Materials/ComputeLinearElasticPFFractureStress
     - /Materials/ComputeLinearElasticStress

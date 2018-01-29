@@ -1,16 +1,11 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "PetscSupport.h"
 
@@ -404,6 +399,14 @@ petscNonlinearConverged(SNES snes,
   ierr = SNESGetNumberFunctionEvals(snes, &nfuncs);
   CHKERRABORT(problem.comm().get(), ierr);
 
+  // Whether or not to force SNESSolve() take at least one iteration regardless of the initial
+  // residual norm
+  PetscBool force_iteration = PETSC_FALSE;
+#if !PETSC_VERSION_LESS_THAN(3, 8, 3) || !PETSC_RELEASE_LESS_THAN(3, 8, 3)
+  ierr = SNESGetForceIteration(snes, &force_iteration);
+  CHKERRABORT(problem.comm().get(), ierr);
+#endif
+
 // See if SNESSetFunctionDomainError() has been called.  Note:
 // SNESSetFunctionDomainError() and SNESGetFunctionDomainError()
 // were added in different releases of PETSc.
@@ -435,6 +438,7 @@ petscNonlinearConverged(SNES snes,
       atol,
       nfuncs,
       maxf,
+      force_iteration,
       system._initial_residual_before_preset_bcs,
       /*div_threshold=*/(1.0 / rtol) * system._initial_residual_before_preset_bcs);
 

@@ -1,21 +1,19 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 // MOOSE includes
 #include "MooseUtils.h"
 #include "MooseError.h"
 #include "MaterialProperty.h"
+#include "MultiMooseEnum.h"
+#include "InputParameters.h"
+#include "ExecFlagEnum.h"
 
 #include "libmesh/elem.h"
 
@@ -559,6 +557,45 @@ toUpper(const std::string & name)
   std::string upper(name);
   std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
   return upper;
+}
+
+ExecFlagEnum
+getDefaultExecFlagEnum()
+{
+  ExecFlagEnum exec_enum = ExecFlagEnum();
+  exec_enum.addAvailableFlags(EXEC_NONE,
+                              EXEC_INITIAL,
+                              EXEC_LINEAR,
+                              EXEC_NONLINEAR,
+                              EXEC_TIMESTEP_END,
+                              EXEC_TIMESTEP_BEGIN,
+                              EXEC_FINAL,
+                              EXEC_CUSTOM);
+  return exec_enum;
+}
+
+int
+stringToInteger(const std::string & input, bool throw_on_failure)
+{
+  int output;            // return value
+  std::size_t count = 0; // number of characters converted with stoi
+
+  // Attempt to use std::stoi, if it fails throw or produce a mooseError
+  try
+  {
+    output = std::stoi(input, &count);
+    if (input.size() != count)
+      throw std::invalid_argument("");
+  }
+  catch (const std::invalid_argument & e)
+  {
+    std::string msg = "Failed to convert '" + input + "' to an int.";
+    if (throw_on_failure)
+      throw std::invalid_argument(msg);
+    else
+      mooseError(msg);
+  }
+  return output;
 }
 
 } // MooseUtils namespace

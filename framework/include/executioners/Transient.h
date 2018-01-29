@@ -1,16 +1,11 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #ifndef TRANSIENT_H
 #define TRANSIENT_H
@@ -204,6 +199,12 @@ public:
   // Because this returns the number of Picard iterations, rather than the current
   // iteration count (which starts at 0), increment by 1.
   Real numPicardIts() { return _picard_it + 1; }
+
+  /**
+   * Check if Picard iteration converged when maximum number of Picard iterations is greater than
+   * one
+   */
+  virtual bool picardConverged() const;
 
   /**
    * The relative L2 norm of the difference between solution and old solution vector.

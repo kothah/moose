@@ -1,9 +1,11 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "PorousFlowPorosityTM.h"
 
@@ -16,7 +18,7 @@ validParams<PorousFlowPorosityTM>()
                                "The porosity at zero volumetric strain and reference temperature");
   params.addRequiredParam<Real>(
       "thermal_expansion_coeff",
-      "Thermal expansion coefficient of the drained porous solid skeleton");
+      "Volumetric thermal expansion coefficient of the drained porous solid skeleton");
   params.addRequiredCoupledVar("displacements", "The solid-mechanics displacement variables");
   params.addCoupledVar(
       "reference_temperature", 0.0, "porosity = porosity_zero at reference temperature");

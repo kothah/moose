@@ -79,7 +79,8 @@ class Tester(MooseObject):
         MooseObject.__init__(self, name, params)
         self.specs = params
         self.outfile = None
-        self.std_out = ''
+        self.errfile = None
+        self.joined_out = ''
         self.exit_code = 0
         self.process = None
         self.tags = params['tags']
@@ -335,28 +336,36 @@ class Tester(MooseObject):
         self.process = None
         try:
             f = TemporaryFile()
+            e = TemporaryFile()
+
             # On Windows, there is an issue with path translation when the command is passed in
             # as a list.
             if platform.system() == "Windows":
-                process = subprocess.Popen(cmd,stdout=f,stderr=f,close_fds=False, shell=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP, cwd=cwd)
+                process = subprocess.Popen(cmd, stdout=f, stderr=e, close_fds=False,
+                                           shell=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP, cwd=cwd)
             else:
-                process = subprocess.Popen(cmd,stdout=f,stderr=f,close_fds=False, shell=True, preexec_fn=os.setsid, cwd=cwd)
+                process = subprocess.Popen(cmd, stdout=f, stderr=e, close_fds=False,
+                                           shell=True, preexec_fn=os.setsid, cwd=cwd)
         except:
             print("Error in launching a new task", cmd)
             raise
 
         self.process = process
         self.outfile = f
+        self.errfile = e
 
         timer.start()
         process.wait()
         timer.stop()
 
         self.exit_code = process.poll()
+        self.outfile.flush()
+        self.errfile.flush()
 
         # store the contents of output, and close the file
-        self.std_out = util.readOutput(self.outfile, options)
+        self.joined_out = util.readOutput(self.outfile, self.errfile, options)
         self.outfile.close()
+        self.errfile.close()
 
     def killCommand(self):
         """
@@ -430,8 +439,8 @@ class Tester(MooseObject):
             self.setStatus('no tag', self.bucket_silent)
             return False
 
-        # If the something has already deemed this test a failure, return now
-        if self.didFail():
+        # If something has already deemed this test a failure or is silent, return now
+        if self.didFail() or self.isSilent():
             return False
 
         # If --dry-run set the test status to pass and DO NOT return.
@@ -483,10 +492,13 @@ class Tester(MooseObject):
 
         # Check for deleted tests
         if self.specs.isValid('deleted'):
-            reasons['deleted'] = 'deleted ({})'.format(self.specs['deleted'])
+            reasons['deleted'] = str(self.specs['deleted'])
 
-        # Check for skipped tests
-        if self.specs.type('skip') is bool and self.specs['skip']:
+        # Skipped by external means (example: TestHarness part2 with --check-input)
+        if self.isSkipped():
+            reasons['skip'] = self.getStatusMessage()
+        # Test is skipped
+        elif self.specs.type('skip') is bool and self.specs['skip']:
             # Backwards compatible (no reason)
             reasons['skip'] = 'no reason'
         elif self.specs.type('skip') is not bool and self.specs.isValid('skip'):
@@ -606,17 +618,14 @@ class Tester(MooseObject):
                 if key.lower() not in caveat_list:
                     tmp_reason.append(value)
 
-            # Format joined reason to better fit on the screen
-            if len(', '.join(tmp_reason)) >= util.TERM_COLS - (len(self.specs['test_name'])+21):
-                flat_reason = (', '.join(tmp_reason))[:(util.TERM_COLS - (len(self.specs['test_name'])+24))] + '...'
-            else:
-                flat_reason = ', '.join(tmp_reason)
+            flat_reason = ', '.join(tmp_reason)
 
             # If the test is deleted we still need to treat this differently
+            self.addCaveats(flat_reason)
             if 'deleted' in reasons.keys():
-                self.setStatus(flat_reason, self.bucket_deleted)
+                self.setStatus(self.bucket_deleted.status, self.bucket_deleted)
             else:
-                self.setStatus(flat_reason, self.bucket_skip)
+                self.setStatus(self.bucket_skip.status, self.bucket_skip)
             return False
 
         # Check the return values of the derived classes

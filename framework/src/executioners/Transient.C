@@ -1,16 +1,11 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "Transient.h"
 
@@ -565,11 +560,7 @@ Transient::solveStep(Real input_dt)
 
     _console << "Picard Norm after TIMESTEP_END MultiApps: " << _picard_timestep_end_norm << '\n';
 
-    Real max_norm = std::max(_picard_timestep_begin_norm, _picard_timestep_end_norm);
-
-    Real max_relative_drop = max_norm / _picard_initial_norm;
-
-    if (max_norm < _picard_abs_tol || max_relative_drop < _picard_rel_tol)
+    if (picardConverged())
     {
       _console << "Picard converged!" << std::endl;
 
@@ -581,6 +572,16 @@ Transient::solveStep(Real input_dt)
 
   _dt = current_dt; // _dt might be smaller than this at this point for multistep methods
   _time = _time_old;
+}
+
+bool
+Transient::picardConverged() const
+{
+  Real max_norm = std::max(_picard_timestep_begin_norm, _picard_timestep_end_norm);
+
+  Real max_relative_drop = max_norm / _picard_initial_norm;
+
+  return (max_norm < _picard_abs_tol || max_relative_drop < _picard_rel_tol);
 }
 
 void
@@ -758,6 +759,8 @@ void
 Transient::postExecute()
 {
   _time_stepper->postExecute();
+
+  _problem.execute(EXEC_FINAL);
 }
 
 void
@@ -809,7 +812,7 @@ Transient::setupTimeIntegrator()
         ti_str = "ExplicitTVDRK2";
         break;
       default:
-        mooseError("Unknown scheme");
+        mooseError("Unknown scheme: ", _time_scheme);
         break;
     }
 

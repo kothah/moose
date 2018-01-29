@@ -1,16 +1,11 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "libmesh/petsc_macro.h"
 #include "libmesh/libmesh_config.h"
@@ -279,6 +274,7 @@
 #include "NodalNormalsPreprocessor.h"
 #include "SolutionUserObject.h"
 #include "PerflogDumper.h"
+#include "ElementQualityChecker.h"
 #ifdef LIBMESH_HAVE_FPARSER
 #include "Terminator.h"
 #endif
@@ -319,6 +315,7 @@
 #include "AnalyticalIndicator.h"
 #include "LaplacianJumpIndicator.h"
 #include "GradientJumpIndicator.h"
+#include "ValueJumpIndicator.h"
 
 // markers
 #include "ErrorToleranceMarker.h"
@@ -445,6 +442,7 @@
 #include "SetupRecoverFileBaseAction.h"
 #include "AddNodalKernelAction.h"
 #include "MaterialDerivativeTestAction.h"
+#include "AddRelationshipManager.h"
 
 // Outputs
 #ifdef LIBMESH_HAVE_EXODUS_API
@@ -478,7 +476,29 @@
 #include "TimeDerivativeNodalKernel.h"
 #include "UserForcingFunctionNodalKernel.h"
 
+// relationship managers
+#include "ElementSideNeighborLayers.h"
+#include "ElementPointNeighbors.h"
+
 #include <unistd.h>
+
+// Define the available execute flags for MOOSE. The flags using a hex value are setup to retain the
+// same numbers that were utilized with older versions of MOOSE for keeping existing applications
+// working using the deprecated flags. In the future, as in the EXEC_SAME_AS_MULTIAPP flag, there is
+// no reason to keep these flags bitwise comparable or to assigned an id because the MultiMooseEnum
+// that is used to store these has convenience methods for determining the what flags are active.
+const ExecFlagType EXEC_NONE("NONE", 0x00);                     // 0
+const ExecFlagType EXEC_INITIAL("INITIAL", 0x01);               // 1
+const ExecFlagType EXEC_LINEAR("LINEAR", 0x02);                 // 2
+const ExecFlagType EXEC_NONLINEAR("NONLINEAR", 0x04);           // 4
+const ExecFlagType EXEC_TIMESTEP_END("TIMESTEP_END", 0x08);     // 8
+const ExecFlagType EXEC_TIMESTEP_BEGIN("TIMESTEP_BEGIN", 0x10); // 16
+const ExecFlagType EXEC_FINAL("FINAL", 0x20);                   // 32
+const ExecFlagType EXEC_FORCED("FORCED", 0x40);                 // 64
+const ExecFlagType EXEC_FAILED("FAILED", 0x80);                 // 128
+const ExecFlagType EXEC_CUSTOM("CUSTOM", 0x100);                // 256
+const ExecFlagType EXEC_SUBDOMAIN("SUBDOMAIN", 0x200);          // 512
+const ExecFlagType EXEC_SAME_AS_MULTIAPP("SAME_AS_MULTIAPP");
 
 namespace Moose
 {
@@ -741,6 +761,7 @@ registerObjects(Factory & factory)
   registerUserObject(NodalNormalsEvaluator);
   registerUserObject(SolutionUserObject);
   registerUserObject(PerflogDumper);
+  registerUserObject(ElementQualityChecker);
 #ifdef LIBMESH_HAVE_FPARSER
   registerUserObject(Terminator);
 #endif
@@ -781,6 +802,7 @@ registerObjects(Factory & factory)
   registerIndicator(AnalyticalIndicator);
   registerIndicator(LaplacianJumpIndicator);
   registerIndicator(GradientJumpIndicator);
+  registerIndicator(ValueJumpIndicator);
 
   // markers
   registerMarker(ErrorToleranceMarker);
@@ -885,6 +907,10 @@ registerObjects(Factory & factory)
   registerNodalKernel(ConstantRate);
   registerNodalKernel(UserForcingFunctionNodalKernel);
 
+  // RelationshipManagers
+  registerRelationshipManager(ElementSideNeighborLayers);
+  registerRelationshipManager(ElementPointNeighbors);
+
   registered = true;
 }
 
@@ -892,28 +918,25 @@ void
 addActionTypes(Syntax & syntax)
 {
   /**
-   * The second param here indicates whether the task must be satisfied or not for a successful run.
+   * The last param here indicates whether the task must be satisfied or not for a successful run.
    * If set to true, then the ActionWarehouse will attempt to create "Action"s automatically if they
-   * have
-   * not been explicitly created by the parser or some other mechanism.
+   * have not been explicitly created by the parser or some other mechanism.
    *
    * Note: Many of the actions in the "Minimal Problem" section are marked as false.  However, we
-   * can generally
-   * force creation of these "Action"s as needed by registering them to syntax that we expect to see
-   * even
-   * if those "Action"s  don't normally pick up parameters from the input file.
+   * can generally force creation of these "Action"s as needed by registering them to syntax that we
+   * expect to see even if those "Action"s  don't normally pick up parameters from the input file.
    */
 
   // clang-format off
   /**************************/
   /**** Register Actions ****/
   /**************************/
-  registerMooseObjectTask("create_problem",               Problem,                 false);
-  registerMooseObjectTask("setup_executioner",            Executioner,             true);
+  registerMooseObjectTask("create_problem",               Problem,                false);
+  registerMooseObjectTask("setup_executioner",            Executioner,            true);
 
   // This task does not construct an object, but it needs all of the parameters that
   // would normally be used to construct an object.
-  registerMooseObjectTask("determine_system_type",        Executioner,             true);
+  registerMooseObjectTask("determine_system_type",        Executioner,            true);
 
   registerMooseObjectTask("setup_mesh",                   MooseMesh,              false);
   registerMooseObjectTask("init_mesh",                    MooseMesh,              false);
@@ -982,10 +1005,12 @@ addActionTypes(Syntax & syntax)
   registerTask("execute_mesh_modifiers", false);
   registerTask("uniform_refine_mesh", false);
   registerTask("prepare_mesh", false);
+  registerTask("add_geometric_rm", true);
   registerTask("setup_mesh_complete", false); // calls prepare
 
   registerTask("init_displaced_problem", false);
 
+  registerTask("add_algebraic_rm", true);
   registerTask("init_problem", true);
   registerTask("check_copy_nodal_vars", true);
   registerTask("copy_nodal_vars", true);
@@ -1022,10 +1047,9 @@ addActionTypes(Syntax & syntax)
   /**************************/
   /**
    * The following is the default set of action dependencies for a basic MOOSE problem.  The
-   * formatting
-   * of this string is important.  Each line represents a set of dependencies that depend on the
-   * previous
-   * line.  Items on the same line have equal weight and can be executed in any order.
+   * formatting of this string is important.  Each line represents a set of dependencies that depend
+   * on the previous line.  Items on the same line have equal weight and can be executed in any
+   * order.
    *
    * Additional dependencies can be inserted later inside of user applications with calls to
    * ActionWarehouse::addDependency("task", "pre_req")
@@ -1038,6 +1062,7 @@ addActionTypes(Syntax & syntax)
                            "(check_copy_nodal_vars)"
                            "(setup_mesh)"
                            "(add_partitioner)"
+                           "(add_geometric_rm)"
                            "(init_mesh)"
                            "(prepare_mesh)"
                            "(add_mesh_modifier)"
@@ -1076,6 +1101,7 @@ addActionTypes(Syntax & syntax)
                            "(copy_nodal_vars, copy_nodal_aux_vars)"
                            "(add_material)"
                            "(setup_material_output)"
+                           "(add_algebraic_rm)"
                            "(init_problem)"
                            "(setup_debug)"
                            "(add_output)"
@@ -1090,10 +1116,27 @@ addActionTypes(Syntax & syntax)
                            "(check_integrity)");
 }
 
+void
+populateMeshOnlyTasks(Syntax & syntax)
+{
+  syntax.addDependencySets("(meta_action)"
+                           "(set_global_params)"
+                           "(setup_mesh)"
+                           "(add_partitioner)"
+                           "(init_mesh)"
+                           "(prepare_mesh)"
+                           "(add_mesh_modifier)"
+                           "(execute_mesh_modifiers)"
+                           "(add_mortar_interface)"
+                           "(uniform_refine_mesh)"
+                           "(setup_mesh_complete)");
+}
+
 /**
  * Multiple Action class can be associated with a single input file section, in which case all
- * associated Actions
- * will be created and "acted" on when the associated input file section is seen.b *
+ * associated Actions will be created and "acted" on when the associated input file section is
+ * seen.*
+ *
  * Example:
  *  "setup_mesh" <-----------> SetupMeshAction <---------
  *                                                        \
@@ -1103,8 +1146,7 @@ addActionTypes(Syntax & syntax)
  *
  *
  * Action classes can also be registered to act on more than one input file section for a different
- * task
- * if similar logic can work in multiple cases
+ * task if similar logic can work in multiple cases
  *
  * Example:
  * "add_variable" <-----                       -> [Variables/ *]
@@ -1115,10 +1157,8 @@ addActionTypes(Syntax & syntax)
  *
  *
  * Note: Placeholder "no_action" actions must be put in places where it is possible to match an
- * object
- *       with a star or a more specific parent later on. (i.e. where one needs to negate the '*'
- * matching
- *       prematurely)
+ *       object with a star or a more specific parent later on. (i.e. where one needs to negate the
+ *       '*' matching prematurely).
  */
 void
 registerActions(Syntax & syntax, ActionFactory & action_factory)
@@ -1213,6 +1253,9 @@ registerActions(Syntax & syntax, ActionFactory & action_factory)
   // NonParsedActions
   registerAction(SetupDampersAction, "setup_dampers");
   registerAction(EmptyAction, "ready_to_init");
+  registerAction(AddRelationshipManager, "add_algebraic_rm");
+  registerAction(AddRelationshipManager, "add_geometric_rm");
+
   registerAction(InitProblemAction, "init_problem");
   registerAction(CheckIntegrityAction, "check_integrity");
 
@@ -1229,6 +1272,23 @@ registerActions(Syntax & syntax, ActionFactory & action_factory)
 
 #undef registerAction
 #define registerAction(tplt, action) action_factory.regLegacy<tplt>(stringifyName(tplt), action)
+}
+
+void
+registerExecFlags(Factory & factory)
+{
+  registerExecFlag(EXEC_NONE);
+  registerExecFlag(EXEC_INITIAL);
+  registerExecFlag(EXEC_LINEAR);
+  registerExecFlag(EXEC_NONLINEAR);
+  registerExecFlag(EXEC_TIMESTEP_END);
+  registerExecFlag(EXEC_TIMESTEP_BEGIN);
+  registerExecFlag(EXEC_FINAL);
+  registerExecFlag(EXEC_FORCED);
+  registerExecFlag(EXEC_FAILED);
+  registerExecFlag(EXEC_CUSTOM);
+  registerExecFlag(EXEC_SUBDOMAIN);
+  registerExecFlag(EXEC_SAME_AS_MULTIAPP);
 }
 
 void

@@ -1,16 +1,11 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #ifndef SYNTAX_H
 #define SYNTAX_H
@@ -41,6 +36,7 @@ public:
 
   void addDependency(std::string task, std::string pre_req);
   void addDependencySets(const std::string & action_sets);
+  void clearTaskDependencies();
 
   const std::vector<std::string> & getSortedTask();
   const std::vector<std::vector<std::string>> & getSortedTaskSet();
@@ -68,7 +64,7 @@ public:
                            int line = -1);
 
   /**
-   *  Registration a type with a block. For example, associate FunctionName with the Functions block
+   * Register a type with a block. For example, associate FunctionName with the Functions block.
    * @param syntax The target syntax to associate the type with
    * @param type The name of the type to associate with the syntax
    */

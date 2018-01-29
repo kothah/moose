@@ -1,16 +1,11 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "FunctionDT.h"
 #include "FEProblem.h"
@@ -63,6 +58,7 @@ FunctionDT::FunctionDT(const InputParameters & parameters)
 void
 FunctionDT::init()
 {
+  removeOldKnots();
 }
 
 void
@@ -71,13 +67,6 @@ FunctionDT::removeOldKnots()
   while ((_time_knots.size() > 0) &&
          (*_time_knots.begin() <= _time || std::abs(*_time_knots.begin() - _time) < 1e-10))
     _time_knots.erase(_time_knots.begin());
-}
-
-void
-FunctionDT::preExecute()
-{
-  TimeStepper::preExecute();
-  removeOldKnots();
 }
 
 Real

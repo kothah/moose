@@ -1,16 +1,11 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "FEProblemBase.h"
 #include "AuxiliarySystem.h"
@@ -167,6 +162,7 @@ FEProblemBase::FEProblemBase(const InputParameters & parameters)
     _aux(NULL),
     _coupling(Moose::COUPLING_DIAG),
     _distributions(/*threaded=*/false),
+    _samplers(_app.getExecuteOnEnum()),
     _scalar_ics(/*threaded=*/false),
     _material_props(
         declareRestartableDataWithContext<MaterialPropertyStorage>("material_props", &_mesh)),
@@ -174,10 +170,17 @@ FEProblemBase::FEProblemBase(const InputParameters & parameters)
         declareRestartableDataWithContext<MaterialPropertyStorage>("bnd_material_props", &_mesh)),
     _pps_data(*this),
     _vpps_data(*this),
-    _general_user_objects(/*threaded=*/false),
-    _transfers(/*threaded=*/false),
-    _to_multi_app_transfers(/*threaded=*/false),
-    _from_multi_app_transfers(/*threaded=*/false),
+    _all_user_objects(_app.getExecuteOnEnum()),
+    _general_user_objects(_app.getExecuteOnEnum(), /*threaded=*/false),
+    _nodal_user_objects(_app.getExecuteOnEnum()),
+    _elemental_user_objects(_app.getExecuteOnEnum()),
+    _side_user_objects(_app.getExecuteOnEnum()),
+    _internal_side_user_objects(_app.getExecuteOnEnum()),
+    _multi_apps(_app.getExecuteOnEnum()),
+    _transient_multi_apps(_app.getExecuteOnEnum()),
+    _transfers(_app.getExecuteOnEnum(), /*threaded=*/false),
+    _to_multi_app_transfers(_app.getExecuteOnEnum(), /*threaded=*/false),
+    _from_multi_app_transfers(_app.getExecuteOnEnum(), /*threaded=*/false),
 #ifdef LIBMESH_ENABLE_AMR
     _adaptivity(*this),
     _cycles_completed(0),
@@ -204,13 +207,13 @@ FEProblemBase::FEProblemBase(const InputParameters & parameters)
     _has_exception(false),
     _parallel_barrier_messaging(true),
     _current_execute_on_flag(EXEC_NONE),
+    _control_warehouse(_app.getExecuteOnEnum()),
     _error_on_jacobian_nonzero_reallocation(
         getParam<bool>("error_on_jacobian_nonzero_reallocation")),
     _ignore_zeros_in_jacobian(getParam<bool>("ignore_zeros_in_jacobian")),
     _force_restart(getParam<bool>("force_restart")),
     _skip_additional_restart_data(getParam<bool>("skip_additional_restart_data")),
     _fail_next_linear_convergence_check(false),
-    _currently_computing_jacobian(false),
     _started_initial_setup(false)
 {
 
@@ -1306,7 +1309,7 @@ FEProblemBase::reinitElem(const Elem * elem, THREAD_ID tid)
 
 void
 FEProblemBase::reinitElemPhys(const Elem * elem,
-                              std::vector<Point> phys_points_in_elem,
+                              const std::vector<Point> & phys_points_in_elem,
                               THREAD_ID tid)
 {
   _assembly[tid]->reinitAtPhysical(elem, phys_points_in_elem);
@@ -2774,13 +2777,18 @@ FEProblemBase::getCurrentExecuteOnFlag() const
 }
 
 void
+FEProblemBase::setCurrentExecuteOnFlag(const ExecFlagType & flag)
+{
+  _current_execute_on_flag = flag;
+}
+
+void
 FEProblemBase::execute(const ExecFlagType & exec_type)
 {
   // Set the current flag
-  _current_execute_on_flag = exec_type;
+  setCurrentExecuteOnFlag(exec_type);
   if (exec_type == EXEC_NONLINEAR)
     _currently_computing_jacobian = true;
-
   // Samplers
   executeSamplers(exec_type);
 
@@ -2797,7 +2805,7 @@ FEProblemBase::execute(const ExecFlagType & exec_type)
   executeControls(exec_type);
 
   // Return the current flag to None
-  _current_execute_on_flag = EXEC_NONE;
+  setCurrentExecuteOnFlag(EXEC_NONE);
   _currently_computing_jacobian = false;
 }
 
@@ -2828,32 +2836,28 @@ FEProblemBase::computeUserObjects(const ExecFlagType & type, const Moose::AuxGro
   Moose::perf_log.push(compute_uo_tag, "Execution");
 
   // Perform Residual/Jacobian setups
-  switch (type)
+  if (type == EXEC_LINEAR)
   {
-    case EXEC_LINEAR:
-      for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
-      {
-        elemental.residualSetup(tid);
-        side.residualSetup(tid);
-        internal_side.residualSetup(tid);
-        nodal.residualSetup(tid);
-      }
-      general.residualSetup();
-      break;
+    for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+    {
+      elemental.residualSetup(tid);
+      side.residualSetup(tid);
+      internal_side.residualSetup(tid);
+      nodal.residualSetup(tid);
+    }
+    general.residualSetup();
+  }
 
-    case EXEC_NONLINEAR:
-      for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
-      {
-        elemental.jacobianSetup(tid);
-        side.jacobianSetup(tid);
-        internal_side.jacobianSetup(tid);
-        nodal.jacobianSetup(tid);
-      }
-      general.jacobianSetup();
-      break;
-
-    default:
-      break;
+  else if (type == EXEC_NONLINEAR)
+  {
+    for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+    {
+      elemental.jacobianSetup(tid);
+      side.jacobianSetup(tid);
+      internal_side.jacobianSetup(tid);
+      nodal.jacobianSetup(tid);
+    }
+    general.jacobianSetup();
   }
 
   // Initialize Elemental/Side/InternalSideUserObjects
@@ -3382,6 +3386,14 @@ FEProblemBase::addTransfer(const std::string & transfer_name,
 
     parameters.set<SubProblem *>("_subproblem") = this;
     parameters.set<SystemBase *>("_sys") = _aux.get();
+  }
+
+  // Handle the "SAME_AS_MULTIAPP" execute option
+  ExecFlagEnum & exec_enum = parameters.set<ExecFlagEnum>("execute_on", true);
+  if (exec_enum.contains(EXEC_SAME_AS_MULTIAPP))
+  {
+    std::shared_ptr<MultiApp> multiapp = getMultiApp(parameters.get<MultiAppName>("multi_app"));
+    exec_enum = multiapp->getParam<ExecFlagEnum>("execute_on");
   }
 
   // Create the Transfer objects
@@ -4393,9 +4405,28 @@ FEProblemBase::possiblyRebuildGeomSearchPatches()
   {
     switch (_mesh.getPatchUpdateStrategy())
     {
-      case 0: // Never
+      case Moose::Never:
         break;
-      case 2: // Auto
+      case Moose::Iteration:
+        // Update the list of ghosted elements at the start of the time step
+        _geometric_search_data.updateGhostedElems();
+        _mesh.updateActiveSemiLocalNodeRange(_ghosted_elems);
+
+        _displaced_problem->geomSearchData().updateGhostedElems();
+        _displaced_mesh->updateActiveSemiLocalNodeRange(_ghosted_elems);
+
+        // The commands below ensure that the sparsity of the Jacobian matrix is
+        // augmented at the start of the time step using neighbor nodes from the end
+        // of the previous time step.
+
+        reinitBecauseOfGhostingOrNewGeomObjects();
+
+        // This is needed to reinitialize PETSc output
+        initPetscOutput();
+
+        break;
+
+      case Moose::Auto:
       {
         Real max = _displaced_problem->geomSearchData().maxPatchPercentage();
         _communicator.max(max);
@@ -4407,7 +4438,7 @@ FEProblemBase::possiblyRebuildGeomSearchPatches()
 
       // Let this fall through if things do need to be updated...
 
-      case 1: // Always
+      case Moose::Always:
         // Flush output here to see the message before the reinitialization, which could take a
         // while
         _console << "\n\nUpdating geometric search patches\n" << std::endl;
@@ -4455,28 +4486,34 @@ FEProblemBase::initialAdaptMesh()
   }
 }
 
-void
+bool
 FEProblemBase::adaptMesh()
 {
   // reset cycle counter
   _cycles_completed = 0;
 
   if (!_adaptivity.isAdaptivityDue())
-    return;
+    return false;
 
   unsigned int cycles_per_step = _adaptivity.getCyclesPerStep();
 
   Moose::perf_log.push("Adaptivity: adaptMesh()", "Execution");
 
+  bool mesh_changed = false;
+
   for (unsigned int i = 0; i < cycles_per_step; ++i)
   {
     _console << "Adaptivity step " << i + 1 << " of " << cycles_per_step << '\n';
+
     // Markers were already computed once by Executioner
     if (_adaptivity.getRecomputeMarkersFlag() && i > 0)
       computeMarkers();
+
     if (_adaptivity.adaptMesh())
     {
-      meshChanged();
+      mesh_changed = true;
+
+      meshChangedHelper(true); // This may be an intermediate change
       _cycles_completed++;
     }
     else
@@ -4489,7 +4526,14 @@ FEProblemBase::adaptMesh()
     _console << std::flush;
   }
 
+  // We're done with all intermediate changes; now get systems ready
+  // for real if necessary.
+  if (mesh_changed)
+    _eq.reinit_systems();
+
   Moose::perf_log.pop("Adaptivity: adaptMesh()", "Execution");
+
+  return mesh_changed;
 }
 #endif // LIBMESH_ENABLE_AMR
 
@@ -4532,6 +4576,12 @@ FEProblemBase::updateMeshXFEM()
 void
 FEProblemBase::meshChanged()
 {
+  this->meshChangedHelper();
+}
+
+void
+FEProblemBase::meshChangedHelper(bool intermediate_change)
+{
   if (_material_props.hasStatefulProperties() || _bnd_material_props.hasStatefulProperties())
     _mesh.cacheChangedLists(); // Currently only used with adaptivity and stateful material
                                // properties
@@ -4545,11 +4595,18 @@ FEProblemBase::meshChanged()
   // callbacks (e.g. for sparsity calculations) triggered by the
   // EquationSystems reinit may require up-to-date MooseMesh caches.
   _mesh.meshChanged();
-  _eq.reinit();
 
-  // But that breaks other adaptivity code, unless we then *again*
-  // update the MooseMesh caches.  E.g. the definition of "active" and
-  // "local" may be *changed* by EquationSystems::reinit().
+  // If we're just going to alter the mesh again, all we need to
+  // handle here is AMR and projections, not full system reinit
+  if (intermediate_change)
+    _eq.reinit_solutions();
+  else
+    _eq.reinit();
+
+  // Updating MooseMesh first breaks other adaptivity code, unless we
+  // then *again* update the MooseMesh caches.  E.g. the definition of
+  // "active" and "local" may have been *changed* by refinement and
+  // repartitioning done in EquationSystems::reinit().
   _mesh.meshChanged();
 
   // Since the Mesh changed, update the PointLocator object used by DiracKernels.
@@ -4965,6 +5022,7 @@ FEProblemBase::checkNonlinearConvergence(std::string & msg,
                                          const Real abstol,
                                          const PetscInt nfuncs,
                                          const PetscInt max_funcs,
+                                         const PetscBool force_iteration,
                                          const Real initial_residual_before_preset_bcs,
                                          const Real div_threshold)
 {
@@ -4984,7 +5042,7 @@ FEProblemBase::checkNonlinearConvergence(std::string & msg,
     oss << "Failed to converge, function norm is NaN\n";
     reason = MOOSE_DIVERGED_FNORM_NAN;
   }
-  else if (fnorm < abstol)
+  else if (fnorm < abstol && (it || !force_iteration))
   {
     oss << "Converged due to function norm " << fnorm << " < " << abstol << '\n';
     reason = MOOSE_CONVERGED_FNORM_ABS;

@@ -1,16 +1,11 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 // Standard includes
 #include <math.h>
@@ -35,6 +30,7 @@ validParams<Output>()
 {
   // Get the parameters from the parent object
   InputParameters params = validParams<MooseObject>();
+  params += validParams<SetupInterface>();
 
   // Displaced Mesh options
   params.addParam<bool>(
@@ -51,19 +47,15 @@ validParams<Output>()
   params.addParam<Real>(
       "time_tolerance", 1e-14, "Time tolerance utilized checking start and end times");
 
-  // Add the 'execute_on' input parameter for users to set
-  params.addParam<MultiMooseEnum>("execute_on",
-                                  Output::getExecuteOptions("initial timestep_end"),
-                                  "Set to "
-                                  "(none|initial|linear|nonlinear|timestep_end|timestep_begin|"
-                                  "final|failed|custom) to execute only at that moment");
+  // Update the 'execute_on' input parameter for output
+  ExecFlagEnum & exec_enum = params.set<ExecFlagEnum>("execute_on", true);
+  exec_enum = Output::getDefaultExecFlagEnum();
+  exec_enum = {EXEC_INITIAL, EXEC_TIMESTEP_END};
+  params.setDocString("execute_on", exec_enum.getDocString());
 
   // Add ability to append to the 'execute_on' list
-  params.addParam<MultiMooseEnum>("additional_execute_on",
-                                  Output::getExecuteOptions(),
-                                  "This list of output flags is added to the existing flags "
-                                  "(initial|linear|nonlinear|timestep_end|timestep_begin|final|"
-                                  "failed|custom) to execute only at that moment");
+  params.addParam<ExecFlagEnum>("additional_execute_on", exec_enum, exec_enum.getDocString());
+  params.set<ExecFlagEnum>("additional_execute_on").clear();
 
   // 'Timing' group
   params.addParamNamesToGroup("time_tolerance interval sync_times sync_only start_time end_time ",
@@ -82,12 +74,21 @@ validParams<Output>()
 MultiMooseEnum
 Output::getExecuteOptions(std::string default_type)
 {
-  // Build the string of options
-  std::string options = "none=0x00 initial=0x01 linear=0x02 nonlinear=0x04 timestep_end=0x08 "
-                        "timestep_begin=0x10 final=0x20 failed=0x80";
+  // TODO: ExecFlagType
+  ::mooseDeprecated("This version 'getExecuteOptions' was replaced by the "
+                    "Output::getDefaultExecFlagEnum() static function.");
+  ExecFlagEnum exec_enum = MooseUtils::getDefaultExecFlagEnum();
+  exec_enum.addAvailableFlags(EXEC_FAILED);
+  exec_enum = default_type;
+  return exec_enum;
+}
 
-  // The numbers associated must be in sync with the ExecFlagType in Moose.h
-  return MultiMooseEnum(options, default_type);
+ExecFlagEnum
+Output::getDefaultExecFlagEnum()
+{
+  ExecFlagEnum exec_enum = MooseUtils::getDefaultExecFlagEnum();
+  exec_enum.addAvailableFlags(EXEC_FAILED);
+  return exec_enum;
 }
 
 Output::Output(const InputParameters & parameters)
@@ -99,7 +100,7 @@ Output::Output(const InputParameters & parameters)
     _transient(_problem_ptr->isTransient()),
     _use_displaced(getParam<bool>("use_displaced")),
     _es_ptr(_use_displaced ? &_problem_ptr->getDisplacedProblem()->es() : &_problem_ptr->es()),
-    _execute_on(getParam<MultiMooseEnum>("execute_on")),
+    _execute_on(getParam<ExecFlagEnum>("execute_on")),
     _time(_problem_ptr->time()),
     _time_old(_problem_ptr->timeOld()),
     _t_step(_problem_ptr->timeStep()),
@@ -123,7 +124,7 @@ Output::Output(const InputParameters & parameters)
   // Apply the additional output flags
   if (isParamValid("additional_execute_on"))
   {
-    MultiMooseEnum add = getParam<MultiMooseEnum>("additional_execute_on");
+    const ExecFlagEnum & add = getParam<ExecFlagEnum>("additional_execute_on");
     for (auto & me : add)
       _execute_on.push_back(me);
   }

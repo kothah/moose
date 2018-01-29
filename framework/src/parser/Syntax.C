@@ -1,16 +1,11 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "Syntax.h"
 #include "MooseUtils.h"
@@ -75,6 +70,12 @@ Syntax::addDependencySets(const std::string & action_sets)
     // Copy the the current items to the previous items for the next iteration
     std::swap(tasks, prev_names);
   }
+}
+
+void
+Syntax::clearTaskDependencies()
+{
+  _tasks.clear();
 }
 
 const std::vector<std::string> &
@@ -146,7 +147,7 @@ Syntax::getSyntaxByAction(const std::string & action, const std::string & task)
   /**
    * For now we don't have a data structure that maps Actions to Syntax but this routine
    * is only used by the build full tree routine so it doesn't need to be fast.  We
-   * will do a linear search for each call to this routine
+   * will do a linear search for each call to this routine.
    */
   for (const auto & iter : _associated_actions)
     if (iter.second._action == action && (iter.second._task == task || iter.second._task == ""))
@@ -160,12 +161,10 @@ Syntax::isAssociated(const std::string & real_id, bool * is_parent)
 {
   /**
    * This implementation assumes that wildcards can occur in the place of an entire token but not as
-   * part
-   * of a token (i.e.  'Variables/ * /InitialConditions' is valid but not 'Variables/Partial*
+   * part of a token (i.e.  'Variables/ * /InitialConditions' is valid but not 'Variables/Partial*
    * /InitialConditions'.
    * Since maps are ordered, a reverse traversal through the registered list will always select a
-   * more
-   * specific match before a wildcard match ('*' == char(42))
+   * more specific match before a wildcard match ('*' == char(42)).
    */
   bool local_is_parent;
   if (is_parent == NULL)

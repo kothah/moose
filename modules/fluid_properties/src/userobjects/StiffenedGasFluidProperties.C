@@ -1,9 +1,11 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "StiffenedGasFluidProperties.h"
 
@@ -73,7 +75,7 @@ StiffenedGasFluidProperties::s(Real v, Real u) const
   Real p = this->pressure(v, u);
   Real n = std::pow(T, _gamma) / std::pow(p + _p_inf, _gamma - 1.0);
   if (n <= 0.0)
-    mooseError(name(), ": Negative argument in the ln() function.");
+    throw MooseException(name() + ": Negative argument in the ln() function.");
   return _cv * std::log(n) + _q_prime;
 }
 
@@ -82,7 +84,7 @@ StiffenedGasFluidProperties::s_from_h_p(Real h, Real p, Real & s, Real & ds_dh, 
 {
   const Real aux = (p + _p_inf) * std::pow((h - _q) / (_gamma * _cv), -_gamma / (_gamma - 1));
   if (aux <= 0.0)
-    mooseError(name(), ": Non-positive argument in the ln() function.");
+    throw MooseException(name() + ": Non-positive argument in the ln() function.");
 
   const Real daux_dh = (p + _p_inf) *
                        std::pow((h - _q) / (_gamma * _cv), -_gamma / (_gamma - 1) - 1) *

@@ -149,18 +149,21 @@ class TestHarnessTestCase(unittest.TestCase):
                 mock_next_jobs.return_value = []
                 tester = job.getTester()
 
+                # scheduler normally does this for us. But we are 'mocking'
+                # a run, so we must adjust the status manually.
                 if tester.isInitialized():
                     tester.setStatus('PENDING', tester.bucket_pending)
 
-                # Skipped jobs are sent to a different method and have already
-                # been processed during the iteration that created this
-                # condition in the first place (jobA fails and thus skips and
-                # never runs jobB, but _occurres_ during jobA's iteration).
+                # A different method may have adjusted this tester to be
+                # skipped (jobA fails and thus skips and never runs jobB,
+                # but _occures_ during jobA's iteration).
                 elif tester.isSkipped():
                     return
 
-                # Launch the job and wait (non-blocking)
+                # Launch the job (non-blocking)
                 harness.scheduler.queueJobs(run_jobs=[job])
+
+                # Wait for test to finish
                 while tester.isPending():
                     time.sleep(.1)
 
@@ -171,13 +174,23 @@ class TestHarnessTestCase(unittest.TestCase):
                 result_output_list = []
                 for single_result in result_list:
                     (result_output, tmp_kwargs) = single_result
+                    # index 1 is the result variable in util.formatResult
                     result_output_list.append(result_output[1])
 
         return result_output_list
 
-    def getQstatOutput(self, job_id, job_state):
+    def getQstatOutput(self, **kwargs):
         """ return valid qstat output """
-        return self.qstat_output.replace('<JOB_ID>', str(job_id)).replace('<JOB_STATE>', str(job_state))
+        tmp_qstat = self.qstat_output
+        for tag, value in kwargs.iteritems():
+            tmp_qstat = tmp_qstat.replace('<' + str(tag).upper() + '>', str(value))
+
+        # set any remaining unset tags to a working default:
+        default_tags = [('<EXIT_STATUS>', '0'), ('<JOB_STATE>', 'F'), ('<JOB_ID>', '1')]
+        for unset_tag in default_tags:
+            tmp_qstat = tmp_qstat.replace(unset_tag[0], unset_tag[1])
+
+        return tmp_qstat
 
     def yieldJobs(self, job_dag):
         """ return each job in the dag with an id """
@@ -228,7 +241,7 @@ class TestHarnessTestCase(unittest.TestCase):
                 if job_id == 0:
                     join_results = ' '.join([result_list[0], result_list[1]])
                     self.assertRegexpMatches(join_results, 'FAILED \(QSUB FAILURE\)')
-                    self.assertRegexpMatches(join_results, 'skipped \(skipped dependency\)')
+                    self.assertRegexpMatches(join_results, 'SKIP')
 
                 # We _should_ actually have no results
                 elif job_id == 1 and result_list != None:
@@ -254,7 +267,50 @@ class TestHarnessTestCase(unittest.TestCase):
                 if job_id == 0:
                     join_results = ' '.join([result_list[0], result_list[1]])
                     self.assertRegexpMatches(join_results, 'FAILED \(INVALID QSTAT RESULTS\)')
-                    self.assertRegexpMatches(join_results, 'skipped \(skipped dependency\)')
+                    self.assertRegexpMatches(join_results, 'SKIP')
+
+                # We _should_ actually have no results
+                elif job_id == 1 and result_list != None:
+                    self.fail('Failed: A job that should not have launched attempted to do so')
+
+    def testExceededWalltime(self):
+        """
+        Test QueueManagers ability to handle jobs killed by PBS due to
+        exceeding walltime (exit code 271).
+
+        Caveat (more of a note to myself, this stumped me...):
+        Because we are mocking the results, we will never see the actual
+        error we are testing for. Remember: @mockSinglePBS can not grab
+        returned strings _from_ called methods (formatResults() in our
+        case). Mock instead allows us to ask what _variables_ were
+        _sent_ to them (using call_args).
+
+        So, instead, we will interface with the tester directly and parse
+        through the caveats searching for what we expect (getCaveats()).
+
+        See 'testPBSProcessResults' below for 'NO STDOUT FILE' explination.
+        """
+
+        # Launch jobs correctly to create a session file (QUEUED status)
+        self.testPBSGoodLaunch()
+
+        with self.harnessDAG() as harness_dag:
+            (harness, job_dag) = harness_dag
+
+            ### Test for non-qstat type output (command not found or the like)
+            for job_id, job in self.yieldJobs(job_dag):
+                qstat_return = self.getQstatOutput(job_id=job_id, job_state='F', exit_status='271')
+                result_list = self._mockSinglePBSLaunch(harness, job, qstat_return)
+                tester = job.getTester()
+
+                # Join the results, because the TestHarness receives them out-of-order
+                if job_id == 0:
+                    join_results = ' '.join([result_list[0], result_list[1]])
+                    self.assertRegexpMatches(join_results, 'FAILED \(NO STDOUT FILE\)')
+                    self.assertRegexpMatches(join_results, 'SKIP')
+
+                    # check caveats for specific string
+                    self.assertRegexpMatches(' '.join(tester.getCaveats()).upper(), 'KILLED BY PBS')
 
                 # We _should_ actually have no results
                 elif job_id == 1 and result_list != None:
@@ -272,14 +328,14 @@ class TestHarnessTestCase(unittest.TestCase):
             (harness, job_dag) = harness_dag
 
             for job_id, job in self.yieldJobs(job_dag):
-                qstat_return = self.getQstatOutput(job_id, 'gibberish')
+                qstat_return = self.getQstatOutput(job_id=job_id, job_state='gibberish')
                 result_list = self._mockSinglePBSLaunch(harness, job, qstat_return)
 
                 # Join the results, because the TestHarness receives them out-of-order
                 if job_id == 0:
                     join_results = ' '.join([result_list[0], result_list[1]])
                     self.assertRegexpMatches(join_results, 'FAILED \(UNKNOWN PBS STATUS\)')
-                    self.assertRegexpMatches(join_results, 'skipped \(skipped dependency\)')
+                    self.assertRegexpMatches(join_results, 'SKIP')
 
                 # We _should_ actually have no results
                 elif job_id == 1 and result_list != None:
@@ -302,14 +358,14 @@ class TestHarnessTestCase(unittest.TestCase):
             (harness, job_dag) = harness_dag
 
             for job_id, job in self.yieldJobs(job_dag):
-                qstat_return = self.getQstatOutput(job_id, 'F')
+                qstat_return = self.getQstatOutput(job_id=job_id, job_state='F')
                 result_list = self._mockSinglePBSLaunch(harness, job, qstat_return)
 
                 # Join the results, because the TestHarness receives them out-of-order
                 if job_id == 0:
                     join_results = ' '.join([result_list[0], result_list[1]])
                     self.assertRegexpMatches(join_results, 'FAILED \(NO STDOUT FILE\)')
-                    self.assertRegexpMatches(join_results, 'skipped \(skipped dependency\)')
+                    self.assertRegexpMatches(join_results, 'SKIP')
 
                 # We _should_ actually have no results
                 elif job_id == 1 and result_list != None:
@@ -331,7 +387,7 @@ class TestHarnessTestCase(unittest.TestCase):
                 (harness, job_dag) = harness_dag
 
                 for job_id, job in self.yieldJobs(job_dag):
-                    qstat_return = self.getQstatOutput(job_id, status[0])
+                    qstat_return = self.getQstatOutput(job_id=job_id, job_state=status[0])
                     result_list = self._mockSinglePBSLaunch(harness, job, qstat_return)
                     if len(result_list) == 1:
                         self.assertRegexpMatches(result_list[0], status)
