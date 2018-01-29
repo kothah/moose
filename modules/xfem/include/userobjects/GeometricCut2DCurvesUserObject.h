@@ -1,9 +1,11 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #ifndef GEOMETRICCUT2DCURVESUSEROBJECT_H
 #define GEOMETRICCUT2DCURVESUSEROBJECT_H
@@ -11,6 +13,11 @@
 #include "GeometricCutUserObject.h"
 
 using namespace libMesh;
+// Forward declarations
+class GeometricCut2DCurvesUserObject;
+
+template <>
+InputParameters validParams<GeometricCut2DCurvesUserObject>();
 
 class GeometricCut2DCurvesUserObject : public GeometricCutUserObject
 {
@@ -43,8 +50,6 @@ protected:
                             Real & segment_intersection_fraction) const;
 
   bool isInsideArc(const Point & p) const;
-
-  Real crossProduct2D(const Point & point_a, const Point & point_b) const;
 };
 
 #endif // GEOMETRICCUT2DCURVESUSEROBJECT_H

@@ -20,7 +20,7 @@ validParams<XFEMSingleVariableBC>()
 {
   InputParameters params = validParams<ElemElemConstraint>();
   params.addParam<Real>("alpha", 5, "Stablization parameter in Nitsche's formulation.");
-  params.addParam<Real>("gamma", 0.001, "Stablization parameter in Fictitious formulation.");
+  params.addParam<Real>("gamma", 10E-8, "Stablization parameter in Fictitious formulation.");
   params.addParam<Real>("dirichlet", 0, "Jump at the interface.");
   return params;
 }

@@ -34,8 +34,7 @@ GeometricCut2DCurvesUserObject::GeometricCut2DCurvesUserObject(const InputParame
   _cut_time_ranges.push_back(std::make_pair(0.0, 0.0));
 }
 
-bool
-GeometricCut2DCurvesUserObject::active(Real time) const
+bool GeometricCut2DCurvesUserObject::active(Real /*time*/) const
 {
   // the current arc interfaces don't change with time
   return true;
@@ -102,9 +101,10 @@ GeometricCut2DCurvesUserObject::cutElementByGeometry(const Elem * /*elem*/,
 }
 
 bool
-GeometricCut2DCurvesUserObject::cutFragmentByGeometry(std::vector<std::vector<Point>> & frag_edges,
-                                                      std::vector<CutEdge> & cut_edges,
-                                                      Real time) const
+GeometricCut2DCurvesUserObject::cutFragmentByGeometry(
+    std::vector<std::vector<Point>> & /*frag_edges*/,
+    std::vector<CutEdge> & /*cut_edges*/,
+    Real /*time*/) const
 {
   bool cut_elem = false;
   // here goes algorithm
