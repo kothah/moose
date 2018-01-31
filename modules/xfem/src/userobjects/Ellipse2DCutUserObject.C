@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#include "Circle2DCutUserObject.h"
+#include "Ellipse2DCutUserObject.h"
 
 // MOOSE includes
 #include "MooseError.h"
@@ -17,7 +17,7 @@
 
 template <>
 InputParameters
-validParams<Circle2DCutUserObject>()
+validParams<Ellipse2DCutUserObject>()
 {
   // Get input parameters from parent class
   InputParameters params = validParams<GeometricCut2DCurvesUserObject>();
@@ -31,10 +31,10 @@ validParams<Circle2DCutUserObject>()
   return params;
 }
 
-Circle2DCutUserObject::Circle2DCutUserObject(const InputParameters & parameters)
+Ellipse2DCutUserObject::Ellipse2DCutUserObject(const InputParameters & parameters)
   : GeometricCut2DCurvesUserObject(parameters), _cut_data(getParam<std::vector<Real>>("cut_data"))
 {
-  const int cut_data_len = 3;
+  const int cut_data_len = 4;
 
   // Throw error if length of cut_data is incorrect
   if (_cut_data.size() != cut_data_len)
@@ -42,13 +42,14 @@ Circle2DCutUserObject::Circle2DCutUserObject(const InputParameters & parameters)
 
   // Assign cut_data to vars used to construct cuts
   _center = Point(_cut_data[0], _cut_data[1], 0.0);
-  _radius = _cut_data[2];
+  _major_axis = _cut_data[2];
+  _minor_axis = _cut_data[3];
 }
 
 bool
-Circle2DCutUserObject::intersectArcWithEdge(const Point & P1,
-                                            const Point & P2,
-                                            Real & segment_intersection_fraction) const
+Ellipse2DCutUserObject::intersectArcWithEdge(const Point & P1,
+                                             const Point & P2,
+                                             Real & segment_intersection_fraction) const
 {
   bool has_intersection = false;
   //  if (isInsideArc(P1) == isInsideArc(P2))
@@ -66,15 +67,19 @@ Circle2DCutUserObject::intersectArcWithEdge(const Point & P1,
   Real delta = -(CtoP1(0) * CtoP1(0) * seg_dir(1) * seg_dir(1)) +
                (2 * CtoP1(0) * CtoP1(1) * seg_dir(0) * seg_dir(1)) -
                (CtoP1(1) * CtoP1(1) * seg_dir(0) * seg_dir(0)) +
-               (_radius * _radius * seg_dir(0) * seg_dir(0)) +
-               (_radius * _radius * seg_dir(1) * seg_dir(1));
+               (_major_axis * _major_axis * seg_dir(1) * seg_dir(1)) +
+               (_minor_axis * _minor_axis * seg_dir(0) * seg_dir(0));
   if (delta > 0)
   {
-    Real b = CtoP1(0) * seg_dir(0) + CtoP1(1) * seg_dir(1);
-    Real denom = seg_dir(0) * seg_dir(0) + seg_dir(1) * seg_dir(1);
+    Real abDelta = _major_axis * _minor_axis * std::sqrt(delta);
 
-    Real t1 = (-b + std::sqrt(delta)) / denom;
-    Real t2 = (-b - std::sqrt(delta)) / denom;
+    Real b = _minor_axis * _minor_axis * CtoP1(0) * seg_dir(0) +
+             _major_axis * _major_axis * CtoP1(1) * seg_dir(1);
+    Real denom = _major_axis * _major_axis * seg_dir(1) * seg_dir(1) +
+                 _minor_axis * _minor_axis * seg_dir(0) * seg_dir(0);
+
+    Real t1 = (-b + abDelta) / denom;
+    Real t2 = (-b - abDelta) / denom;
     //
     if (t1 < 1.0 && t1 > 0.0)
     {
@@ -96,23 +101,15 @@ Circle2DCutUserObject::intersectArcWithEdge(const Point & P1,
   return has_intersection;
 }
 
-bool
-Circle2DCutUserObject::isInsideArc(const Point & p) const
-{
-  bool isInside = false;
-  Real X_, Y_, R_;
-  X_ = std::pow(p(0) - _center(0), 2);
-  Y_ = std::pow(p(1) - _center(1), 2);
-  R_ = std::pow(_radius, 2);
-
-  if (X_ + Y_ - R_ < 0)
-    isInside = true;
-
-  return isInside;
-}
-
 const std::vector<Point>
-Circle2DCutUserObject::getCrackFrontPoints(unsigned int /*number_crack_front_points*/) const
+Ellipse2DCutUserObject::getCrackFrontPoints(unsigned int /*number_crack_front_points*/) const
 {
   mooseError("getCrackFrontPoints() is not implemented for this object.");
+}
+
+bool
+Ellipse2DCutUserObject::isInsideArc(const Point & p) const
+{
+  mooseError("isInsideArc() is not implemented for this object.");
+  return false;
 }

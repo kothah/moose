@@ -7,21 +7,21 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CIRCLE2DCUTUSEROBJECT_H
-#define CIRCLE2DCUTUSEROBJECT_H
+#ifndef ELLIPSE2DCUTUSEROBJECT_H
+#define ELLIPSE2DCUTUSEROBJECT_H
 
 #include "GeometricCut2DCurvesUserObject.h"
 
 // Forward declarations
-class Circle2DCutUserObject;
+class Ellipse2DCutUserObject;
 
 template <>
-InputParameters validParams<Circle2DCutUserObject>();
+InputParameters validParams<Ellipse2DCutUserObject>();
 
-class Circle2DCutUserObject : public GeometricCut2DCurvesUserObject
+class Ellipse2DCutUserObject : public GeometricCut2DCurvesUserObject
 {
 public:
-  Circle2DCutUserObject(const InputParameters & parameters);
+  Ellipse2DCutUserObject(const InputParameters & parameters);
 
   virtual void initialSetup() override{};
   virtual void initialize() override{};
@@ -32,14 +32,15 @@ public:
 
 protected:
   std::vector<Real> _cut_data;
-  virtual bool intersectArcWithEdge(const Point & p1,
-                                    const Point & p2,
-                                    Real & segment_intersection_fraction) const override;
 
+  bool intersectArcWithEdge(const Point & p1,
+                            const Point & p2,
+                            Real & segment_intersection_fraction) const override;
   virtual bool isInsideArc(const Point & p) const override;
 
 private:
-  Real _radius;
+  Real _major_axis;
+  Real _minor_axis;
 };
 
-#endif // CIRCLE2DCUTUSEROBJECT_H
+#endif // ELLIPSE2DCUTUSEROBJECT_H

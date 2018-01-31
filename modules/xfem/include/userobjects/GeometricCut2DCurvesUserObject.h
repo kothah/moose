@@ -11,7 +11,6 @@
 #define GEOMETRICCUT2DCURVESUSEROBJECT_H
 
 #include "GeometricCutUserObject.h"
-
 using namespace libMesh;
 // Forward declarations
 class GeometricCut2DCurvesUserObject;
@@ -43,13 +42,12 @@ public:
 
 protected:
   Point _center;
-  Real _radius;
 
-  bool intersectArcWithEdge(const Point & p1,
-                            const Point & p2,
-                            Real & segment_intersection_fraction) const;
+  virtual bool intersectArcWithEdge(const Point & p1,
+                                    const Point & p2,
+                                    Real & segment_intersection_fraction) const = 0;
 
-  bool isInsideArc(const Point & p) const;
+  virtual bool isInsideArc(const Point & p) const = 0;
 };
 
 #endif // GEOMETRICCUT2DCURVESUSEROBJECT_H

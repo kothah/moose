@@ -44,7 +44,7 @@ bool
 GeometricCut2DCurvesUserObject::cutElementByGeometry(const Elem * elem,
                                                      std::vector<CutEdge> & cut_edges,
                                                      std::vector<CutNode> & cut_nodes,
-                                                     Real time) const
+                                                     Real /*time*/) const
 {
   bool cut_elem = false;
 
@@ -120,70 +120,4 @@ GeometricCut2DCurvesUserObject::cutFragmentByGeometry(
 {
   mooseError("Invalid method: must use vector of element edges for 2D mesh cutting");
   return false;
-}
-
-bool
-GeometricCut2DCurvesUserObject::intersectArcWithEdge(const Point & P1,
-                                                     const Point & P2,
-                                                     Real & segment_intersection_fraction) const
-{
-  bool has_intersection = false;
-  //  if (isInsideArc(P1) == isInsideArc(P2))
-  //  {
-  //    // both nodes are either in or out, hence no intersection
-  //    return has_intersection;
-  //  }
-  //  else
-  //  {
-  // https://stackoverflow.com/questions/1073336/circle-line-segment-collision-detection-algorithm/
-  Point seg_dir = P2 - P1;
-  Point CtoP1 = P1 - _center;
-
-  // we need to solve a quadratic equation for t.
-  Real delta = -(CtoP1(0) * CtoP1(0) * seg_dir(1) * seg_dir(1)) +
-               (2 * CtoP1(0) * CtoP1(1) * seg_dir(0) * seg_dir(1)) -
-               (CtoP1(1) * CtoP1(1) * seg_dir(0) * seg_dir(0)) +
-               (_radius * _radius * seg_dir(0) * seg_dir(0)) +
-               (_radius * _radius * seg_dir(1) * seg_dir(1));
-  if (delta > 0)
-  {
-    Real b = CtoP1(0) * seg_dir(0) + CtoP1(1) * seg_dir(1);
-    Real denom = seg_dir(0) * seg_dir(0) + seg_dir(1) * seg_dir(1);
-
-    Real t1 = (-b + std::sqrt(delta)) / denom;
-    Real t2 = (-b - std::sqrt(delta)) / denom;
-    //
-    if (t1 < 1.0 && t1 > 0.0)
-    {
-      segment_intersection_fraction = t1;
-      has_intersection = true;
-    }
-    if (t2 < 1.0 && t2 > 0.0)
-    {
-      segment_intersection_fraction = t2;
-      has_intersection = true;
-    }
-  }
-  else
-  {
-    has_intersection = false;
-    // std::cout << "no intersetction " << std::endl;
-  }
-
-  return has_intersection;
-}
-
-bool
-GeometricCut2DCurvesUserObject::isInsideArc(const Point & p) const
-{
-  bool isInside = false;
-  Real X_, Y_, R_;
-  X_ = std::pow(p(0) - _center(0), 2);
-  Y_ = std::pow(p(1) - _center(1), 2);
-  R_ = std::pow(_radius, 2);
-
-  if (X_ + Y_ - R_ < 0)
-    isInside = true;
-
-  return isInside;
 }

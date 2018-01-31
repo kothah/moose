@@ -31,8 +31,9 @@
 #include "GeometricCutUserObject.h"
 #include "LineSegmentCutUserObject.h"
 #include "LineSegmentCutSetUserObject.h"
-#include "CircleCutUserObject.h"
 #include "Circle2DCutUserObject.h"
+#include "Ellipse2DCutUserObject.h"
+#include "CircleCutUserObject.h"
 #include "EllipseCutUserObject.h"
 #include "RectangleCutUserObject.h"
 
@@ -105,6 +106,7 @@ XFEMApp::registerObjects(Factory & factory)
 
   // Geometric Cut User Objects
   registerUserObject(Circle2DCutUserObject);
+  registerUserObject(Ellipse2DCutUserObject);
   registerUserObject(LineSegmentCutUserObject);
   registerUserObject(LineSegmentCutSetUserObject);
   registerUserObject(CircleCutUserObject);
