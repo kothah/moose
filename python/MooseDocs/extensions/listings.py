@@ -1,18 +1,14 @@
 #pylint: disable=missing-docstring
-####################################################################################################
-#                                    DO NOT MODIFY THIS HEADER                                     #
-#                   MOOSE - Multiphysics Object Oriented Simulation Environment                    #
-#                                                                                                  #
-#                              (c) 2010 Battelle Energy Alliance, LLC                              #
-#                                       ALL RIGHTS RESERVED                                        #
-#                                                                                                  #
-#                            Prepared by Battelle Energy Alliance, LLC                             #
-#                               Under Contract No. DE-AC07-05ID14517                               #
-#                               With the U. S. Department of Energy                                #
-#                                                                                                  #
-#                               See COPYRIGHT for full restrictions                                #
-####################################################################################################
+#* This file is part of the MOOSE framework
+#* https://www.mooseframework.org
+#*
+#* All rights reserved, see COPYRIGHT for full restrictions
+#* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+#*
+#* Licensed under LGPL 2.1, please see LICENSE for details
+#* https://www.gnu.org/licenses/lgpl-2.1.html
 #pylint: enable=missing-docstring
+
 import re
 import os
 import cgi
@@ -34,12 +30,6 @@ import hit
 # pylint: enable=import-error
 
 LOG = logging.getLogger(__name__)
-
-try:
-    import mooseutils.MooseSourceParser
-    HAVE_MOOSE_CPP_PARSER = True
-except ImportError:
-    HAVE_MOOSE_CPP_PARSER = False
 
 class ListingExtension(MooseMarkdownExtension):
     """
@@ -77,9 +67,6 @@ class ListingExtension(MooseMarkdownExtension):
                               ListingInputPattern(markdown_instance=md, **config),
                               '_begin')
 
-        md.inlinePatterns.add('moose-clang-listing',
-                              ListingClangPattern(markdown_instance=md, **config),
-                              '_begin')
 
 def makeExtension(*args, **kwargs): #pylint: disable=invalid-name
     """Create ListingExtension"""
@@ -375,64 +362,6 @@ class ListingInputPattern(ListingPattern):
             return node.render()
 
         return super(ListingInputPattern, self).extractContent(filename, settings)
-
-class ListingClangPattern(ListingPattern):
-    """
-    A markdown extension for including source code snippets using clang python bindings.
-
-    Inputs:
-      make_dir[str]: (required) The MOOSE application directory for running make command.
-      **kwargs: key, value arguments passed to base class.
-    """
-    RE = r'(?<!`)!listing\s+(?P<filename>.*\.[Ch])(?:$|\s+)(?P<settings>.*)'
-
-    @staticmethod
-    def defaultSettings():
-        settings = ListingPattern.defaultSettings()
-        settings['method'] = (None, "The C++ method to return using the clang parser. Using, " \
-                                    "this will bypass other extracting settings (e.g., 'begin' " \
-                                    "and 'end').")
-        settings['declaration'] = (False, "When True the declaration is returned, other size the " \
-                                          "definition is given.")
-        return settings
-
-    def __init__(self, **kwargs):
-        super(ListingClangPattern, self).__init__(**kwargs)
-
-        # The make command to execute
-        self._make_dir = os.path.join(MooseDocs.ROOT_DIR, kwargs.pop('make_dir'))
-        if not os.path.exists(os.path.join(self._make_dir, 'Makefile')):
-            LOG.error("Invalid path provided for make: %s", self._make_dir)
-
-    def handleMatch(self, match):
-        """
-        Produce an error if the Clang parser is not setup correctly (override).
-        """
-        settings = self.getSettings(match.group('settings'))
-        if (settings['method'] is not None) and (not HAVE_MOOSE_CPP_PARSER):
-            return self.createErrorElement("Failed to load python clang python bindings, "
-                                           "thus the 'method' setting will not work.")
-
-        return super(ListingClangPattern, self).handleMatch(match)
-
-    def extractContent(self, filename, settings):
-        """
-        Extract input file content with GetPot parser if 'block' is available. (override)
-        """
-        if not settings['method']:
-            return super(ListingClangPattern, self).extractContent(filename, settings)
-
-        try:
-            parser = mooseutils.MooseSourceParser(self._make_dir)
-            parser.parse(filename)
-            decl, defn = parser.method(settings['method'])
-            if settings['declaration']:
-                return decl
-            return defn
-        except Exception: #pylint: disable=broad-except
-            LOG.error('Failed to parser file (%s) with clang for the %s method.',
-                      filename,
-                      settings['method'])
 
 class ListingFencedBlockPreprocessor(FencedBlockPreprocessor, MooseMarkdownCommon):
     """

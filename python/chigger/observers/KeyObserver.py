@@ -1,37 +1,33 @@
 #pylint: disable=missing-docstring
-#################################################################
-#                   DO NOT MODIFY THIS HEADER                   #
-#  MOOSE - Multiphysics Object Oriented Simulation Environment  #
-#                                                               #
-#            (c) 2010 Battelle Energy Alliance, LLC             #
-#                      ALL RIGHTS RESERVED                      #
-#                                                               #
-#           Prepared by Battelle Energy Alliance, LLC           #
-#             Under Contract No. DE-AC07-05ID14517              #
-#              With the U. S. Department of Energy              #
-#                                                               #
-#              See COPYRIGHT for full restrictions              #
-#################################################################
+#* This file is part of the MOOSE framework
+#* https://www.mooseframework.org
+#*
+#* All rights reserved, see COPYRIGHT for full restrictions
+#* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+#*
+#* Licensed under LGPL 2.1, please see LICENSE for details
+#* https://www.gnu.org/licenses/lgpl-2.1.html
+import vtk
 from ChiggerObserver import ChiggerObserver
 class KeyObserver(ChiggerObserver):
     """
     Class for creating key press observers to be passed in to RenderWindow object.
     """
+
     @staticmethod
     def getOptions():
         opt = ChiggerObserver.getOptions()
         return opt
 
     def __init__(self, **kwargs):
-        super(KeyObserver, self).__init__(**kwargs)
+        super(KeyObserver, self).__init__(vtk.vtkCommand.KeyPressEvent, **kwargs)
         self._key = None
 
-    def init(self, window):
+    def addObserver(self, event, vtkinteractor):
         """
         Add the KeyPressEvent for this object.
         """
-        super(KeyObserver, self).init(window)
-        window.getVTKInteractor().AddObserver('KeyPressEvent', self._callback)
+        return vtkinteractor.AddObserver(event, self._callback)
 
     def _callback(self, obj, event): #pylint: disable=unused-argument
         """
