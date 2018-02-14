@@ -257,6 +257,7 @@ Transient::init()
   }
 
   _problem.initialSetup();
+
   _time_stepper->init();
 
   if (_app.isRestarting())
@@ -264,24 +265,33 @@ Transient::init()
 
   _problem.outputStep(EXEC_INITIAL);
 
-  // If this is the first step
-  if (_t_step == 0)
-    _t_step = 1;
+  if (_app.isRecovering()) // Recover case
+  {
+    if (_t_step == 0)
+      mooseError("Internal error in Transient executioner: _t_step is equal to 0 while recovering "
+                 "in init().");
 
-  if (_t_step > 1) // Recover case
     _dt_old = _dt;
-
+  }
   else
   {
-    computeDT();
-    //  _dt = computeConstrainedDT();
-    _dt = getDT();
-  }
-  if (_dt == 0)
-    mooseError("Initial time step size is not evaluated properly");
+    if (_t_step != 0)
+      mooseError("Internal error in Transient executioner: _t_step must be 0 without "
+                 "recovering in init().");
 
-  if (!_app.isRecovering())
+    computeDT();
+    _dt = getDT();
+    if (_dt == 0)
+      mooseError("Time stepper computed zero time step size on initial which is not allowed.\n"
+                 "1. If you are using an existing time stepper, double check the values in your "
+                 "input file or report an error.\n"
+                 "2. If you are developing a new time stepper, make sure that initial time step "
+                 "size in your code is computed correctly.");
+
     _nl.getTimeIntegrator()->init();
+
+    ++_t_step;
+  }
 }
 
 void
@@ -371,12 +381,24 @@ Transient::incrementStepOrReject()
 
       _problem.advanceState();
 
-      // Advance (and Output) MultiApps if we were doing Picard iterations
+      /*
+       * Call the multi-app executioners endStep and
+       * postStep methods when doing Picard. We do not perform these calls for
+       * loose coupling because Transient::endStep and Transient::postStep get
+       * called from TransientMultiApp::solveStep in that case.
+       */
       if (_picard_max_its > 1)
       {
-        _problem.advanceMultiApps(EXEC_TIMESTEP_BEGIN);
-        _problem.advanceMultiApps(EXEC_TIMESTEP_END);
+        _problem.finishMultiAppStep(EXEC_TIMESTEP_BEGIN);
+        _problem.finishMultiAppStep(EXEC_TIMESTEP_END);
       }
+      /*
+       * Ensure that we increment the sub-application time steps so that
+       * when dt selection is made in the master application, we are using
+       * the correct time step information
+       */
+      _problem.incrementMultiAppTStep(EXEC_TIMESTEP_BEGIN);
+      _problem.incrementMultiAppTStep(EXEC_TIMESTEP_END);
     }
   }
   else

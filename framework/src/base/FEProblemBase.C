@@ -226,6 +226,7 @@ FEProblemBase::FEProblemBase(const InputParameters & parameters)
   unsigned int n_threads = libMesh::n_threads();
 
   _real_zero.resize(n_threads, 0.);
+  _scalar_zero.resize(n_threads);
   _zero.resize(n_threads);
   _grad_zero.resize(n_threads);
   _second_zero.resize(n_threads);
@@ -321,6 +322,7 @@ FEProblemBase::~FEProblemBase()
   for (unsigned int i = 0; i < n_threads; i++)
   {
     _zero[i].release();
+    _scalar_zero[i].release();
     _grad_zero[i].release();
     _second_zero[i].release();
     _second_phi_zero[i].release();
@@ -1268,6 +1270,8 @@ FEProblemBase::reinitDirac(const Elem * elem, THREAD_ID tid)
       unsigned int max_qpts = getMaxQps();
       for (unsigned int tid = 0; tid < libMesh::n_threads(); ++tid)
       {
+        // the highest available order in libMesh is 43
+        _scalar_zero[tid].resize(FORTYTHIRD, 0);
         _zero[tid].resize(max_qpts, 0);
         _grad_zero[tid].resize(max_qpts, RealGradient(0.));
         _second_zero[tid].resize(max_qpts, RealTensor(0.));
@@ -3159,6 +3163,8 @@ FEProblemBase::addMultiApp(const std::string & multi_app_name,
 
   std::shared_ptr<MultiApp> multi_app = _factory.create<MultiApp>(multi_app_name, name, parameters);
 
+  multi_app->setupPositions();
+
   _multi_apps.addObject(multi_app);
 
   // Store TranseintMultiApp objects in another container, this is needed for calling computeDT
@@ -3277,7 +3283,17 @@ FEProblemBase::postExecute()
 }
 
 void
-FEProblemBase::advanceMultiApps(ExecFlagType type)
+FEProblemBase::incrementMultiAppTStep(ExecFlagType type)
+{
+  const auto & multi_apps = _multi_apps[type].getActiveObjects();
+
+  if (multi_apps.size())
+    for (const auto & multi_app : multi_apps)
+      multi_app->incrementTStep();
+}
+
+void
+FEProblemBase::finishMultiAppStep(ExecFlagType type)
 {
   const auto & multi_apps = _multi_apps[type].getActiveObjects();
 
@@ -3286,7 +3302,7 @@ FEProblemBase::advanceMultiApps(ExecFlagType type)
     _console << COLOR_CYAN << "\nAdvancing MultiApps" << COLOR_DEFAULT << std::endl;
 
     for (const auto & multi_app : multi_apps)
-      multi_app->advanceStep();
+      multi_app->finishStep();
 
     _console << "Waiting For Other Processors To Finish" << std::endl;
     MooseUtils::parallelBarrierNotify(_communicator, _parallel_barrier_messaging);
@@ -3572,6 +3588,8 @@ FEProblemBase::createQRules(QuadratureType type, Order order, Order volume_order
   unsigned int max_qpts = getMaxQps();
   for (unsigned int tid = 0; tid < libMesh::n_threads(); ++tid)
   {
+    // the highest available order in libMesh is 43
+    _scalar_zero[tid].resize(FORTYTHIRD, 0);
     _zero[tid].resize(max_qpts, 0);
     _grad_zero[tid].resize(max_qpts, RealGradient(0.));
     _second_zero[tid].resize(max_qpts, RealTensor(0.));
@@ -4143,16 +4161,6 @@ FEProblemBase::computeJacobian(const NumericVector<Number> & soln,
     _currently_computing_jacobian = false;
     _has_jacobian = true;
   }
-
-  if (_solver_params._type == Moose::ST_JFNK || _solver_params._type == Moose::ST_PJFNK)
-  {
-    // This call is here to make sure the residual vector is up to date with any decisions that have
-    // been made in
-    // the Jacobian evaluation.  That is important in JFNK because that residual is used for finite
-    // differencing
-    computeResidual(soln, _nl->RHS());
-    _nl->RHS().close();
-  }
 }
 
 void
@@ -4438,9 +4446,9 @@ FEProblemBase::possiblyRebuildGeomSearchPatches()
         if (max < 0.4)
           break;
       }
+        libmesh_fallthrough();
 
       // Let this fall through if things do need to be updated...
-
       case Moose::Always:
         // Flush output here to see the message before the reinitialization, which could take a
         // while
@@ -4747,8 +4755,9 @@ FEProblemBase::checkProblemIntegrity()
                   std::ostream_iterator<unsigned int>(extra_subdomain_ids, " "));
 
         mooseError("The following blocks from your input mesh do not contain an active material: " +
-                   extra_subdomain_ids.str() + "\nWhen ANY mesh block contains a Material object, "
-                                               "all blocks must contain a Material object.\n");
+                   extra_subdomain_ids.str() +
+                   "\nWhen ANY mesh block contains a Material object, "
+                   "all blocks must contain a Material object.\n");
       }
     }
 

@@ -1,3 +1,6 @@
+# Whether or not to do a Unity build
+MOOSE_UNITY ?= false
+
 #
 # MOOSE
 #
@@ -99,8 +102,71 @@ moose_LIB := $(FRAMEWORK_DIR)/libmoose-$(METHOD).la
 
 moose_LIBS := $(moose_LIB) $(pcre_LIB) $(hit_LIB)
 
-# source files
 moose_srcfiles    := $(shell find $(moose_SRC_DIRS) -name "*.C")
+
+### Unity Build ###
+ifeq ($(MOOSE_UNITY),true)
+
+srcsubdirs := $(shell find $(FRAMEWORK_DIR)/src -type d -not -path '*/.libs*')
+
+moose_non_unity = %/base %/utils
+
+unity_src_dir = $(FRAMEWORK_DIR)/build/unity_src
+
+unity_srcsubdirs := $(filter-out $(moose_non_unity), $(srcsubdirs))
+non_unity_srcsubdirs := $(filter $(moose_non_unity), $(srcsubdirs))
+
+define unity_dir_rule
+$(1):
+	@echo Creating Unity Directory $$@
+	@mkdir -p $(1)
+endef
+
+$(eval $(call unity_dir_rule, $(unity_src_dir)))
+
+# 1: the unity file to build
+# 2: the source files in that unity file
+# 3: The unity source directory
+# The "|" in the prereqs starts the beginning of "position dependent" prereqs
+# these are prereqs that must be run first - but their timestamp isn't used
+define unity_file_rule
+$(1):$(2) $(3) | $(4)
+	@echo Creating Unity $$@
+	$$(shell echo > $$@)
+	$$(foreach srcfile,$$(filter-out $(3) $(4),$$^),$$(shell echo '#include"$$(srcfile)"' >> $$@))
+endef
+
+# 1: The directory where the unity source files will go
+# 2: The application directory
+# 3: A subdir that will be unity built
+# The output: is the unique .C file name for the unity file
+# Here's what this does:
+# For each explicit path we're going to create a unique unity filename by:
+# 1. Stripping off $(FRAMEWORK_DIR)/src
+# 2. For the special case of src itself strip off $(FRAMEWORK_DIR)
+# 3. Turn every remaining '/' into an '_'
+# 4. Add '_Unity.C'
+unity_unique_name = $(1)/$(subst /,_,$(patsubst $(2)/%,%,$(patsubst $(2)/src/%,%,$(3))))_Unity.C
+
+# Here's what this does:
+# 1. Defines a rule to build a unity file from each subdirectory under src
+# 2. Does that by looping over the explicit paths found before (unity_srcsubdirs)
+# 3. For each explicit path we're going to create a unique unity filename by calling unity_unique_name
+# 4. Now that we have the name of the Unity file we need to find all of the .C files that should be #included in it
+# 4a. Use find to pick up all .C files
+# 4b. Make sure we don't pick up any _Unity.C files (we shouldn't have any anyway)
+$(foreach srcsubdir,$(unity_srcsubdirs),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(FRAMEWORK_DIR),$(srcsubdir)),$(shell find $(srcsubdir) -maxdepth 1 -type f -name "*.C"),$(srcsubdir),$(unity_src_dir))))
+
+app_unity_srcfiles = $(foreach srcsubdir,$(unity_srcsubdirs),$(call unity_unique_name,$(unity_src_dir),$(FRAMEWORK_DIR),$(srcsubdir)))
+
+#$(info $(app_unity_srcfiles))
+
+unity_srcfiles += $(app_unity_srcfiles)
+
+moose_srcfiles    := $(app_unity_srcfiles) $(shell find $(non_unity_srcsubdirs) -maxdepth 1 -name "*.C") $(shell find $(filter-out %/src,$(moose_SRC_DIRS)) -name "*.C")
+endif
+
+# source files
 moose_csrcfiles   := $(shell find $(moose_SRC_DIRS) -name "*.c")
 moose_fsrcfiles   := $(shell find $(moose_SRC_DIRS) -name "*.f")
 moose_f90srcfiles := $(shell find $(moose_SRC_DIRS) -name "*.f90")
@@ -128,7 +194,9 @@ moose_revision:
 	@echo Regenerating MooseRevision
 	$(shell $(FRAMEWORK_DIR)/scripts/get_repo_revision.py $(FRAMEWORK_DIR) \
 	  $(moose_revision_header) MOOSE)
-	@ln -sf $(moose_revision_header) $(moose_all_header_dir)
+	@if [ ! -e "$(moose_all_header_dir)/MooseRevision.h" ]; then \
+		ln -sf $(moose_revision_header) $(moose_all_header_dir); \
+	fi
 
 # libmesh submodule status
 libmesh_status := $(shell git -C $(MOOSE_DIR) submodule status 2>/dev/null | grep libmesh | cut -c1)
@@ -187,7 +255,7 @@ exodiff_DIR := $(FRAMEWORK_DIR)/contrib/exodiff
 exodiff_APP := $(exodiff_DIR)/exodiff
 exodiff_srcfiles := $(shell find $(exodiff_DIR) -name "*.C")
 exodiff_objects  := $(patsubst %.C, %.$(obj-suffix), $(exodiff_srcfiles))
-exodiff_includes := $(app_INCLUDES) -I$(exodiff_DIR) $(libmesh_INCLUDE)
+exodiff_includes := -I$(exodiff_DIR) $(libmesh_INCLUDE)
 # dependency files
 exodiff_deps := $(patsubst %.C, %.$(obj-suffix).d, $(exodiff_srcfiles))
 
@@ -195,8 +263,8 @@ all:: exodiff
 
 # Target-specific Variable Values (See GNU-make manual)
 exodiff: app_INCLUDES := $(exodiff_includes)
+exodiff: libmesh_CXXFLAGS := -std=gnu++11 -O2 -felide-constructors -Wno-parentheses-equality
 exodiff: $(exodiff_APP)
-
 $(exodiff_APP): $(exodiff_objects)
 	@echo "Linking Executable "$@"..."
 	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
@@ -225,7 +293,7 @@ app_deps := $(moose_deps) $(exodiff_deps) $(pcre_deps) $(gtest_deps) $(hit_deps)
 #    files, libraries, etc.
 clean::
 	@$(libmesh_LIBTOOL) --mode=uninstall --quiet rm -f $(app_LIB) $(app_test_LIB)
-	@rm -rf $(app_EXEC) $(app_objects) $(main_object) $(app_deps) $(app_HEADER) $(app_test_objects)
+	@rm -rf $(app_EXEC) $(app_objects) $(main_object) $(app_deps) $(app_HEADER) $(app_test_objects) $(app_unity_srcfiles)
 	@rm -rf $(APPLICATION_DIR)/build
 
 # The clobber target does 'make clean' and then uses 'find' to clean a

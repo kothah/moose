@@ -72,6 +72,13 @@ public:
    */
   virtual void sequence(bool state);
 
+  /**
+   * Force the output dimension programatically
+   *
+   * @param dim The dimension written in the output file
+   */
+  void setOutputDimension(unsigned int dim);
+
 protected:
   /**
    * Outputs nodal, nonlinear variables
@@ -154,6 +161,9 @@ private:
 
   /// Flag for overwriting timesteps
   bool _overwrite;
+
+  /// Enum for the output dimension
+  MooseEnum _output_dimension;
 };
 
 #endif /* EXODUS_H */

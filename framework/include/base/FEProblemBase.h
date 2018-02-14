@@ -817,9 +817,25 @@ public:
   bool execMultiApps(ExecFlagType type, bool auto_advance = true);
 
   /**
-   * Advance the MultiApps associated with the ExecFlagType
+   * Advance the MultiApps t_step (incrementStepOrReject) associated with the ExecFlagType
    */
-  void advanceMultiApps(ExecFlagType type);
+  void incrementMultiAppTStep(ExecFlagType type);
+
+  /**
+   * Deprecated method; use finishMultiAppStep and/or incrementMultiAppTStep depending
+   * on your purpose
+   */
+  void advanceMultiApps(ExecFlagType type)
+  {
+    mooseDeprecated("Deprecated method; use finishMultiAppStep and/or incrementMultiAppTStep "
+                    "depending on your purpose");
+    finishMultiAppStep(type);
+  }
+
+  /**
+   * Finish the MultiApp time step (endStep, postStep) associated with the ExecFlagType
+   */
+  void finishMultiAppStep(ExecFlagType type);
 
   /**
    * Backup the MultiApps associated with the ExecFlagType
@@ -1278,9 +1294,9 @@ public:
   ///@{
   /**
    * Convenience zeros
-   * @see ZeroInterface
    */
   std::vector<Real> _real_zero;
+  std::vector<VariableValue> _scalar_zero;
   std::vector<VariableValue> _zero;
   std::vector<VariableGradient> _grad_zero;
   std::vector<VariableSecond> _second_zero;

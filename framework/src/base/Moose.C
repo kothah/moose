@@ -170,9 +170,12 @@
 #include "VectorPostprocessorFunction.h"
 
 // materials
+#include "DerivativeParsedMaterial.h"
+#include "DerivativeSumMaterial.h"
 #include "GenericConstantMaterial.h"
 #include "GenericConstantRankTwoTensor.h"
 #include "GenericFunctionMaterial.h"
+#include "ParsedMaterial.h"
 #include "PiecewiseLinearInterpolationMaterial.h"
 
 // PPS
@@ -361,6 +364,7 @@
 #include "TransientMultiApp.h"
 #include "FullSolveMultiApp.h"
 #include "AutoPositionsMultiApp.h"
+#include "CentroidMultiApp.h"
 
 // Transfers
 #ifdef LIBMESH_TRILINOS_HAVE_DTK
@@ -379,6 +383,7 @@
 #include "MultiAppProjectionTransfer.h"
 #include "MultiAppPostprocessorToAuxScalarTransfer.h"
 #include "MultiAppScalarToAuxScalarTransfer.h"
+#include "MultiAppVectorPostprocessorTransfer.h"
 
 // Actions
 #include "AddBCAction.h"
@@ -443,6 +448,7 @@
 #include "AddNodalKernelAction.h"
 #include "MaterialDerivativeTestAction.h"
 #include "AddRelationshipManager.h"
+#include "MeshOnlyAction.h"
 
 // Outputs
 #ifdef LIBMESH_HAVE_EXODUS_API
@@ -502,8 +508,6 @@ const ExecFlagType EXEC_SAME_AS_MULTIAPP("SAME_AS_MULTIAPP");
 
 namespace Moose
 {
-
-static bool registered = false;
 
 void
 registerObjects(Factory & factory)
@@ -657,9 +661,12 @@ registerObjects(Factory & factory)
   registerFunction(VectorPostprocessorFunction);
 
   // materials
+  registerMaterial(DerivativeParsedMaterial);
+  registerMaterial(DerivativeSumMaterial);
   registerMaterial(GenericConstantMaterial);
   registerMaterial(GenericConstantRankTwoTensor);
   registerMaterial(GenericFunctionMaterial);
+  registerMaterial(ParsedMaterial);
   registerMaterial(PiecewiseLinearInterpolationMaterial);
 
   // PPS
@@ -821,6 +828,7 @@ registerObjects(Factory & factory)
   registerMultiApp(TransientMultiApp);
   registerMultiApp(FullSolveMultiApp);
   registerMultiApp(AutoPositionsMultiApp);
+  registerMultiApp(CentroidMultiApp);
 
   // time steppers
   registerTimeStepper(ConstantDT);
@@ -869,6 +877,7 @@ registerObjects(Factory & factory)
   registerTransfer(MultiAppProjectionTransfer);
   registerTransfer(MultiAppPostprocessorToAuxScalarTransfer);
   registerTransfer(MultiAppScalarToAuxScalarTransfer);
+  registerTransfer(MultiAppVectorPostprocessorTransfer);
 
 // Outputs
 #ifdef LIBMESH_HAVE_EXODUS_API
@@ -910,8 +919,6 @@ registerObjects(Factory & factory)
   // RelationshipManagers
   registerRelationshipManager(ElementSideNeighborLayers);
   registerRelationshipManager(ElementPointNeighbors);
-
-  registered = true;
 }
 
 void
@@ -1072,10 +1079,10 @@ addActionTypes(Syntax & syntax)
                            "(setup_mesh_complete)"
                            "(determine_system_type)"
                            "(create_problem)"
+                           "(setup_postprocessor_data)"
                            "(setup_time_integrator)"
                            "(setup_executioner)"
                            "(setup_predictor)"
-                           "(setup_postprocessor_data)"
                            "(init_displaced_problem)"
                            "(add_aux_variable, add_variable, add_elemental_field_variable)"
                            "(setup_variable_complete)"
@@ -1116,22 +1123,6 @@ addActionTypes(Syntax & syntax)
                            "(check_integrity)");
 }
 
-void
-populateMeshOnlyTasks(Syntax & syntax)
-{
-  syntax.addDependencySets("(meta_action)"
-                           "(set_global_params)"
-                           "(setup_mesh)"
-                           "(add_partitioner)"
-                           "(init_mesh)"
-                           "(prepare_mesh)"
-                           "(add_mesh_modifier)"
-                           "(execute_mesh_modifiers)"
-                           "(add_mortar_interface)"
-                           "(uniform_refine_mesh)"
-                           "(setup_mesh_complete)");
-}
-
 /**
  * Multiple Action class can be associated with a single input file section, in which case all
  * associated Actions will be created and "acted" on when the associated input file section is
@@ -1170,6 +1161,7 @@ registerActions(Syntax & syntax, ActionFactory & action_factory)
 
   registerAction(SetupPostprocessorDataAction, "setup_postprocessor_data");
 
+  registerAction(MeshOnlyAction, "mesh_only");
   registerAction(SetupMeshAction, "setup_mesh");
   registerAction(SetupMeshAction, "init_mesh");
   registerAction(SetupMeshCompleteAction, "prepare_mesh");
