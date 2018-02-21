@@ -73,6 +73,10 @@
 #include "CoupledEigenKernel.h"
 #include "ConsoleMessageKernel.h"
 #include "WrongJacobianDiffusion.h"
+#include "DeprecatedKernel.h"
+#include "ExpiredKernel.h"
+#include "RenamedKernel.h"
+
 #include "DefaultMatPropConsumerKernel.h"
 #include "DoNotCopyParametersKernel.h"
 #include "DriftDiffusionFluxAux.h"
@@ -92,6 +96,7 @@
 #include "FluxAverageAux.h"
 #include "OldMaterialAux.h"
 #include "DotCouplingAux.h"
+#include "ScalarDotCouplingAux.h"
 #include "VectorPostprocessorAux.h"
 #include "ExampleShapeElementKernel.h"
 #include "ExampleShapeElementKernel2.h"
@@ -410,6 +415,10 @@ MooseTestApp::registerObjects(Factory & factory)
   registerKernel(ExampleShapeElementKernel2);
   registerKernel(SimpleTestShapeElementKernel);
 
+  registerDeprecatedObject(ExpiredKernel, "01/01/2018 00:00");
+  registerDeprecatedObject(DeprecatedKernel, "01/01/2050 00:00");
+  registerRenamedObject("OldNamedKernel", RenamedKernel, "01/01/2050 00:00");
+
   // Aux kernels
   registerAux(DriftDiffusionFluxAux);
   registerAux(CoupledAux);
@@ -428,6 +437,7 @@ MooseTestApp::registerObjects(Factory & factory)
   registerAux(FluxAverageAux);
   registerAux(OldMaterialAux);
   registerAux(DotCouplingAux);
+  registerAux(ScalarDotCouplingAux);
   registerAux(VectorPostprocessorAux);
   registerAux(GhostAux);
   registerAux(FunctionGradAux);

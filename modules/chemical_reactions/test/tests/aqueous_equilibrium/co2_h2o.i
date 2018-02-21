@@ -16,6 +16,10 @@
 [AuxVariables]
   [./ph]
   [../]
+  [./total_h+]
+  [../]
+  [./total_hco3-]
+  [../]
 []
 
 [AuxKernels]
@@ -23,6 +27,20 @@
     type = PHAux
     variable = ph
     h_conc = h+
+  [../]
+  [./total_h+]
+    type = TotalConcentrationAux
+    variable = total_h+
+    primary_species = h+
+    v = 'oh- co3-- co2_aq'
+    sto_v = '-1 1 1'
+  [../]
+  [./total_hco3-]
+    type = TotalConcentrationAux
+    variable = total_hco3-
+    primary_species = hco3-
+    v = 'co2_aq co3--'
+    sto_v = '1 1'
   [../]
 []
 
@@ -95,6 +113,11 @@
     variable = co2_aq
     execute_on = 'initial timestep_end'
   [../]
+  [./co3--]
+    type = ElementIntegralVariablePostprocessor
+    variable = co3--
+    execute_on = 'initial timestep_end'
+  [../]
   [./oh-]
     type = ElementIntegralVariablePostprocessor
     variable = oh-
@@ -103,6 +126,16 @@
   [./ph]
     type = ElementIntegralVariablePostprocessor
     variable = ph
+    execute_on = 'initial timestep_end'
+  [../]
+  [./total_h+]
+    type = ElementIntegralVariablePostprocessor
+    variable = total_h+
+    execute_on = 'initial timestep_end'
+  [../]
+  [./total_hco3-]
+    type = ElementIntegralVariablePostprocessor
+    variable = total_hco3-
     execute_on = 'initial timestep_end'
   [../]
 []
