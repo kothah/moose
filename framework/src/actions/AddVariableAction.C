@@ -30,6 +30,8 @@
 // class static initialization
 const Real AddVariableAction::_abs_zero_tol = 1e-12;
 
+registerMooseAction("MooseApp", AddVariableAction, "add_variable");
+
 template <>
 InputParameters
 validParams<AddVariableAction>()
@@ -72,7 +74,7 @@ MooseEnum
 AddVariableAction::getNonlinearVariableFamilies()
 {
   return MooseEnum("LAGRANGE MONOMIAL HERMITE SCALAR HIERARCHIC CLOUGH XYZ SZABAB BERNSTEIN "
-                   "L2_LAGRANGE L2_HIERARCHIC",
+                   "L2_LAGRANGE L2_HIERARCHIC NEDELEC_ONE LAGRANGE_VEC",
                    "LAGRANGE");
 }
 

@@ -65,6 +65,8 @@ public:
    */
   const std::string & name() const { return _name; }
 
+  virtual void checkRegistryLabels();
+
   /**
    * Get printable name of the application.
    */
@@ -252,6 +254,8 @@ public:
    */
   Factory & getFactory() { return _factory; }
 
+  processor_id_type processor_id() { return cast_int<processor_id_type>(_comm->rank()); }
+
   /**
    * Retrieve the ActionFactory associated with this App.
    */
@@ -384,12 +388,16 @@ public:
    */
   void dynamicObjectRegistration(const std::string & app_name,
                                  Factory * factory,
-                                 std::string library_path);
-  void dynamicAppRegistration(const std::string & app_name, std::string library_path);
+                                 std::string library_path,
+                                 const std::string & library_name);
+  void dynamicAppRegistration(const std::string & app_name,
+                              std::string library_path,
+                              const std::string & library_name);
   void dynamicSyntaxAssociation(const std::string & app_name,
                                 Syntax * syntax,
                                 ActionFactory * action_factory,
-                                std::string library_path);
+                                std::string library_path,
+                                const std::string & library_name);
   ///@}
 
   /**
@@ -423,8 +431,9 @@ public:
    * @param data The actual data object.
    * @param tid The thread id of the object.  Use 0 if the object is not threaded.
    */
-  virtual void
-  registerRestartableData(std::string name, RestartableDataValue * data, THREAD_ID tid);
+  void registerRestartableData(std::string name,
+                               std::unique_ptr<RestartableDataValue> data,
+                               THREAD_ID tid);
 
   /**
    * Return reference to the restatable data object
@@ -577,7 +586,7 @@ protected:
    *
    * @param name The full (unique) name.
    */
-  virtual void registerRecoverableData(std::string name);
+  void registerRecoverableData(std::string name);
 
   /**
    * Runs post-initialization error checking that cannot be run correctly unless the simulation

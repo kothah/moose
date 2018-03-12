@@ -10,7 +10,9 @@
 #include "PiecewiseLinearInterpolationMaterial.h"
 
 // MOOSE includes
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
+
+registerMooseObject("MooseApp", PiecewiseLinearInterpolationMaterial);
 
 template <>
 InputParameters

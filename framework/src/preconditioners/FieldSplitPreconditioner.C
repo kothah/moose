@@ -14,13 +14,15 @@
 // MOOSE includes
 #include "FEProblem.h"
 #include "MooseEnum.h"
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
 #include "NonlinearSystem.h"
 #include "PetscSupport.h"
 
 #include "libmesh/libmesh_common.h"
 #include "libmesh/petsc_nonlinear_solver.h"
 #include "libmesh/coupling_matrix.h"
+
+registerMooseObjectAliased("MooseApp", FieldSplitPreconditioner, "FSP");
 
 template <>
 InputParameters

@@ -19,7 +19,7 @@
 #include "libmesh/enum_quadrature_type.h"
 
 // Forward declarations
-class MooseVariable;
+class MooseVariableFE;
 class AssemblyData;
 class DisplacedProblem;
 class MooseMesh;
@@ -52,13 +52,6 @@ public:
   const std::vector<std::string> & getDisplacementVarNames() const { return _displacements; }
 
   virtual void createQRules(QuadratureType type, Order order, Order volume_order, Order face_order);
-
-  /**
-   * Whether or not this problem should utilize FE shape function caching.
-   *
-   * @param fe_cache True for using the cache false for not.
-   */
-  virtual void useFECache(bool fe_cache) override;
 
   virtual void init() override;
   virtual void solve() override;
@@ -102,9 +95,12 @@ public:
   virtual Moose::CoordinateSystemType getCoordSystem(SubdomainID sid) override;
 
   // Variables /////
-  virtual bool hasVariable(const std::string & var_name) override;
-  virtual MooseVariable & getVariable(THREAD_ID tid, const std::string & var_name) override;
-  virtual bool hasScalarVariable(const std::string & var_name) override;
+  virtual bool hasVariable(const std::string & var_name) const override;
+  virtual MooseVariableFE & getVariable(THREAD_ID tid, const std::string & var_name) override;
+  virtual MooseVariable & getStandardVariable(THREAD_ID tid, const std::string & var_name) override;
+  virtual VectorMooseVariable & getVectorVariable(THREAD_ID tid,
+                                                  const std::string & var_name) override;
+  virtual bool hasScalarVariable(const std::string & var_name) const override;
   virtual MooseVariableScalar & getScalarVariable(THREAD_ID tid,
                                                   const std::string & var_name) override;
   virtual System & getSystem(const std::string & var_name) override;
@@ -227,7 +223,7 @@ public:
       GeometricSearchData::GeometricSearchType type = GeometricSearchData::ALL) override;
   virtual GeometricSearchData & geomSearchData() override { return _geometric_search_data; }
 
-  virtual bool computingInitialResidual() override;
+  virtual bool computingInitialResidual() const override;
 
   virtual void onTimestepBegin() override;
   virtual void onTimestepEnd() override;

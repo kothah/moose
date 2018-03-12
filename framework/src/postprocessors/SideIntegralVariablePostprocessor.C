@@ -9,6 +9,8 @@
 
 #include "SideIntegralVariablePostprocessor.h"
 
+registerMooseObject("MooseApp", SideIntegralVariablePostprocessor);
+
 template <>
 InputParameters
 validParams<SideIntegralVariablePostprocessor>()
@@ -22,7 +24,7 @@ validParams<SideIntegralVariablePostprocessor>()
 SideIntegralVariablePostprocessor::SideIntegralVariablePostprocessor(
     const InputParameters & parameters)
   : SideIntegralPostprocessor(parameters),
-    MooseVariableInterface(this, false),
+    MooseVariableInterface<Real>(this, false),
     _u(coupledValue("variable")),
     _grad_u(coupledGradient("variable"))
 {

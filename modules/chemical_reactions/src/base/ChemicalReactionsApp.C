@@ -28,6 +28,7 @@
 #include "KineticDisPreRateAux.h"
 #include "PHAux.h"
 #include "TotalConcentrationAux.h"
+#include "EquilibriumConstantAux.h"
 
 #include "AddPrimarySpeciesAction.h"
 #include "AddSecondarySpeciesAction.h"
@@ -101,6 +102,7 @@ ChemicalReactionsApp::registerObjects(Factory & factory)
   registerAux(KineticDisPreRateAux);
   registerAux(PHAux);
   registerAux(TotalConcentrationAux);
+  registerAux(EquilibriumConstantAux);
 
   registerBoundaryCondition(ChemicalOutFlowBC);
 
@@ -119,7 +121,8 @@ ChemicalReactionsApp__associateSyntax(Syntax & syntax, ActionFactory & action_fa
 void
 ChemicalReactionsApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
 {
-  registerSyntax("AddPrimarySpeciesAction", "ReactionNetwork");
+  registerSyntax("AddPrimarySpeciesAction", "ReactionNetwork/AqueousEquilibriumReactions");
+  registerSyntax("AddPrimarySpeciesAction", "ReactionNetwork/SolidKineticReactions");
   registerSyntax("AddSecondarySpeciesAction", "ReactionNetwork/AqueousEquilibriumReactions");
   registerSyntax("AddSecondarySpeciesAction", "ReactionNetwork/SolidKineticReactions");
   registerSyntax("AddCoupledEqSpeciesAction", "ReactionNetwork/AqueousEquilibriumReactions");

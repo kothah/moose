@@ -1,6 +1,10 @@
 # This file contains common MOOSE application settings
 # Note: MOOSE applications are assumed to reside in peer directories relative to MOOSE and its modules.
-#       This can be overridden by using the MOOSE_DIR environment variable
+#       This can be overridden by using the MOOSE_DIR environment variable.
+
+# This variable is used to determine whether a C++ header revision file is generated for use
+# in your application. You can turn it on/off by changing it in your application Makefile.
+GEN_REVISION ?= yes
 
 # list of application-wide excluded source files
 excluded_srcfiles :=
@@ -13,6 +17,7 @@ STACK := $(STACK).X
 $APPLICATION_DIR$(STACK) := $(APPLICATION_DIR)
 $APPLICATION_NAME$(STACK) := $(APPLICATION_NAME)
 $DEPEND_MODULES$(STACK) := $(DEPEND_MODULES)
+$GEN_REVISION$(STACK) := $(GEN_REVISION)
 $BUILD_EXEC$(STACK) := $(BUILD_EXEC)
 $DEP_APPS$(STACK) := $(DEP_APPS)
 
@@ -24,6 +29,7 @@ $DEP_APPS$(STACK) := $(DEP_APPS)
 APPLICATION_DIR := $($APPLICATION_DIR$(STACK))
 APPLICATION_NAME := $($APPLICATION_NAME$(STACK))
 DEPEND_MODULES := $($DEPEND_MODULES$(STACK))
+GEN_REVISION := $($GEN_REVISION$(STACK))
 BUILD_EXEC := $($BUILD_EXEC$(STACK))
 DEP_APPS := $($DEP_APPS$(STACK))
 STACK := $(basename $(STACK))
@@ -57,7 +63,9 @@ $(eval $(call unity_dir_rule, $(unity_src_dir)))
 # Exclude .libs... but also: exclude unity building src.
 # The idea here is that if all they have is src then it's a big jumble of stuff
 # that won't benefit from unity building
-non_unity_dirs := %.libs %/src
+# Also, exclude the base directory by default because it's another big jumble
+# of unrelated stuff
+non_unity_dirs := %.libs %/src %src/base $(app_non_unity_dirs)
 
 # Find all of the individual subdirectories
 # We will create a Unity file for each individual subdirectory
@@ -73,7 +81,7 @@ non_unity_srcsubdirs := $(filter $(non_unity_dirs), $(srcsubdirs))
 # Loop over the subdirectories, creating a rule to create the Unity source file
 # for each subdirectory.  To do that we need to create a unique name using the
 # full hierarchy of the path underneath src
-$(foreach srcsubdir,$(unity_srcsubdirs),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir)),$(shell find $(srcsubdir) -maxdepth 1 -type f -name "*.C"),$(srcsubdir),$(unity_src_dir))))
+$(foreach srcsubdir,$(unity_srcsubdirs),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir)),$(shell find $(srcsubdir) -maxdepth 1 \( -type f -o -type l \) -name "*.C"),$(srcsubdir),$(unity_src_dir))))
 
 # This creates the whole list of Unity source files so we can use it as a dependency
 app_unity_srcfiles = $(foreach srcsubdir,$(unity_srcsubdirs),$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir)))
@@ -82,10 +90,10 @@ app_unity_srcfiles = $(foreach srcsubdir,$(unity_srcsubdirs),$(call unity_unique
 unity_srcfiles += $(app_unity_srcfiles)
 
 # Pick up all of the additional files in the src directory since we're not unity building those
-files_in_src := $(filter-out %main.C, $(shell find $(APPLICATION_DIR)/src -maxdepth 1 -name "*.C" -type f))
+app_non_unity_srcfiles := $(filter-out %main.C, $(shell find $(non_unity_srcsubdirs) -maxdepth 1 \( -type f -o -type l \) -name "*.C"))
 
 # Override srcfiles
-srcfiles    := $(app_unity_srcfiles) $(if $(non_unity_src_subdirs), $(shell find $(non_unity_srcsubdirs) -name "*.C"),) $(files_in_src)
+srcfiles    := $(app_unity_srcfiles) $(app_non_unity_srcfiles)
 endif
 
 
@@ -188,9 +196,12 @@ header_symlinks:: $(all_header_dir) $(link_names)
 app_EXEC    := $(APPLICATION_DIR)/$(APPLICATION_NAME)-$(METHOD)
 
 # revision header
-CAMEL_CASE_NAME := $(shell echo $(APPLICATION_NAME) | perl -pe 's/(?:^|_)([a-z])/\u$$1/g')
-app_BASE_DIR    ?= base/
-app_HEADER      ?= $(APPLICATION_DIR)/include/$(app_BASE_DIR)$(CAMEL_CASE_NAME)Revision.h
+ifeq ($(GEN_REVISION),yes)
+  CAMEL_CASE_NAME := $(shell echo $(APPLICATION_NAME) | perl -pe 's/(?:^|_)([a-z])/\u$$1/g')
+  app_BASE_DIR    ?= base/
+  app_HEADER      ?= $(APPLICATION_DIR)/include/$(app_BASE_DIR)$(CAMEL_CASE_NAME)Revision.h
+endif
+
 # depend modules
 depend_libs  := $(foreach i, $(DEPEND_MODULES), $(MOOSE_DIR)/modules/$(i)/lib/lib$(i)-$(METHOD).la)
 
@@ -248,6 +259,8 @@ $(eval $(call CXX_RULE_TEMPLATE,_with$(app_LIB_SUFFIX)))
 
 ifeq ($(BUILD_EXEC),yes)
   all:: $(app_EXEC)
+else
+  all:: $(app_LIB)
 endif
 
 BUILD_EXEC :=
@@ -260,7 +273,7 @@ $(app_HEADER): curr_dir    := $(APPLICATION_DIR)
 $(app_HEADER): curr_app    := $(APPLICATION_NAME)
 $(app_HEADER): all_header_dir := $(all_header_dir)
 $(app_HEADER): $(app_HEADER_deps)
-	@echo "MOOSE Checking if header needs updating: "$@"..."
+	@echo "Checking if header needs updating: "$@"..."
 	$(shell $(FRAMEWORK_DIR)/scripts/get_repo_revision.py $(curr_dir) $@ $(curr_app))
 	@ln -sf $@ $(all_header_dir)
 

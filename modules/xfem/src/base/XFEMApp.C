@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "XFEMApp.h"
+#include "XFEMAppTypes.h"
 #include "SolidMechanicsApp.h"
 #include "TensorMechanicsApp.h"
 #include "Moose.h"
@@ -17,7 +18,6 @@
 #include "XFEMVolFracAux.h"
 #include "XFEMCutPlaneAux.h"
 #include "XFEMMarkerAux.h"
-#include "XFEMMarkerUserObject.h"
 #include "XFEMMaterialTensorMarkerUserObject.h"
 #include "XFEMRankTwoTensorMarkerUserObject.h"
 #include "XFEMAction.h"
@@ -36,6 +36,7 @@
 #include "CircleCutUserObject.h"
 #include "EllipseCutUserObject.h"
 #include "RectangleCutUserObject.h"
+#include "MeshCut3DUserObject.h"
 
 template <>
 InputParameters
@@ -100,7 +101,6 @@ XFEMApp::registerObjects(Factory & factory)
   registerConstraint(XFEMSingleVariableBC);
 
   // UserObjects
-  registerUserObject(XFEMMarkerUserObject);
   registerUserObject(XFEMMaterialTensorMarkerUserObject);
   registerUserObject(XFEMRankTwoTensorMarkerUserObject);
 
@@ -112,6 +112,7 @@ XFEMApp::registerObjects(Factory & factory)
   registerUserObject(CircleCutUserObject);
   registerUserObject(EllipseCutUserObject);
   registerUserObject(RectangleCutUserObject);
+  registerUserObject(MeshCut3DUserObject);
 
   // DiracKernels
   registerDiracKernel(XFEMPressure);
@@ -161,6 +162,7 @@ XFEMApp__registerExecFlags(Factory & factory)
   XFEMApp::registerExecFlags(factory);
 }
 void
-XFEMApp::registerExecFlags(Factory & /*factory*/)
+XFEMApp::registerExecFlags(Factory & factory)
 {
+  registerExecFlag(EXEC_XFEM_MARK);
 }

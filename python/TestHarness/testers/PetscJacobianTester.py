@@ -12,13 +12,14 @@ import re
 import math
 
 class PetscJacobianTester(RunApp):
-
     @staticmethod
     def validParams():
         params = RunApp.validParams()
         params.addParam('ratio_tol', 1e-8, "Relative tolerance to compare the ration against.")
         params.addParam('difference_tol', 1e-8, "Relative tolerance to compare the difference against.")
-
+        params.addParam('state', 'user', "The state for which we want to compare against the "
+                                         "finite-differenced Jacobian ('user', 'const_positive', or "
+                                         "'const_negative'.")
         return params
 
     def checkRunnable(self, options):
@@ -61,7 +62,20 @@ class PetscJacobianTester(RunApp):
             return False
 
     def processResults(self, moose_dir, options, output):
-        m = re.search("Norm of matrix ratio (\S+?),? difference (\S+) \(user-defined state\)", output, re.MULTILINE | re.DOTALL);
+        if self.specs['state'].lower() == 'user':
+            m = re.search("Norm of matrix ratio (\S+?),? difference (\S+) \(user-defined state\)",
+                          output, re.MULTILINE | re.DOTALL);
+        elif self.specs['state'].lower() == 'const_positive':
+            m = re.search("Norm of matrix ratio (\S+?),? difference (\S+) \(constant state 1\.0\)",
+                          output, re.MULTILINE | re.DOTALL);
+        elif self.specs['state'].lower() == 'const_negative':
+            m = re.search("Norm of matrix ratio (\S+?),? difference (\S+) \(constant state -1\.0\)",
+                          output, re.MULTILINE | re.DOTALL);
+        else:
+            self.setStatus("state must be either 'user', const_positive', or 'const_negative'",
+                           self.bucket_fail)
+            return output
+
         if m:
             if self.__compare(self.__strToFloat(m.group(1)), self.specs['ratio_tol']) and \
                self.__compare(self.__strToFloat(m.group(2)), self.specs['difference_tol']):

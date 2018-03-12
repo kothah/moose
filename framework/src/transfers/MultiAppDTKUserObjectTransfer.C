@@ -18,7 +18,9 @@
 // Moose Includes
 #include "MooseTypes.h"
 #include "FEProblem.h"
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
+
+registerMooseObject("MooseApp", MultiAppDTKUserObjectTransfer);
 
 template <>
 InputParameters
@@ -36,7 +38,7 @@ validParams<MultiAppDTKUserObjectTransfer>()
 
 MultiAppDTKUserObjectTransfer::MultiAppDTKUserObjectTransfer(const InputParameters & parameters)
   : MultiAppTransfer(parameters),
-    MooseVariableInterface(this, true),
+    MooseVariableInterface<Real>(this, true),
     _user_object_name(getParam<UserObjectName>("user_object")),
     _setup(false)
 {

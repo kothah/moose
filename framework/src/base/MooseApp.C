@@ -33,6 +33,7 @@
 #include "JsonInputFileFormatter.h"
 #include "SONDefinitionFormatter.h"
 #include "RelationshipManager.h"
+#include "Registry.h"
 
 // Regular expression includes
 #include "pcrecpp.h"
@@ -40,6 +41,7 @@
 #include "libmesh/exodusII_io.h"
 #include "libmesh/mesh_refinement.h"
 #include "libmesh/string_to_enum.h"
+#include "libmesh/checkpoint_io.h"
 
 // System include for dynamic library methods
 #include <dlfcn.h>
@@ -92,6 +94,10 @@ validParams<MooseApp>()
       "definition", "--definition", "Shows a SON style input definition dump for input validation");
   params.addCommandLineParam<std::string>(
       "dump", "--dump [search_string]", "Shows a dump of available input file syntax.");
+  params.addCommandLineParam<bool>(
+      "registry", "--registry", "Lists all known objects and actions.");
+  params.addCommandLineParam<bool>(
+      "registry_hit", "--registry-hit", "Lists all known objects and actions in hit format.");
   params.addCommandLineParam<std::string>(
       "yaml", "--yaml", "Dumps input file syntax in YAML format.");
   params.addCommandLineParam<std::string>(
@@ -130,6 +136,19 @@ validParams<MooseApp>()
       "--distributed-mesh",
       false,
       "The libMesh Mesh underlying MooseMesh should always be a DistributedMesh");
+
+  params.addCommandLineParam<std::string>(
+      "split_mesh",
+      "--split-mesh [splits]",
+      "comma-separated list of numbers of chunks to split the mesh into");
+
+  params.addCommandLineParam<std::string>("split_file",
+                                          "--split-file [filename]",
+                                          "",
+                                          "optional name of split mesh file(s) to write/read");
+
+  params.addCommandLineParam<bool>(
+      "use_split", "--use-split", false, "use split distributed mesh files");
 
   params.addCommandLineParam<unsigned int>(
       "refinements",
@@ -244,6 +263,8 @@ MooseApp::MooseApp(InputParameters parameters)
     _multiapp_number(
         isParamValid("_multiapp_number") ? parameters.get<unsigned int>("_multiapp_number") : 0)
 {
+  Registry::addKnownLabel(_type);
+
   if (isParamValid("_argc") && isParamValid("_argv"))
   {
     int argc = getParam<int>("_argc");
@@ -258,6 +279,12 @@ MooseApp::MooseApp(InputParameters parameters)
 
   if (_check_input && isParamValid("recover"))
     mooseError("Cannot run --check-input with --recover. Recover files might not exist");
+}
+
+void
+MooseApp::checkRegistryLabels()
+{
+  Registry::checkLabels();
 }
 
 MooseApp::~MooseApp()
@@ -416,6 +443,89 @@ MooseApp::setupOptions()
                << formatter.toString(tree.getRoot()) << "\n### END DUMP DATA ###\n";
     _ready_to_exit = true;
   }
+  else if (isParamValid("registry"))
+  {
+    Moose::out << "Label\tType\tName\tClass\tFile\n";
+
+    auto & objmap = Registry::allObjects();
+    for (auto & entry : objmap)
+    {
+      for (auto & obj : entry.second)
+      {
+        std::string name = obj._name;
+        if (name.empty())
+          name = obj._alias;
+        if (name.empty())
+          name = obj._classname;
+
+        Moose::out << entry.first << "\tobject\t" << name << "\t" << obj._classname << "\t"
+                   << obj._file << "\n";
+      }
+    }
+
+    auto & actmap = Registry::allActions();
+    for (auto & entry : actmap)
+    {
+      for (auto & act : entry.second)
+        Moose::out << entry.first << "\taction\t" << act._name << "\t" << act._classname << "\t"
+                   << act._file << "\n";
+    }
+
+    _ready_to_exit = true;
+  }
+  else if (isParamValid("registry_hit"))
+  {
+    Moose::out << "### START REGISTRY DATA ###\n";
+
+    hit::Section root("");
+    auto sec = new hit::Section("registry");
+    root.addChild(sec);
+    auto objsec = new hit::Section("objects");
+    sec->addChild(objsec);
+
+    auto & objmap = Registry::allObjects();
+    for (auto & entry : objmap)
+    {
+      for (auto & obj : entry.second)
+      {
+        std::string name = obj._name;
+        if (name.empty())
+          name = obj._alias;
+        if (name.empty())
+          name = obj._classname;
+
+        auto ent = new hit::Section("entry");
+        objsec->addChild(ent);
+        ent->addChild(new hit::Field("label", hit::Field::Kind::String, entry.first));
+        ent->addChild(new hit::Field("type", hit::Field::Kind::String, "object"));
+        ent->addChild(new hit::Field("name", hit::Field::Kind::String, name));
+        ent->addChild(new hit::Field("class", hit::Field::Kind::String, obj._classname));
+        ent->addChild(new hit::Field("file", hit::Field::Kind::String, obj._file));
+      }
+    }
+
+    auto actsec = new hit::Section("actions");
+    sec->addChild(actsec);
+    auto & actmap = Registry::allActions();
+    for (auto & entry : actmap)
+    {
+      for (auto & act : entry.second)
+      {
+        auto ent = new hit::Section("entry");
+        actsec->addChild(ent);
+        ent->addChild(new hit::Field("label", hit::Field::Kind::String, entry.first));
+        ent->addChild(new hit::Field("type", hit::Field::Kind::String, "action"));
+        ent->addChild(new hit::Field("task", hit::Field::Kind::String, act._name));
+        ent->addChild(new hit::Field("class", hit::Field::Kind::String, act._classname));
+        ent->addChild(new hit::Field("file", hit::Field::Kind::String, act._file));
+      }
+    }
+
+    Moose::out << root.render();
+
+    Moose::out << "\n### END REGISTRY DATA ###\n";
+    _ready_to_exit = true;
+  }
   else if (isParamValid("definition"))
   {
     Moose::perf_log.disable_logging();
@@ -511,6 +621,12 @@ MooseApp::setupOptions()
       _syntax.addDependency("mesh_only", "setup_mesh_complete");
       _action_warehouse.setFinalTask("mesh_only");
     }
+    else if (isParamValid("split_mesh"))
+    {
+      _syntax.registerTaskName("split_mesh", true);
+      _syntax.addDependency("split_mesh", "setup_mesh_complete");
+      _action_warehouse.setFinalTask("split_mesh");
+    }
     _action_warehouse.build();
   }
   else
@@ -547,17 +663,17 @@ MooseApp::runInputFile()
 
   _action_warehouse.executeAllActions();
 
-  if (isParamValid("mesh_only"))
+  if (isParamValid("mesh_only") || isParamValid("split_mesh"))
     _ready_to_exit = true;
   else if (getParam<bool>("list_constructed_objects"))
   {
     // TODO: ask multiapps for their constructed objects
+    _ready_to_exit = true;
     std::vector<std::string> obj_list = _factory.getConstructedObjects();
     Moose::out << "**START OBJECT DATA**\n";
     for (const auto & name : obj_list)
       Moose::out << name << "\n";
     Moose::out << "**END OBJECT DATA**\n" << std::endl;
-    _ready_to_exit = true;
   }
 }
 
@@ -812,24 +928,28 @@ MooseApp::libNameToAppName(const std::string & library_name) const
 }
 
 void
-MooseApp::registerRestartableData(std::string name, RestartableDataValue * data, THREAD_ID tid)
+MooseApp::registerRestartableData(std::string name,
+                                  std::unique_ptr<RestartableDataValue> data,
+                                  THREAD_ID tid)
 {
-  std::map<std::string, RestartableDataValue *> & restartable_data = _restartable_data[tid];
+  auto & restartable_data = _restartable_data[tid];
+  auto insert_pair = moose_try_emplace(restartable_data, name, std::move(data));
 
-  if (restartable_data.find(name) != restartable_data.end())
+  if (!insert_pair.second)
     mooseError("Attempted to declare restartable twice with the same name: ", name);
-
-  restartable_data[name] = data;
 }
 
 void
-MooseApp::dynamicAppRegistration(const std::string & app_name, std::string library_path)
+MooseApp::dynamicAppRegistration(const std::string & app_name,
+                                 std::string library_path,
+                                 const std::string & library_name)
 {
   Parameters params;
   params.set<std::string>("app_name") = app_name;
   params.set<RegistrationType>("reg_type") = APPLICATION;
   params.set<std::string>("registration_method") = app_name + "__registerApps";
   params.set<std::string>("library_path") = library_path;
+  params.set<std::string>("library_name") = library_name;
 
   dynamicRegistration(params);
 
@@ -855,13 +975,15 @@ MooseApp::dynamicAppRegistration(const std::string & app_name, std::string libra
 void
 MooseApp::dynamicObjectRegistration(const std::string & app_name,
                                     Factory * factory,
-                                    std::string library_path)
+                                    std::string library_path,
+                                    const std::string & library_name)
 {
   Parameters params;
   params.set<std::string>("app_name") = app_name;
   params.set<RegistrationType>("reg_type") = OBJECT;
   params.set<std::string>("registration_method") = app_name + "__registerObjects";
   params.set<std::string>("library_path") = library_path;
+  params.set<std::string>("library_name") = library_name;
 
   params.set<Factory *>("factory") = factory;
 
@@ -872,13 +994,15 @@ void
 MooseApp::dynamicSyntaxAssociation(const std::string & app_name,
                                    Syntax * syntax,
                                    ActionFactory * action_factory,
-                                   std::string library_path)
+                                   std::string library_path,
+                                   const std::string & library_name)
 {
   Parameters params;
   params.set<std::string>("app_name") = app_name;
   params.set<RegistrationType>("reg_type") = SYNTAX;
   params.set<std::string>("registration_method") = app_name + "__associateSyntax";
   params.set<std::string>("library_path") = library_path;
+  params.set<std::string>("library_name") = library_name;
 
   params.set<Syntax *>("syntax") = syntax;
   params.set<ActionFactory *>("action_factory") = action_factory;
@@ -889,8 +1013,12 @@ MooseApp::dynamicSyntaxAssociation(const std::string & app_name,
 void
 MooseApp::dynamicRegistration(const Parameters & params)
 {
-  // first convert the app name to a library name
-  std::string library_name = appNameToLibName(params.get<std::string>("app_name"));
+  std::string library_name;
+  // was library name provided by the user?
+  if (params.get<std::string>("library_name").empty())
+    library_name = appNameToLibName(params.get<std::string>("app_name"));
+  else
+    library_name = params.get<std::string>("library_name");
 
   // Create a vector of paths that we can search inside for libraries
   std::vector<std::string> paths;

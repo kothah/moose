@@ -11,9 +11,11 @@
 
 // MOOSE includes
 #include "Assembly.h"
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
 
 #include "libmesh/quadrature.h"
+
+registerMooseObject("MooseApp", MassLumpedTimeDerivative);
 
 template <>
 InputParameters

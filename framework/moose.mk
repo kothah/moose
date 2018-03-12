@@ -1,5 +1,5 @@
 # Whether or not to do a Unity build
-MOOSE_UNITY ?= false
+MOOSE_UNITY ?= true
 
 #
 # MOOSE
@@ -125,15 +125,16 @@ endef
 $(eval $(call unity_dir_rule, $(unity_src_dir)))
 
 # 1: the unity file to build
-# 2: the source files in that unity file
+# 2: the source files in that unity file (We sort these for consistent builds across platforms)
 # 3: The unity source directory
+# 4: The unity build area (for filtering out, not a dependency)
 # The "|" in the prereqs starts the beginning of "position dependent" prereqs
 # these are prereqs that must be run first - but their timestamp isn't used
 define unity_file_rule
 $(1):$(2) $(3) | $(4)
 	@echo Creating Unity $$@
 	$$(shell echo > $$@)
-	$$(foreach srcfile,$$(filter-out $(3) $(4),$$^),$$(shell echo '#include"$$(srcfile)"' >> $$@))
+	$$(foreach srcfile,$$(sort $$(filter-out $(3) $(4),$$^)),$$(shell echo '#include"$$(srcfile)"' >> $$@))
 endef
 
 # 1: The directory where the unity source files will go
@@ -155,7 +156,7 @@ unity_unique_name = $(1)/$(subst /,_,$(patsubst $(2)/%,%,$(patsubst $(2)/src/%,%
 # 4. Now that we have the name of the Unity file we need to find all of the .C files that should be #included in it
 # 4a. Use find to pick up all .C files
 # 4b. Make sure we don't pick up any _Unity.C files (we shouldn't have any anyway)
-$(foreach srcsubdir,$(unity_srcsubdirs),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(FRAMEWORK_DIR),$(srcsubdir)),$(shell find $(srcsubdir) -maxdepth 1 -type f -name "*.C"),$(srcsubdir),$(unity_src_dir))))
+$(foreach srcsubdir,$(unity_srcsubdirs),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(FRAMEWORK_DIR),$(srcsubdir)),$(shell find $(srcsubdir) -maxdepth 1 \( -type f -o -type l \) -name "*.C"),$(srcsubdir),$(unity_src_dir))))
 
 app_unity_srcfiles = $(foreach srcsubdir,$(unity_srcsubdirs),$(call unity_unique_name,$(unity_src_dir),$(FRAMEWORK_DIR),$(srcsubdir)))
 
@@ -186,12 +187,18 @@ moose_analyzer += $(patsubst %.cc, %.plist.$(obj-suffix), $(hit_srcfiles))
 app_INCLUDES := $(moose_INCLUDE) $(libmesh_INCLUDE)
 app_LIBS     := $(moose_LIBS)
 app_DIRS     := $(FRAMEWORK_DIR)
-all:: libmesh_submodule_status header_symlinks moose_revision moose
+
+moose_revision_header := $(FRAMEWORK_DIR)/include/base/MooseRevision.h
+
+all:: libmesh_submodule_status header_symlinks $(moose_revision_header) moose
 
 # revision header
-moose_revision_header = $(FRAMEWORK_DIR)/include/base/MooseRevision.h
-moose_revision:
-	@echo Regenerating MooseRevision
+moose_GIT_DIR := $(shell cd "$(FRAMEWORK_DIR)" && which git &> /dev/null && git rev-parse --show-toplevel)
+# Use wildcard in case the files don't exist
+moose_HEADER_deps := $(wildcard $(moose_GIT_DIR)/.git/HEAD $(moose_GIT_DIR)/.git/index)
+
+$(moose_revision_header): $(moose_HEADER_deps)
+	@echo "Checking if header needs updating: "$@"..."
 	$(shell $(FRAMEWORK_DIR)/scripts/get_repo_revision.py $(FRAMEWORK_DIR) \
 	  $(moose_revision_header) MOOSE)
 	@if [ ! -e "$(moose_all_header_dir)/MooseRevision.h" ]; then \

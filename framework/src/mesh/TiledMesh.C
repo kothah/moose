@@ -15,6 +15,8 @@
 #include "libmesh/serial_mesh.h"
 #include "libmesh/exodusII_io.h"
 
+registerMooseObject("MooseApp", TiledMesh);
+
 template <>
 InputParameters
 validParams<TiledMesh>()
@@ -79,6 +81,12 @@ MooseMesh &
 TiledMesh::clone() const
 {
   return *(new TiledMesh(*this));
+}
+
+std::string
+TiledMesh::getFileName() const
+{
+  return getParam<MeshFileName>("file");
 }
 
 void

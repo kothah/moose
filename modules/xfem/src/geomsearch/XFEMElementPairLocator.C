@@ -9,7 +9,7 @@
 
 #include "XFEMElementPairLocator.h"
 
-XFEMElementPairLocator::XFEMElementPairLocator(MooseSharedPointer<XFEM> xfem,
+XFEMElementPairLocator::XFEMElementPairLocator(std::shared_ptr<XFEM> xfem,
                                                unsigned int interface_id,
                                                bool use_displaced_mesh)
   : ElementPairLocator(interface_id), _xfem(xfem), _use_displaced_mesh(use_displaced_mesh)
@@ -80,6 +80,9 @@ XFEMElementPairLocator::reinit()
 
       _xfem->getXFEMIntersectionInfo(
           elem2, plane_id, normal2, intersectionPoints2, _use_displaced_mesh);
+
+      // reverse the order of intersectionPoints2
+      std::reverse(std::begin(intersectionPoints2), std::end(intersectionPoints2));
 
       if (intersectionPoints2.size() == 2)
         _xfem->getXFEMqRuleOnLine(intersectionPoints2, q_points2, weights2);

@@ -81,7 +81,8 @@ Token::str()
 }
 
 Lexer::Lexer(const std::string & name, const std::string & input) : _name(name), _input(input) {}
-std::vector<Token>
+
+std::vector<Token> &
 Lexer::tokens()
 {
   return _tokens;
@@ -103,6 +104,12 @@ Lexer::emit(TokType type)
   _tokens.push_back(Token(type, substr, _start, _line_count));
   _line_count += lineCount(substr);
   _start = _pos;
+}
+
+size_t
+Lexer::lastToken()
+{
+  return _tokens.back().offset + _tokens.back().val.size();
 }
 
 void
@@ -171,6 +178,8 @@ void
 Lexer::backup()
 {
   _pos -= _width;
+  if (_pos < _start)
+    _start = _pos;
 }
 
 std::string
@@ -237,6 +246,7 @@ consumeWhitespace(Lexer * l)
     if (l->pos() == start)
       break;
   }
+
   l->acceptRun(allspace);
   l->ignore();
   return l->pos() - start;
@@ -258,7 +268,7 @@ void
 lexComments(Lexer * l)
 {
   // The first comment in a file can't be an inline comment.
-  if (l->start() > 0)
+  if (l->start() > 0 && l->tokens().back().type != TokType::BlankLine)
   {
     l->acceptRun(space);
     l->ignore();
@@ -336,28 +346,39 @@ lexString(Lexer * l)
   l->ignore();
 
   if (!charIn(l->peek(), "'\""))
-    consumeUnquotedString(l);
-  else
   {
-    char quote = 0;
-    if (l->accept("\""))
-      quote = '"';
-    else if (l->accept("'"))
-      quote = '\'';
+    consumeUnquotedString(l);
+    l->emit(TokType::String);
+    return lexHit;
+  }
 
+  std::string quote = "";
+  if (l->peek() == '"')
+    quote = "\"";
+  else if (l->peek() == '\'')
+    quote = "'";
+
+  while (l->accept(quote))
+  {
     char c = l->input()[l->start()];
     char prev;
     while (true)
     {
       prev = c;
       c = l->next();
-      if (c == quote and prev != '\\')
+      if (c == quote[0] && prev != '\\')
         break;
       else if (c == '\0')
         return l->error("unterminated string");
     }
+    l->emit(TokType::String);
+    consumeWhitespace(l);
   }
-  l->emit(TokType::String);
+
+  // the peek condition is to prevent infinite loop if we have reached EOF
+  while (l->peek() && l->lastToken() < l->pos())
+    l->backup();
+
   return lexHit;
 }
 

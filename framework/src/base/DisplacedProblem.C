@@ -23,6 +23,8 @@
 
 #include "libmesh/numeric_vector.h"
 
+registerMooseObject("MooseApp", DisplacedProblem);
+
 template <>
 InputParameters
 validParams<DisplacedProblem>()
@@ -85,16 +87,6 @@ DisplacedProblem::createQRules(QuadratureType type,
 {
   for (unsigned int tid = 0; tid < libMesh::n_threads(); ++tid)
     _assembly[tid]->createQRules(type, order, volume_order, face_order);
-}
-
-void
-DisplacedProblem::useFECache(bool fe_cache)
-{
-  unsigned int n_threads = libMesh::n_threads();
-
-  for (unsigned int i = 0; i < n_threads; ++i)
-    _assembly[i]->useFECache(
-        fe_cache); // fe caching is turned off for now for the displaced system.
 }
 
 void
@@ -161,12 +153,7 @@ DisplacedProblem::updateMesh()
 {
   Moose::perf_log.push("updateDisplacedMesh()", "Execution");
 
-  unsigned int n_threads = libMesh::n_threads();
-
   syncSolutions();
-
-  for (unsigned int i = 0; i < n_threads; ++i)
-    _assembly[i]->invalidateCache();
 
   _nl_solution = _mproblem.getNonlinearSystemBase().currentSolution();
   _aux_solution = _mproblem.getAuxiliarySystem().currentSolution();
@@ -207,12 +194,7 @@ DisplacedProblem::updateMesh(const NumericVector<Number> & soln,
 {
   Moose::perf_log.push("updateDisplacedMesh()", "Execution");
 
-  unsigned int n_threads = libMesh::n_threads();
-
   syncSolutions(soln, aux_soln);
-
-  for (unsigned int i = 0; i < n_threads; ++i)
-    _assembly[i]->invalidateCache();
 
   _nl_solution = &soln;
   _aux_solution = &aux_soln;
@@ -237,7 +219,7 @@ DisplacedProblem::updateMesh(const NumericVector<Number> & soln,
 }
 
 bool
-DisplacedProblem::hasVariable(const std::string & var_name)
+DisplacedProblem::hasVariable(const std::string & var_name) const
 {
   if (_displaced_nl.hasVariable(var_name))
     return true;
@@ -247,7 +229,7 @@ DisplacedProblem::hasVariable(const std::string & var_name)
     return false;
 }
 
-MooseVariable &
+MooseVariableFE &
 DisplacedProblem::getVariable(THREAD_ID tid, const std::string & var_name)
 {
   if (_displaced_nl.hasVariable(var_name))
@@ -258,8 +240,30 @@ DisplacedProblem::getVariable(THREAD_ID tid, const std::string & var_name)
   return _displaced_aux.getVariable(tid, var_name);
 }
 
+MooseVariable &
+DisplacedProblem::getStandardVariable(THREAD_ID tid, const std::string & var_name)
+{
+  if (_displaced_nl.hasVariable(var_name))
+    return _displaced_nl.getFieldVariable<Real>(tid, var_name);
+  else if (!_displaced_aux.hasVariable(var_name))
+    mooseError("No variable with name '" + var_name + "'");
+
+  return _displaced_aux.getFieldVariable<Real>(tid, var_name);
+}
+
+VectorMooseVariable &
+DisplacedProblem::getVectorVariable(THREAD_ID tid, const std::string & var_name)
+{
+  if (_displaced_nl.hasVariable(var_name))
+    return _displaced_nl.getFieldVariable<RealVectorValue>(tid, var_name);
+  else if (!_displaced_aux.hasVariable(var_name))
+    mooseError("No variable with name '" + var_name + "'");
+
+  return _displaced_aux.getFieldVariable<RealVectorValue>(tid, var_name);
+}
+
 bool
-DisplacedProblem::hasScalarVariable(const std::string & var_name)
+DisplacedProblem::hasScalarVariable(const std::string & var_name) const
 {
   if (_displaced_nl.hasScalarVariable(var_name))
     return true;
@@ -745,10 +749,6 @@ DisplacedProblem::meshChanged()
   // Since the Mesh changed, update the PointLocator object used by DiracKernels.
   _dirac_kernel_info.updatePointLocator(_mesh);
 
-  unsigned int n_threads = libMesh::n_threads();
-
-  for (unsigned int i = 0; i < n_threads; ++i)
-    _assembly[i]->invalidateCache();
   _geometric_search_data.reinit();
 }
 
@@ -788,7 +788,7 @@ DisplacedProblem::converged()
 }
 
 bool
-DisplacedProblem::computingInitialResidual()
+DisplacedProblem::computingInitialResidual() const
 {
   return _mproblem.computingInitialResidual();
 }

@@ -21,6 +21,8 @@
 #include "libmesh/checkpoint_io.h"
 #include "libmesh/enum_xdr_mode.h"
 
+registerMooseObject("MooseApp", Checkpoint);
+
 template <>
 InputParameters
 validParams<Checkpoint>()
@@ -152,7 +154,7 @@ Checkpoint::updateCheckpointFiles(CheckpointFileNames file_struct)
       std::ostringstream oss;
       oss << delete_files.checkpoint;
       std::string file_name = oss.str();
-      CheckpointIO::cleanup(file_name, comm().size());
+      CheckpointIO::cleanup(file_name, _parallel_mesh ? comm().size() : 1);
     }
 
     // Delete the system files (xdr and xdr.0000, ...)

@@ -20,9 +20,8 @@ validParams<FunctionSeries>()
 {
   InputParameters params = validParams<MutableCoefficientsFunctionInterface>();
 
-  params.addClassDescription("This function uses a convolution of functional"
-                             " series (functional expansion or FX) to create a"
-                             " 1D, 2D, or 3D function");
+  params.addClassDescription("This function uses a convolution of functional series (functional "
+                             "expansion or FX) to create a 1D, 2D, or 3D function");
 
   // The available composite series types.
   //   Cartesian:      1D, 2D, or 3D, depending on which of x, y, and z are present
@@ -35,8 +34,8 @@ validParams<FunctionSeries>()
       "series_type", series_types, "The type of function series to construct.");
 
   /*
-   * This needs to use `unsigned int` instead of `std::size_t` because otherwise
-   * MOOSE errors at runtime
+   * This needs to use `unsigned int` instead of `std::size_t` because otherwise MOOSE errors at
+   * runtime
    */
   params.addRequiredParam<std::vector<unsigned int>>("orders",
                                                      "The order of each series. These must be "
@@ -61,7 +60,7 @@ validParams<FunctionSeries>()
 }
 
 FunctionSeries::FunctionSeries(const InputParameters & parameters)
-  : MutableCoefficientsFunctionInterface(this, this, parameters),
+  : MutableCoefficientsFunctionInterface(this, parameters),
     _orders(convertOrders(getParam<std::vector<unsigned int>>("orders"))),
     _physical_bounds(getParam<std::vector<Real>>("physical_bounds")),
     _series_type_name(getParam<MooseEnum>("series_type")),

@@ -18,9 +18,9 @@ include $(FRAMEWORK_DIR)/build.mk
 include $(FRAMEWORK_DIR)/moose.mk
 
 # dep apps
-APPLICATION_DIR    := $(MODULE_DIR)/phase_field
+APPLICATION_DIR    := $(MODULE_DIR)/module_loader
 APPLICATION_NAME   := module_loader
-DEP_APPS           := $(shell $(FRAMEWORK_DIR)/scripts/find_dep_apps.py $(APPLICATION_NAME))
+GEN_REVISION       := no
 include            $(FRAMEWORK_DIR)/app.mk
 
 ###############################################################################

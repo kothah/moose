@@ -11,7 +11,7 @@
 #include "Problem.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
 
 template <>
 InputParameters
@@ -49,22 +49,15 @@ BoundaryCondition::BoundaryCondition(const InputParameters & parameters, bool no
     PostprocessorInterface(this),
     VectorPostprocessorInterface(this),
     GeometricSearchInterface(this),
-    Restartable(parameters, "BCs"),
+    Restartable(this, "BCs"),
     MeshChangedInterface(parameters),
     _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
     _fe_problem(*getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
     _sys(*getCheckedPointerParam<SystemBase *>("_sys")),
     _tid(parameters.get<THREAD_ID>("_tid")),
     _assembly(_subproblem.assembly(_tid)),
-    _var(_sys.getVariable(_tid, parameters.get<NonlinearVariableName>("variable"))),
     _mesh(_subproblem.mesh())
 {
-}
-
-MooseVariable &
-BoundaryCondition::variable()
-{
-  return _var;
 }
 
 SubProblem &

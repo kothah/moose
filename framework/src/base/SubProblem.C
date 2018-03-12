@@ -13,7 +13,7 @@
 #include "Conversion.h"
 #include "Function.h"
 #include "MooseApp.h"
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
 #include "MooseArray.h"
 
 template <>
@@ -53,7 +53,7 @@ SubProblem::SubProblem(const InputParameters & parameters)
 SubProblem::~SubProblem() {}
 
 void
-SubProblem::setActiveElementalMooseVariables(const std::set<MooseVariable *> & moose_vars,
+SubProblem::setActiveElementalMooseVariables(const std::set<MooseVariableFE *> & moose_vars,
                                              THREAD_ID tid)
 {
   if (!moose_vars.empty())
@@ -63,14 +63,14 @@ SubProblem::setActiveElementalMooseVariables(const std::set<MooseVariable *> & m
   }
 }
 
-const std::set<MooseVariable *> &
-SubProblem::getActiveElementalMooseVariables(THREAD_ID tid)
+const std::set<MooseVariableFE *> &
+SubProblem::getActiveElementalMooseVariables(THREAD_ID tid) const
 {
   return _active_elemental_moose_variables[tid];
 }
 
 bool
-SubProblem::hasActiveElementalMooseVariables(THREAD_ID tid)
+SubProblem::hasActiveElementalMooseVariables(THREAD_ID tid) const
 {
   return _has_active_elemental_moose_variables[tid];
 }
@@ -90,13 +90,13 @@ SubProblem::setActiveMaterialProperties(const std::set<unsigned int> & mat_prop_
 }
 
 const std::set<unsigned int> &
-SubProblem::getActiveMaterialProperties(THREAD_ID tid)
+SubProblem::getActiveMaterialProperties(THREAD_ID tid) const
 {
   return _active_material_property_ids[tid];
 }
 
 bool
-SubProblem::hasActiveMaterialProperties(THREAD_ID tid)
+SubProblem::hasActiveMaterialProperties(THREAD_ID tid) const
 {
   return !_active_material_property_ids[tid].empty();
 }
@@ -296,19 +296,19 @@ SubProblem::diracKernelInfo()
 }
 
 Real
-SubProblem::finalNonlinearResidual()
+SubProblem::finalNonlinearResidual() const
 {
   return 0;
 }
 
 unsigned int
-SubProblem::nNonlinearIterations()
+SubProblem::nNonlinearIterations() const
 {
   return 0;
 }
 
 unsigned int
-SubProblem::nLinearIterations()
+SubProblem::nLinearIterations() const
 {
   return 0;
 }
@@ -405,24 +405,12 @@ SubProblem::checkMatProps(std::map<T, std::set<std::string>> & props,
 }
 
 unsigned int
-SubProblem::getAxisymmetricRadialCoord()
+SubProblem::getAxisymmetricRadialCoord() const
 {
   if (_rz_coord_axis == 0)
     return 1; // if the rotation axis is x (0), then the radial direction is y (1)
   else
     return 0; // otherwise the radial direction is assumed to be x, i.e., the rotation axis is y
-}
-
-void
-SubProblem::registerRestartableData(std::string name, RestartableDataValue * data, THREAD_ID tid)
-{
-  _app.registerRestartableData(this->name() + "/" + name, data, tid);
-}
-
-void
-SubProblem::registerRecoverableData(std::string name)
-{
-  _app.registerRecoverableData(this->name() + "/" + name);
 }
 
 // Anonymous namespace for local helper methods

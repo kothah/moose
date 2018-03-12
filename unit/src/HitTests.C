@@ -51,6 +51,7 @@ TEST(HitTests, FailCases)
       {"extra section close", "[]"},
       {"extra section close 2", "[../]"},
       {"empty  dotslash section name", "[./][]"},
+      {"mismatched consecutive string literal quotes", "foo='bar'\"baz\""},
   };
 
   for (size_t i = 0; i < sizeof(cases) / sizeof(PassFailCase); i++)
@@ -74,6 +75,8 @@ TEST(HitTests, PassCases)
       {"no whitespace between headers/footers", "[hello][]"},
       {"no whitespace with sections and fields", "[hello][world]foo=bar[]baz=42[]"},
       {"no leading ./ in sub-block", "[hello] [world] [] []"},
+      {"consecutive string literals", "foo='bar''baz'"},
+      {"no infinite loop", "foo='bar'\n\n "},
   };
 
   for (size_t i = 0; i < sizeof(cases) / sizeof(PassFailCase); i++)
@@ -188,6 +191,12 @@ TEST(HitTests, ParseFields)
        "foo",
        "hello\\nworld",
        hit::Field::Kind::String},
+      {"cosecutive string literal 1", "foo='bar''baz'", "foo", "barbaz", hit::Field::Kind::String},
+      {"cosecutive string literal 2",
+       "foo='bar'\n\n'baz'",
+       "foo",
+       "barbaz",
+       hit::Field::Kind::String},
   };
 
   for (size_t i = 0; i < sizeof(cases) / sizeof(ValCase); i++)
@@ -199,13 +208,14 @@ TEST(HitTests, ParseFields)
     auto n = root->find(test.key);
     if (!n)
     {
-      FAIL() << "case " << i + 1 << " failed to find key '" << test.key << "'\n";
+      FAIL() << "case " << i + 1 << " (" << test.name << ") failed to find key '" << test.key
+             << "'\n";
       continue;
     }
     if (n->strVal() != test.val)
     {
-      FAIL() << "case " << i + 1 << " wrong value (key=" << test.key << "): got '" << n->strVal()
-             << "', want '" << test.val << "'\n";
+      FAIL() << "case " << i + 1 << " (" << test.name << ") wrong value (key=" << test.key
+             << "): got '" << n->strVal() << "', want '" << test.val << "'\n";
       continue;
     }
 
@@ -313,15 +323,35 @@ struct RenderCase
   std::string name;
   std::string input;
   std::string output;
+  int maxlen;
 };
 
 TEST(HitTests, RenderCases)
 {
   RenderCase cases[] = {
-      {"root level fields", "foo=bar boo=far", "foo = bar\nboo = far"},
-      {"single section", "[foo]bar=baz[../]", "[foo]\n  bar = baz\n[../]"},
-      {"remove leading newline", "\n[foo]bar=baz[../]", "[foo]\n  bar = baz\n[../]"},
-      {"preserve consecutive newline", "[foo]\n\nbar=baz[../]", "[foo]\n\n  bar = baz\n[../]"},
+      {"root level fields", "foo=bar boo=far", "foo = bar\nboo = far", 0},
+      {"single section", "[foo]bar=baz[../]", "[foo]\n  bar = baz\n[../]", 0},
+      {"remove leading newline", "\n[foo]bar=baz[../]", "[foo]\n  bar = baz\n[../]", 0},
+      {"preserve consecutive newline", "[foo]\n\nbar=baz[../]", "[foo]\n\n  bar = baz\n[../]", 0},
+      {"reflow long string",
+       "foo='hello my name is joe and I work in a button factory'",
+       "foo = 'hello my name is joe '\n      'and I work in a '\n      'button factory'",
+       28},
+      {"don't reflow unquoted string", "foo=unquotedstring", "foo = unquotedstring", 5},
+      {"reflow unbroken string", "foo='longstring'", "foo = 'longst'\n      'ring'", 12},
+      {"reflow pre-broken strings",
+       "foo='why'\n' separate '  'strings?'",
+       "foo = 'why separate strings?'",
+       0},
+      {"preserve quotes preceding blankline", "foo = '42'\n\n", "foo = '42'\n", 0},
+      {"preserve block comment (#10889)",
+       "[hello]\n  foo = '42'\n\n  # comment\n  bar = 'baz'\n[]",
+       "[hello]\n  foo = '42'\n\n  # comment\n  bar = 'baz'\n[]",
+       0},
+      {"preserve block comment 2 (#10889)",
+       "[hello]\n  foo = '42'\n  # comment\n  bar = 'baz'\n[]",
+       "[hello]\n  foo = '42'\n  # comment\n  bar = 'baz'\n[]",
+       0},
   };
 
   for (size_t i = 0; i < sizeof(cases) / sizeof(RenderCase); i++)
@@ -332,13 +362,13 @@ TEST(HitTests, RenderCases)
     try
     {
       root = hit::parse("TESTCASE", test.input);
-      got = root->render();
+      got = root->render(0, "  ", test.maxlen);
     }
     catch (std::exception & err)
     {
       FAIL() << "case " << i + 1 << " FAIL (" << test.name << "): unexpected error: " << err.what();
     }
-    EXPECT_EQ(test.output, got) << "case " << i + 1 << " FAIL";
+    EXPECT_EQ(test.output, got) << "case " << i + 1 << " FAIL (" << test.name << ")";
   }
 }
 

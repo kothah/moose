@@ -12,11 +12,13 @@
 // MOOSE includes
 #include "AuxiliarySystem.h"
 #include "MooseMesh.h"
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
 
 #include "libmesh/numeric_vector.h"
 
 Threads::spin_mutex nodal_normals_corner_mutex;
+
+registerMooseObject("MooseApp", NodalNormalsCorner);
 
 template <>
 InputParameters

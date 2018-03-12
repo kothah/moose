@@ -24,7 +24,7 @@
 #include "ExecuteMooseObjectWarehouse.h"
 #include "AuxGroupExecuteMooseObjectWarehouse.h"
 #include "MaterialWarehouse.h"
-#include "MooseVariableBase.h"
+#include "MooseVariableField.h"
 #include "MultiAppTransfer.h"
 #include "Postprocessor.h"
 
@@ -69,7 +69,7 @@ class Function;
 class Distribution;
 class Sampler;
 class KernelBase;
-class IntegratedBC;
+class IntegratedBCBase;
 
 // libMesh forward declarations
 namespace libMesh
@@ -165,8 +165,9 @@ public:
 
   bool areCoupled(unsigned int ivar, unsigned int jvar);
 
-  std::vector<std::pair<MooseVariable *, MooseVariable *>> & couplingEntries(THREAD_ID tid);
-  std::vector<std::pair<MooseVariable *, MooseVariable *>> & nonlocalCouplingEntries(THREAD_ID tid);
+  std::vector<std::pair<MooseVariableFE *, MooseVariableFE *>> & couplingEntries(THREAD_ID tid);
+  std::vector<std::pair<MooseVariableFE *, MooseVariableFE *>> &
+  nonlocalCouplingEntries(THREAD_ID tid);
 
   /**
    * Check for converence of the nonlinear solution
@@ -217,9 +218,13 @@ public:
                                                               const Real dtol,
                                                               const PetscInt maxits);
 
-  virtual bool hasVariable(const std::string & var_name) override;
-  virtual MooseVariable & getVariable(THREAD_ID tid, const std::string & var_name) override;
-  virtual bool hasScalarVariable(const std::string & var_name) override;
+  virtual bool hasVariable(const std::string & var_name) const override;
+  virtual MooseVariableFE & getVariable(THREAD_ID tid, const std::string & var_name) override;
+  virtual MooseVariable & getStandardVariable(THREAD_ID tid, const std::string & var_name) override;
+  virtual VectorMooseVariable & getVectorVariable(THREAD_ID tid,
+                                                  const std::string & var_name) override;
+
+  virtual bool hasScalarVariable(const std::string & var_name) const override;
   virtual MooseVariableScalar & getScalarVariable(THREAD_ID tid,
                                                   const std::string & var_name) override;
   virtual System & getSystem(const std::string & var_name) override;
@@ -230,28 +235,13 @@ public:
    *
    * @param tid The thread id
    */
-  virtual void setActiveElementalMooseVariables(const std::set<MooseVariable *> & moose_vars,
+  virtual void setActiveElementalMooseVariables(const std::set<MooseVariableFE *> & moose_vars,
                                                 THREAD_ID tid) override;
 
   /**
-   * Get the MOOSE variables to be reinited on each element.
-   *
-   * @param tid The thread id
-   */
-  virtual const std::set<MooseVariable *> &
-  getActiveElementalMooseVariables(THREAD_ID tid) override;
-
-  /**
-   * Whether or not a list of active elemental moose variables has been set.
-   *
-   * @return True if there has been a list of active elemental moose variables set, False otherwise
-   */
-  virtual bool hasActiveElementalMooseVariables(THREAD_ID tid) override;
-
-  /**
-   * Clear the active elemental MooseVariable.  If there are no active variables then they will all
-   * be reinited.
-   * Call this after finishing the computation that was using a restricted set of MooseVariables
+   * Clear the active elemental MooseVariableFE.  If there are no active variables then they will
+   * all be reinited.
+   * Call this after finishing the computation that was using a restricted set of MooseVariableFEs
    *
    * @param tid The thread id
    */
@@ -265,23 +255,6 @@ public:
    */
   virtual void setActiveMaterialProperties(const std::set<unsigned int> & mat_prop_ids,
                                            THREAD_ID tid) override;
-
-  /**
-   * Get the material properties required by the current computing thread.
-   *
-   * @param tid The thread id
-   */
-  virtual const std::set<unsigned int> & getActiveMaterialProperties(THREAD_ID tid) override;
-
-  /**
-   * Method to check whether or not a list of active material roperties has been set. This method
-   * is called by reinitMaterials to determine whether Material computeProperties methods need to be
-   * called. If the return is False, this check prevents unnecessary material property computation
-   * @param tid The thread id
-   *
-   * @return True if there has been a list of active material properties set, False otherwise
-   */
-  virtual bool hasActiveMaterialProperties(THREAD_ID tid) override;
 
   /**
    * Clear the active material properties. Should be called at the end of every computing thread
@@ -315,9 +288,9 @@ public:
    */
   void checkNonlocalCoupling();
   void checkUserObjectJacobianRequirement(THREAD_ID tid);
-  void setVariableAllDoFMap(const std::vector<MooseVariable *> moose_vars);
+  void setVariableAllDoFMap(const std::vector<MooseVariableFE *> moose_vars);
 
-  const std::vector<MooseVariable *> & getUserObjectJacobianVariables(THREAD_ID tid) const
+  const std::vector<MooseVariableFE *> & getUserObjectJacobianVariables(THREAD_ID tid) const
   {
     return _uo_jacobian_moose_vars[tid];
   }
@@ -388,13 +361,6 @@ public:
   virtual void deleteAssemblyArray();
   virtual void initNullSpaceVectors(const InputParameters & parameters, NonlinearSystemBase & nl);
 
-  /**
-   * Whether or not this problem should utilize FE shape function caching.
-   *
-   * @param fe_cache True for using the cache false for not.
-   */
-  virtual void useFECache(bool fe_cache) override;
-
   virtual void init() override;
   virtual void solve() override;
 
@@ -424,10 +390,10 @@ public:
   virtual void checkExceptionAndStopSolve();
 
   virtual bool converged() override;
-  virtual unsigned int nNonlinearIterations() override;
-  virtual unsigned int nLinearIterations() override;
-  virtual Real finalNonlinearResidual() override;
-  virtual bool computingInitialResidual() override;
+  virtual unsigned int nNonlinearIterations() const override;
+  virtual unsigned int nLinearIterations() const override;
+  virtual Real finalNonlinearResidual() const override;
+  virtual bool computingInitialResidual() const override;
 
   /**
    * Returns true if we are in or beyond the initialSetup stage
@@ -656,7 +622,10 @@ public:
    *
    * @see AdvancedOutput::initPostprocessorOrVectorPostprocessorLists
    */
-  const ExecuteMooseObjectWarehouse<UserObject> & getUserObjects() { return _all_user_objects; }
+  const ExecuteMooseObjectWarehouse<UserObject> & getUserObjects() const
+  {
+    return _all_user_objects;
+  }
 
   /**
    * Get the user object by its name
@@ -664,7 +633,7 @@ public:
    * @return Const reference to the user object
    */
   template <class T>
-  const T & getUserObject(const std::string & name, unsigned int tid = 0)
+  const T & getUserObject(const std::string & name, unsigned int tid = 0) const
   {
     if (_all_user_objects.hasActiveObject(name, tid))
     {
@@ -680,14 +649,14 @@ public:
    * @param name The name of the user object being retrieved
    * @return Const reference to the user object
    */
-  const UserObject & getUserObjectBase(const std::string & name);
+  const UserObject & getUserObjectBase(const std::string & name) const;
 
   /**
    * Check if there if a user object of given name
    * @param name The name of the user object being checked for
    * @return true if the user object exists, false otherwise
    */
-  bool hasUserObject(const std::string & name);
+  bool hasUserObject(const std::string & name) const;
 
   /**
    * Check existence of the postprocessor.
@@ -698,6 +667,11 @@ public:
 
   /**
    * Get a reference to the value associated with the postprocessor.
+   * @param name The name of the post-processor
+   * @return The reference to the old value
+   *
+   * Note: This method cannot be marked const. It calls another interface, which creates maps space
+   * in a map on demand.
    */
   PostprocessorValue & getPostprocessorValue(const PostprocessorName & name);
 
@@ -705,6 +679,9 @@ public:
    * Get the reference to the old value of a post-processor
    * @param name The name of the post-processor
    * @return The reference to the old value
+   *
+   * Note: This method cannot be marked const. It calls another interface, which creates maps space
+   * in a map on demand.
    */
   PostprocessorValue & getPostprocessorValueOld(const std::string & name);
 
@@ -712,6 +689,9 @@ public:
    * Get the reference to the older value of a post-processor
    * @param name The name of the post-processor
    * @return The reference to the old value
+   *
+   * Note: This method cannot be marked const. It calls another interface, which creates maps space
+   * in a map on demand.
    */
   PostprocessorValue & getPostprocessorValueOlder(const std::string & name);
 
@@ -719,7 +699,7 @@ public:
    * Returns whether or not the current simulation has any multiapps
    */
   bool hasMultiApps() const { return _multi_apps.hasActiveObjects(); }
-  bool hasMultiApp(const std::string & name);
+  bool hasMultiApp(const std::string & name) const;
 
   /**
    * Check existence of the VectorPostprocessor.
@@ -796,7 +776,7 @@ public:
   /**
    * Get a MultiApp object by name.
    */
-  std::shared_ptr<MultiApp> getMultiApp(const std::string & multi_app_name);
+  std::shared_ptr<MultiApp> getMultiApp(const std::string & multi_app_name) const;
 
   /**
    * Get Transfers by ExecFlagType and direction
@@ -1202,13 +1182,13 @@ public:
   /*
    * Return a reference to the material warehouse of *all* Material objects.
    */
-  const MaterialWarehouse & getMaterialWarehouse() { return _all_materials; }
+  const MaterialWarehouse & getMaterialWarehouse() const { return _all_materials; }
 
   /*
    * Return a reference to the material warehouse of Material objects to be computed.
    */
-  const MaterialWarehouse & getComputeMaterialWarehouse() { return _materials; }
-  const MaterialWarehouse & getDiscreteMaterialWarehouse() { return _discrete_materials; }
+  const MaterialWarehouse & getComputeMaterialWarehouse() const { return _materials; }
+  const MaterialWarehouse & getDiscreteMaterialWarehouse() const { return _discrete_materials; }
 
   /**
    * Return a pointer to a Material object.  If no_warn is true, suppress
@@ -1231,14 +1211,17 @@ public:
    * Will return True if the user wants to get an error when
    * a nonzero is reallocated in the Jacobian by PETSc
    */
-  bool errorOnJacobianNonzeroReallocation() { return _error_on_jacobian_nonzero_reallocation; }
+  bool errorOnJacobianNonzeroReallocation() const
+  {
+    return _error_on_jacobian_nonzero_reallocation;
+  }
 
   void setErrorOnJacobianNonzeroReallocation(bool state)
   {
     _error_on_jacobian_nonzero_reallocation = state;
   }
 
-  bool ignoreZerosInJacobian() { return _ignore_zeros_in_jacobian; }
+  bool ignoreZerosInJacobian() const { return _ignore_zeros_in_jacobian; }
 
   void setIgnoreZerosInJacobian(bool state) { _ignore_zeros_in_jacobian = state; }
 
@@ -1284,7 +1267,7 @@ public:
    * Check to see whether we need to compute the variable values of the previous Newton iterate
    * @return true if the user required values of the previous Newton iterate
    */
-  bool needsPreviousNewtonIteration();
+  bool needsPreviousNewtonIteration() const;
 
   /**
    * Whether or not to skip loading the additional data when restarting
@@ -1302,6 +1285,8 @@ public:
   std::vector<VariableSecond> _second_zero;
   std::vector<VariablePhiSecond> _second_phi_zero;
   std::vector<Point> _point_zero;
+  std::vector<VectorVariableValue> _vector_zero;
+  std::vector<VectorVariableCurl> _vector_curl_zero;
   ///@}
 
   /**
@@ -1380,7 +1365,7 @@ protected:
   MooseObjectWarehouse<KernelBase> _nonlocal_kernels;
 
   /// nonlocal integrated_bcs
-  MooseObjectWarehouse<IntegratedBC> _nonlocal_integrated_bcs;
+  MooseObjectWarehouse<IntegratedBCBase> _nonlocal_integrated_bcs;
 
   ///@{
   /// Initial condition storage
@@ -1532,7 +1517,7 @@ protected:
   bool _has_nonlocal_coupling;
   bool _calculate_jacobian_in_uo;
 
-  std::vector<std::vector<MooseVariable *>> _uo_jacobian_moose_vars;
+  std::vector<std::vector<MooseVariableFE *>> _uo_jacobian_moose_vars;
 
   SolverParams _solver_params;
 
@@ -1583,6 +1568,9 @@ private:
 
   /// At or beyond initialSteup stage
   bool _started_initial_setup;
+
+  /// Whether the problem has dgkernels or interface kernels
+  bool _has_internal_edge_residual_objects;
 
   friend class AuxiliarySystem;
   friend class NonlinearSystemBase;

@@ -23,16 +23,14 @@ InputParameters validParams<MutableCoefficientsInterface>();
 
 /**
  * This class is designed to provide a uniform interface for any class that uses an array of
- * coefficients for any of its operations. In particular, the MultiAppMutableCoefficientsTransfer
- * mechanism transfers coefficients using this interface. Any derived class of
- * MutableCoefficientsInterface can easily be used in any MultiAppMutableCoefficientsTransfer-
- * based transfer.
+ * coefficients for any of its operations. In particular, the MultiAppFXTransfer mechanism transfers
+ * coefficients using this interface. Any derived class of MutableCoefficientsInterface can easily
+ * be used in any MultiAppFXTransfer-based transfer.
  */
-class MutableCoefficientsInterface
+class MutableCoefficientsInterface : public Restartable
 {
 public:
   MutableCoefficientsInterface(const MooseObject * moose_object,
-                               Restartable * restartable,
                                const InputParameters & parameters);
 
   // Coefficient access

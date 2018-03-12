@@ -13,7 +13,7 @@
 #include "MooseError.h"
 #include "MooseMesh.h"
 #include "MooseUtils.h"
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
 #include "RotationMatrix.h"
 
 #include "libmesh/equation_systems.h"
@@ -24,6 +24,8 @@
 #include "libmesh/parallel_mesh.h"
 #include "libmesh/serial_mesh.h"
 #include "libmesh/exodusII_io.h"
+
+registerMooseObject("MooseApp", SolutionUserObject);
 
 template <>
 InputParameters

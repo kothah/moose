@@ -21,8 +21,12 @@ class MooseMesh;
 class SubProblem;
 class Factory;
 class Assembly;
-class MooseVariable;
+class MooseVariableFE;
 class MooseVariableScalar;
+template <typename>
+class MooseVariableField;
+typedef MooseVariableField<Real> MooseVariable;
+typedef MooseVariableField<RealVectorValue> VectorMooseVariable;
 class RestartableDataValue;
 
 // libMesh forward declarations
@@ -56,13 +60,6 @@ public:
 
   virtual bool checkNonlocalCouplingRequirement() { return _requires_nonlocal_coupling; }
 
-  /**
-   * Whether or not this problem should utilize FE shape function caching.
-   *
-   * @param fe_cache True for using the cache false for not.
-   */
-  virtual void useFECache(bool fe_cache) = 0;
-
   virtual void solve() = 0;
   virtual bool converged() = 0;
 
@@ -72,13 +69,19 @@ public:
   virtual bool isTransient() const = 0;
 
   // Variables /////
-  virtual bool hasVariable(const std::string & var_name) = 0;
+  virtual bool hasVariable(const std::string & var_name) const = 0;
 
   /// Returns the variable reference for requested variable which may be in any system
-  virtual MooseVariable & getVariable(THREAD_ID tid, const std::string & var_name) = 0;
+  virtual MooseVariableFE & getVariable(THREAD_ID tid, const std::string & var_name) = 0;
+
+  /// Returns the variable reference for requested MooseVariable which may be in any system
+  virtual MooseVariable & getStandardVariable(THREAD_ID tid, const std::string & var_name) = 0;
+
+  /// Returns the variable reference for requested VectorMooseVariable which may be in any system
+  virtual VectorMooseVariable & getVectorVariable(THREAD_ID tid, const std::string & var_name) = 0;
 
   /// Returns a Boolean indicating whether any system contains a variable with the name provided
-  virtual bool hasScalarVariable(const std::string & var_name) = 0;
+  virtual bool hasScalarVariable(const std::string & var_name) const = 0;
 
   /// Returns the scalar variable reference from whichever system contains it
   virtual MooseVariableScalar & getScalarVariable(THREAD_ID tid, const std::string & var_name) = 0;
@@ -92,7 +95,7 @@ public:
    *
    * @param tid The thread id
    */
-  virtual void setActiveElementalMooseVariables(const std::set<MooseVariable *> & moose_vars,
+  virtual void setActiveElementalMooseVariables(const std::set<MooseVariableFE *> & moose_vars,
                                                 THREAD_ID tid);
 
   /**
@@ -100,19 +103,19 @@ public:
    *
    * @param tid The thread id
    */
-  virtual const std::set<MooseVariable *> & getActiveElementalMooseVariables(THREAD_ID tid);
+  virtual const std::set<MooseVariableFE *> & getActiveElementalMooseVariables(THREAD_ID tid) const;
 
   /**
    * Whether or not a list of active elemental moose variables has been set.
    *
    * @return True if there has been a list of active elemental moose variables set, False otherwise
    */
-  virtual bool hasActiveElementalMooseVariables(THREAD_ID tid);
+  virtual bool hasActiveElementalMooseVariables(THREAD_ID tid) const;
 
   /**
-   * Clear the active elemental MooseVariable.  If there are no active variables then they will all
-   * be reinited.
-   * Call this after finishing the computation that was using a restricted set of MooseVariables
+   * Clear the active elemental MooseVariableFE.  If there are no active variables then they will
+   * all be reinited.
+   * Call this after finishing the computation that was using a restricted set of MooseVariableFEs
    *
    * @param tid The thread id
    */
@@ -132,7 +135,7 @@ public:
    *
    * @param tid The thread id
    */
-  virtual const std::set<unsigned int> & getActiveMaterialProperties(THREAD_ID tid);
+  virtual const std::set<unsigned int> & getActiveMaterialProperties(THREAD_ID tid) const;
 
   /**
    * Method to check whether or not a list of active material roperties has been set. This method
@@ -142,7 +145,7 @@ public:
    *
    * @return True if there has been a list of active material properties set, False otherwise
    */
-  virtual bool hasActiveMaterialProperties(THREAD_ID tid);
+  virtual bool hasActiveMaterialProperties(THREAD_ID tid) const;
 
   /**
    * Clear the active material properties. Should be called at the end of every computing thread
@@ -161,12 +164,12 @@ public:
    * Returns the desired radial direction for RZ coordinate transformation
    * @return The coordinate direction for the radial direction
    */
-  unsigned int getAxisymmetricRadialCoord();
+  unsigned int getAxisymmetricRadialCoord() const;
 
   virtual DiracKernelInfo & diracKernelInfo();
-  virtual Real finalNonlinearResidual();
-  virtual unsigned int nNonlinearIterations();
-  virtual unsigned int nLinearIterations();
+  virtual Real finalNonlinearResidual() const;
+  virtual unsigned int nNonlinearIterations() const;
+  virtual unsigned int nLinearIterations() const;
 
   virtual void addResidual(THREAD_ID tid) = 0;
   virtual void addResidualNeighbor(THREAD_ID tid) = 0;
@@ -387,24 +390,13 @@ public:
    * Returns true if the problem is in the process of computing it's initial residual.
    * @return Whether or not the problem is currently computing the initial residual.
    */
-  virtual bool computingInitialResidual() = 0;
+  virtual bool computingInitialResidual() const = 0;
 
   /**
    * Return the list of elements that should have their DoFs ghosted to this processor.
    * @return The list
    */
   virtual std::set<dof_id_type> & ghostedElems() { return _ghosted_elems; }
-
-  /**
-   * Register a piece of restartable data.  This is data that will get
-   * written / read to / from a restart file.
-   *
-   * @param name The full (unique) name.
-   * @param data The actual data object.
-   * @param tid The thread id of the object.  Use 0 if the object is not threaded.
-   */
-  virtual void
-  registerRestartableData(std::string name, RestartableDataValue * data, THREAD_ID tid);
 
   std::map<std::string, std::vector<dof_id_type>> _var_dof_map;
   const CouplingMatrix & nonlocalCouplingMatrix() const { return _nonlocal_cm; }
@@ -451,8 +443,8 @@ protected:
   std::map<BoundaryID, std::multimap<std::string, std::string>> _map_boundary_material_props_check;
   ///@}
 
-  /// This is the set of MooseVariables that will actually get reinited by a call to reinit(elem)
-  std::vector<std::set<MooseVariable *>> _active_elemental_moose_variables;
+  /// This is the set of MooseVariableFEs that will actually get reinited by a call to reinit(elem)
+  std::vector<std::set<MooseVariableFE *>> _active_elemental_moose_variables;
 
   /// Whether or not there is currently a list of active elemental moose variables
   /* This needs to remain <unsigned int> for threading purposes */
@@ -489,18 +481,6 @@ private:
   void checkMatProps(std::map<T, std::set<std::string>> & props,
                      std::map<T, std::multimap<std::string, std::string>> & check_props,
                      std::map<T, std::set<MaterialPropertyName>> & zero_props);
-
-  /**
-   * NOTE: This is an internal function meant for MOOSE use only!
-   *
-   * Register a piece of recoverable data.  This is data that will get
-   * written / read to / from a restart file.
-   *
-   * However, this data will ONLY get read from the restart file during a RECOVERY operation!
-   *
-   * @param name The full (unique) name.
-   */
-  virtual void registerRecoverableData(std::string name);
 
   ///@{ Helper functions for checkMatProps
   template <typename T>

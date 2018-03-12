@@ -26,7 +26,7 @@ SinglePhaseFluidProperties::SinglePhaseFluidProperties(const InputParameters & p
 SinglePhaseFluidProperties::~SinglePhaseFluidProperties() {}
 
 Real
-SinglePhaseFluidProperties::gamma(Real v, Real u) const
+SinglePhaseFluidProperties::gamma_from_v_e(Real v, Real e) const
 {
-  return cp(v, u) / cv(v, u);
+  return cp_from_v_e(v, e) / cv_from_v_e(v, e);
 }

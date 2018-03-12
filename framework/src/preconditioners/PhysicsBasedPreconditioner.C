@@ -13,7 +13,7 @@
 #include "ComputeJacobianBlocksThread.h"
 #include "FEProblem.h"
 #include "MooseEnum.h"
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
 #include "NonlinearSystem.h"
 #include "PetscSupport.h"
 
@@ -27,6 +27,8 @@
 #include "libmesh/sparse_matrix.h"
 #include "libmesh/string_to_enum.h"
 #include "libmesh/coupling_matrix.h"
+
+registerMooseObjectAliased("MooseApp", PhysicsBasedPreconditioner, "PBP");
 
 template <>
 InputParameters

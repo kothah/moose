@@ -9,6 +9,8 @@
 
 #include "ElementIntegralVariableUserObject.h"
 
+registerMooseObject("MooseApp", ElementIntegralVariableUserObject);
+
 template <>
 InputParameters
 validParams<ElementIntegralVariableUserObject>()
@@ -21,7 +23,7 @@ validParams<ElementIntegralVariableUserObject>()
 ElementIntegralVariableUserObject::ElementIntegralVariableUserObject(
     const InputParameters & parameters)
   : ElementIntegralUserObject(parameters),
-    MooseVariableInterface(this, false),
+    MooseVariableInterface<Real>(this, false),
     _u(coupledValue("variable")),
     _grad_u(coupledGradient("variable"))
 {

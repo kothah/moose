@@ -10,7 +10,7 @@
 // MOOSE includes
 #include "Indicator.h"
 #include "Assembly.h"
-#include "MooseVariable.h"
+#include "MooseVariableField.h"
 #include "Problem.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
@@ -46,7 +46,7 @@ Indicator::Indicator(const InputParameters & parameters)
     SetupInterface(this),
     FunctionInterface(this),
     UserObjectInterface(this),
-    Restartable(parameters, "Indicators"),
+    Restartable(this, "Indicators"),
     OutputInterface(parameters),
     MaterialPropertyInterface(this, blockIDs()),
     _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),

@@ -68,6 +68,10 @@ validParams<MultiApp>()
                                "Path to search for dynamic libraries (please "
                                "avoid committing absolute paths in addition to "
                                "MOOSE_LIBRARY_PATH)");
+  params.addParam<std::string>(
+      "library_name",
+      "",
+      "The file name of the library (*.la file) that will be dynamically loaded.");
   params.addParam<std::vector<Point>>(
       "positions",
       "The positions of the App locations.  Each set of 3 values will represent a "
@@ -139,7 +143,7 @@ validParams<MultiApp>()
 MultiApp::MultiApp(const InputParameters & parameters)
   : MooseObject(parameters),
     SetupInterface(this),
-    Restartable(parameters, "MultiApps"),
+    Restartable(this, "MultiApps"),
     _fe_problem(*getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
     _app_type(isParamValid("app_type") ? std::string(getParam<MooseEnum>("app_type"))
                                        : _fe_problem.getMooseApp().type()),
@@ -198,7 +202,8 @@ MultiApp::initialSetup()
 
   // If the user provided an unregistered app type, see if we can load it dynamically
   if (!AppFactory::instance().isRegistered(_app_type))
-    _app.dynamicAppRegistration(_app_type, getParam<std::string>("library_path"));
+    _app.dynamicAppRegistration(
+        _app_type, getParam<std::string>("library_path"), getParam<std::string>("library_name"));
 
   for (unsigned int i = 0; i < _my_num_apps; i++)
     createApp(i, _app.getGlobalTimeOffset());
