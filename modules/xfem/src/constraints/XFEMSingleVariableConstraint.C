@@ -65,7 +65,7 @@ XFEMSingleVariableConstraint::computeQpResidual(Moose::DGResidualType type)
               0.5 * _grad_u_neighbor[_qp] * _interface_normal) * 
               _test[_i][_qp];
         r -= (_u[_qp] - _u_neighbor[_qp]) * 0.5 * _grad_test[_i][_qp] * _interface_normal;
-        r += 0.5 * _grad_test[_i][_qp] * _interface_normal * _jump
+        r += 0.5 * _grad_test[_i][_qp] * _interface_normal * _jump;
       }
       r += 0.5 * _test[_i][_qp] * _jump_flux;
       r += (_alpha / _current_elem->hmax()) * (_u[_qp] - _u_neighbor[_qp] - _jump) * _test[_i][_qp];
@@ -77,7 +77,7 @@ XFEMSingleVariableConstraint::computeQpResidual(Moose::DGResidualType type)
             0.5 * _grad_u_neighbor[_qp] * _interface_normal) *
             _test_neighbor[_i][_qp];
         r -= (_u[_qp] - _u_neighbor[_qp]) * 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal;
-        r += 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal * _jump
+        r += 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal * _jump;
       }
       r += 0.5 * _test_neighbor[_i][_qp] * _jump_flux;
       r -= (_alpha / _neighbor_elem->hmax()) * (_u[_qp] - _u_neighbor[_qp] - _jump) *

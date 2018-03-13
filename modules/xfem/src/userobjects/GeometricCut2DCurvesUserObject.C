@@ -34,16 +34,10 @@ GeometricCut2DCurvesUserObject::GeometricCut2DCurvesUserObject(const InputParame
   _cut_time_ranges.push_back(std::make_pair(0.0, 0.0));
 }
 
-bool GeometricCut2DCurvesUserObject::active(Real /*time*/) const
-{
-  // the current arc interfaces don't change with time
-  return true;
-}
-
 bool
 GeometricCut2DCurvesUserObject::cutElementByGeometry(const Elem * elem,
-                                                     std::vector<CutEdge> & cut_edges,
-                                                     std::vector<CutNode> & cut_nodes,
+                                                     std::vector<Xfem::CutEdge> & cut_edges,
+                                                     std::vector<Xfem::CutNode> & cut_nodes,
                                                      Real /*time*/) const
 {
   bool cut_elem = false;
@@ -70,19 +64,19 @@ GeometricCut2DCurvesUserObject::cutElementByGeometry(const Elem * elem,
       if (seg_int_frac > Xfem::tol && seg_int_frac < 1.0 - Xfem::tol)
       {
         cut_elem = true;
-        CutEdge mycut;
-        mycut.id1 = node1->id();
-        mycut.id2 = node2->id();
-        mycut.distance = seg_int_frac;
-        mycut.host_side_id = i;
+        Xfem::CutEdge mycut;
+        mycut._id1 = node1->id();
+        mycut._id2 = node2->id();
+        mycut._distance = seg_int_frac;
+        mycut._host_side_id = i;
         cut_edges.push_back(mycut);
       }
       else if (seg_int_frac < Xfem::tol)
       {
         cut_elem = true;
-        CutNode mycut;
-        mycut.id = node1->id();
-        mycut.host_id = i;
+        Xfem::CutNode mycut;
+        mycut._id = node1->id();
+        mycut._host_id = i;
         cut_nodes.push_back(mycut);
       }
     }
@@ -93,7 +87,7 @@ GeometricCut2DCurvesUserObject::cutElementByGeometry(const Elem * elem,
 
 bool
 GeometricCut2DCurvesUserObject::cutElementByGeometry(const Elem * /*elem*/,
-                                                     std::vector<CutFace> & /*cut_faces*/,
+                                                     std::vector<Xfem::CutFace> & /*cut_faces*/,
                                                      Real /*time*/) const
 {
   mooseError("Invalid method: must use vector of element edges for 2D mesh cutting");
@@ -103,7 +97,7 @@ GeometricCut2DCurvesUserObject::cutElementByGeometry(const Elem * /*elem*/,
 bool
 GeometricCut2DCurvesUserObject::cutFragmentByGeometry(
     std::vector<std::vector<Point>> & /*frag_edges*/,
-    std::vector<CutEdge> & /*cut_edges*/,
+    std::vector<Xfem::CutEdge> & /*cut_edges*/,
     Real /*time*/) const
 {
   bool cut_elem = false;
@@ -115,7 +109,7 @@ GeometricCut2DCurvesUserObject::cutFragmentByGeometry(
 bool
 GeometricCut2DCurvesUserObject::cutFragmentByGeometry(
     std::vector<std::vector<Point>> & /*frag_faces*/,
-    std::vector<CutFace> & /*cut_faces*/,
+    std::vector<Xfem::CutFace> & /*cut_faces*/,
     Real /*time*/) const
 {
   mooseError("Invalid method: must use vector of element edges for 2D mesh cutting");
