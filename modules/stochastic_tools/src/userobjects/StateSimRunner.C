@@ -10,6 +10,8 @@
 #include "StateSimRunner.h"
 #include <string>
 
+registerMooseObject("StochasticToolsApp", StateSimRunner);
+
 template <>
 InputParameters
 validParams<StateSimRunner>()
@@ -27,7 +29,7 @@ StateSimRunner::StateSimRunner(const InputParameters & parameters)
     _next_state_time(-1),
     _ran_state_sim(false)
 {
-  //_state_sim.setMaxTime(_dt_max); todo
+  mooseDeprecated("The StateSimRunner will be removed.");
   _next_state_time = _state_sim.nextTime();
 }
 

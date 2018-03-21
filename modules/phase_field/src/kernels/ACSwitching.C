@@ -9,6 +9,8 @@
 
 #include "ACSwitching.h"
 
+registerMooseObject("PhaseFieldApp", ACSwitching);
+
 template <>
 InputParameters
 validParams<ACSwitching>()
@@ -38,7 +40,7 @@ ACSwitching::ACSwitching(const InputParameters & parameters)
 {
   // check passed in parameter vectors
   if (_num_j != _hj_names.size())
-    mooseError("Need to pass in as many hj_names as Fj_names in ACSwitching ", name());
+    paramError("hj_names", "Need to pass in as many hj_names as Fj_names");
 
   // reserve space and set phase material properties
   for (unsigned int n = 0; n < _num_j; ++n)

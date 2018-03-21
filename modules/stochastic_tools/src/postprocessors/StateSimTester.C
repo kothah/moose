@@ -13,6 +13,8 @@
 #include "libmesh/system.h"
 #include "StateSimRunner.h"
 
+registerMooseObject("StochasticToolsApp", StateSimTester);
+
 template <>
 InputParameters
 validParams<StateSimTester>()
@@ -30,6 +32,7 @@ StateSimTester::StateSimTester(const InputParameters & parameters)
     _state_sim_runner_ptr(getUserObject<StateSimRunner>("state_sim_runner")),
     _test_val_enum(parameters.get<MooseEnum>("test_type").getEnum<SystemEnum>())
 {
+  mooseDeprecated("The StateSimTester will be removed.");
 }
 
 Real

@@ -12,6 +12,8 @@
 #include "FEProblem.h"
 #include "Conversion.h"
 
+registerMooseAction("PhaseFieldApp", BicrystalCircleGrainICAction, "add_ic");
+
 template <>
 InputParameters
 validParams<BicrystalCircleGrainICAction>()
@@ -43,7 +45,7 @@ BicrystalCircleGrainICAction::BicrystalCircleGrainICAction(const InputParameters
     _3D_sphere(getParam<bool>("3D_sphere"))
 {
   if (_op_num != 2)
-    mooseError("op_num must equal 2 for bicrystal ICs");
+    paramError("op_num", "op_num must equal 2 for bicrystal ICs");
 }
 
 void

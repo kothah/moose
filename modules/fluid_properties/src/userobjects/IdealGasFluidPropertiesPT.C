@@ -9,14 +9,14 @@
 
 #include "IdealGasFluidPropertiesPT.h"
 
+registerMooseObject("FluidPropertiesApp", IdealGasFluidPropertiesPT);
+
 template <>
 InputParameters
 validParams<IdealGasFluidPropertiesPT>()
 {
   InputParameters params = validParams<SinglePhaseFluidPropertiesPT>();
   params.addParam<Real>("molar_mass", 29.0e-3, "Constant molar mass of the fluid (kg/mol)");
-  params.addParam<Real>(
-      "thermal_expansion", 3.43e-3, "Constant coefficient of thermal expansion (1/K)");
   params.addParam<Real>(
       "cv", 0.718e3, "Constant specific heat capacity at constant volume (J/kg/K)");
   params.addParam<Real>(
@@ -32,7 +32,6 @@ validParams<IdealGasFluidPropertiesPT>()
 IdealGasFluidPropertiesPT::IdealGasFluidPropertiesPT(const InputParameters & parameters)
   : SinglePhaseFluidPropertiesPT(parameters),
     _molar_mass(getParam<Real>("molar_mass")),
-    _thermal_expansion(getParam<Real>("thermal_expansion")),
     _cv(getParam<Real>("cv")),
     _cp(getParam<Real>("cp")),
     _thermal_conductivity(getParam<Real>("thermal_conductivity")),
@@ -54,11 +53,6 @@ Real
 IdealGasFluidPropertiesPT::molarMass() const
 {
   return _molar_mass;
-}
-
-Real IdealGasFluidPropertiesPT::beta(Real /*pressure*/, Real /*temperature*/) const
-{
-  return _thermal_expansion;
 }
 
 Real IdealGasFluidPropertiesPT::cp(Real /*pressure*/, Real /*temperature*/) const { return _cp; }
@@ -83,11 +77,6 @@ IdealGasFluidPropertiesPT::k_dpT(
   k = this->k(pressure, temperature);
   dk_dp = 0;
   dk_dT = 0;
-}
-
-Real IdealGasFluidPropertiesPT::k_from_rho_T(Real /*density*/, Real /*temperature*/) const
-{
-  return _thermal_conductivity;
 }
 
 Real IdealGasFluidPropertiesPT::s(Real /*pressure*/, Real /*temperature*/) const
@@ -162,22 +151,25 @@ IdealGasFluidPropertiesPT::mu_dpT(
   dmu_dT = 0.0;
 }
 
-Real IdealGasFluidPropertiesPT::mu_from_rho_T(Real /*density*/, Real /*temperature*/) const
+void
+IdealGasFluidPropertiesPT::rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const
 {
-  return _viscosity;
+  rho = this->rho(pressure, temperature);
+  mu = this->mu(pressure, temperature);
 }
 
 void
-IdealGasFluidPropertiesPT::mu_drhoT_from_rho_T(Real density,
-                                               Real temperature,
-                                               Real /*ddensity_dT*/,
-                                               Real & mu,
-                                               Real & dmu_drho,
-                                               Real & dmu_dT) const
+IdealGasFluidPropertiesPT::rho_mu_dpT(Real pressure,
+                                      Real temperature,
+                                      Real & rho,
+                                      Real & drho_dp,
+                                      Real & drho_dT,
+                                      Real & mu,
+                                      Real & dmu_dp,
+                                      Real & dmu_dT) const
 {
-  mu = this->mu_from_rho_T(density, temperature);
-  dmu_drho = 0.0;
-  dmu_dT = 0.0;
+  this->rho_dpT(pressure, temperature, rho, drho_dp, drho_dT);
+  this->mu_dpT(pressure, temperature, mu, dmu_dp, dmu_dT);
 }
 
 Real

@@ -32,6 +32,14 @@ SinglePhaseFluidPropertiesPT::gamma(Real pressure, Real temperature) const
 }
 
 Real
+SinglePhaseFluidPropertiesPT::beta(Real pressure, Real temperature) const
+{
+  Real rho, drho_dp, drho_dT;
+  rho_dpT(pressure, temperature, rho, drho_dp, drho_dT);
+  return -drho_dT / rho;
+}
+
+Real
 SinglePhaseFluidPropertiesPT::henryConstantIAPWS(Real temperature, Real A, Real B, Real C) const
 {
   Real Tr = temperature / 647.096;
@@ -84,4 +92,20 @@ SinglePhaseFluidPropertiesPT::henryConstantIAPWS_dT(
   // Henry's constant and its derivative wrt temperature
   Kh = p * std::exp(lnkh);
   dKh_dT = (p * dlnkh_dT + dp_dT) * std::exp(lnkh);
+}
+
+Real SinglePhaseFluidPropertiesPT::mu_from_rho_T(Real, Real) const
+{
+  mooseError(name(), ": mu_from_rho_T is not implemented.");
+}
+
+void
+SinglePhaseFluidPropertiesPT::mu_drhoT_from_rho_T(Real, Real, Real, Real &, Real &, Real &) const
+{
+  mooseError(name(), ": mu_drhoT_from_rho_T is not implemented.");
+}
+
+Real SinglePhaseFluidPropertiesPT::k_from_rho_T(Real /*density*/, Real /*temperature*/) const
+{
+  mooseError(name(), ": k_from_rho_T is not implemented.");
 }

@@ -15,7 +15,6 @@
 TEST_F(IdealGasFluidPropertiesPTTest, properties)
 {
   const Real molar_mass = 0.029;
-  const Real thermal_expansion = 3.43e-3;
   const Real cv = 718.0;
   const Real cp = 1005.0;
   const Real thermal_conductivity = 0.02568;
@@ -30,17 +29,17 @@ TEST_F(IdealGasFluidPropertiesPTTest, properties)
 
   p = 1.0e6;
   T = 300.0;
-  REL_TEST("beta", _fp->beta(p, T), thermal_expansion, tol);
+  REL_TEST("beta", _fp->beta(p, T), 1.0 / T, tol);
   REL_TEST("cp", _fp->cp(p, T), cp, tol);
   REL_TEST("cv", _fp->cv(p, T), cv, tol);
   REL_TEST("c", _fp->c(p, T), std::sqrt(cp * R * T / (cv * molar_mass)), tol);
   REL_TEST("k", _fp->k(p, T), thermal_conductivity, tol);
-  REL_TEST("k", _fp->k_from_rho_T(_fp->rho(p, T), T), thermal_conductivity, tol);
+  REL_TEST("k", _fp->k(p, T), thermal_conductivity, tol);
   REL_TEST("s", _fp->s(p, T), entropy, tol);
   REL_TEST("rho", _fp->rho(p, T), p * molar_mass / (R * T), tol);
   REL_TEST("e", _fp->e(p, T), cv * T, tol);
   REL_TEST("mu", _fp->mu(p, T), viscosity, tol);
-  REL_TEST("mu", _fp->mu_from_rho_T(_fp->rho(p, T), T), viscosity, tol);
+  REL_TEST("mu", _fp->mu(p, T), viscosity, tol);
   REL_TEST("h", _fp->h(p, T), cp * T, tol);
   ABS_TEST("henry", _fp->henryConstant(T), henry, tol);
 }

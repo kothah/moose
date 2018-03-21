@@ -11,6 +11,8 @@
 #include "MooseRandom.h"
 #include "MooseMesh.h"
 
+registerMooseObject("PhaseFieldApp", Tricrystal2CircleGrainsIC);
+
 template <>
 InputParameters
 validParams<Tricrystal2CircleGrainsIC>()
@@ -29,7 +31,7 @@ Tricrystal2CircleGrainsIC::Tricrystal2CircleGrainsIC(const InputParameters & par
     _op_index(getParam<unsigned int>("op_index"))
 {
   if (_op_num != 3)
-    mooseError("Tricrystal ICs must have op_num = 3");
+    paramError("op_num", "Tricrystal ICs must have op_num = 3");
 
   // Set up domain bounds with mesh tools
   for (unsigned int i = 0; i < LIBMESH_DIM; i++)

@@ -9,6 +9,8 @@
 
 #include "DerivativeMultiPhaseMaterial.h"
 
+registerMooseObject("PhaseFieldApp", DerivativeMultiPhaseMaterial);
+
 template <>
 InputParameters
 validParams<DerivativeMultiPhaseMaterial>()
@@ -26,9 +28,7 @@ DerivativeMultiPhaseMaterial::DerivativeMultiPhaseMaterial(const InputParameters
 {
   // verify that the user supplied one less eta than the number of phases
   if (_num_hi != _num_etas)
-    mooseError("The number of coupled etas must be equal to the number of hi_names in "
-               "DerivativeMultiPhaseMaterial ",
-               name());
+    paramError("hi_names", "The number of hi_names must be equal to the number of coupled etas");
 
   for (unsigned int i = 0; i < _num_etas; ++i)
   {

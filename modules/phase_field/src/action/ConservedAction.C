@@ -18,6 +18,10 @@
 
 #include "libmesh/string_to_enum.h"
 
+registerMooseAction("PhaseFieldApp", ConservedAction, "add_variable");
+
+registerMooseAction("PhaseFieldApp", ConservedAction, "add_kernel");
+
 template <>
 InputParameters
 validParams<ConservedAction>()
@@ -78,7 +82,7 @@ ConservedAction::ConservedAction(const InputParameters & params)
       _chempot_name = "chem_pot_" + _var_name;
       break;
     default:
-      mooseError("Incorrect solve_type in ConservedAction");
+      paramError("solve_type", "Incorrect solve_type in ConservedAction");
   }
 }
 

@@ -15,29 +15,6 @@
 #include "AppFactory.h"
 #include "MooseSyntax.h"
 
-#include "XFEMVolFracAux.h"
-#include "XFEMCutPlaneAux.h"
-#include "XFEMMarkerAux.h"
-#include "XFEMMaterialTensorMarkerUserObject.h"
-#include "XFEMRankTwoTensorMarkerUserObject.h"
-#include "XFEMAction.h"
-#include "XFEMSingleVariableConstraint.h"
-#include "XFEMSingleVariableBC.h"
-#include "XFEMPressure.h"
-#include "CrackTipEnrichmentStressDivergenceTensors.h"
-#include "CrackTipEnrichmentCutOffBC.h"
-#include "ComputeCrackTipEnrichmentSmallStrain.h"
-
-#include "GeometricCutUserObject.h"
-#include "LineSegmentCutUserObject.h"
-#include "LineSegmentCutSetUserObject.h"
-#include "Circle2DCutUserObject.h"
-#include "Ellipse2DCutUserObject.h"
-#include "CircleCutUserObject.h"
-#include "EllipseCutUserObject.h"
-#include "RectangleCutUserObject.h"
-#include "MeshCut3DUserObject.h"
-
 template <>
 InputParameters
 validParams<XFEMApp>()
@@ -45,6 +22,8 @@ validParams<XFEMApp>()
   InputParameters params = validParams<MooseApp>();
   return params;
 }
+registerKnownLabel("XFEMApp");
+
 XFEMApp::XFEMApp(const InputParameters & parameters) : MooseApp(parameters)
 {
   srand(processor_id());
@@ -91,40 +70,7 @@ XFEMApp__registerObjects(Factory & factory)
 void
 XFEMApp::registerObjects(Factory & factory)
 {
-  // AuxKernels
-  registerAux(XFEMVolFracAux);
-  registerAux(XFEMCutPlaneAux);
-  registerAux(XFEMMarkerAux);
-
-  // Constraints
-  registerConstraint(XFEMSingleVariableConstraint);
-  registerConstraint(XFEMSingleVariableBC);
-
-  // UserObjects
-  registerUserObject(XFEMMaterialTensorMarkerUserObject);
-  registerUserObject(XFEMRankTwoTensorMarkerUserObject);
-
-  // Geometric Cut User Objects
-  registerUserObject(Circle2DCutUserObject);
-  registerUserObject(Ellipse2DCutUserObject);
-  registerUserObject(LineSegmentCutUserObject);
-  registerUserObject(LineSegmentCutSetUserObject);
-  registerUserObject(CircleCutUserObject);
-  registerUserObject(EllipseCutUserObject);
-  registerUserObject(RectangleCutUserObject);
-  registerUserObject(MeshCut3DUserObject);
-
-  // DiracKernels
-  registerDiracKernel(XFEMPressure);
-
-  // Kernels
-  registerKernel(CrackTipEnrichmentStressDivergenceTensors);
-
-  // Materials
-  registerMaterial(ComputeCrackTipEnrichmentSmallStrain);
-
-  // BC's
-  registerBoundaryCondition(CrackTipEnrichmentCutOffBC);
+  Registry::registerObjectsTo(factory, {"XFEMApp"});
 }
 
 void
@@ -143,15 +89,10 @@ XFEMApp__associateSyntax(Syntax & syntax, ActionFactory & action_factory)
 void
 XFEMApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
 {
-  registerTask("setup_xfem", false);
-  registerAction(XFEMAction, "setup_xfem");
-  syntax.addDependency("setup_xfem", "setup_adaptivity");
-  registerAction(XFEMAction, "add_aux_variable");
-  registerAction(XFEMAction, "add_aux_kernel");
-  registerAction(XFEMAction, "add_variable");
-  registerAction(XFEMAction, "add_kernel");
-  registerAction(XFEMAction, "add_bc");
+  Registry::registerActionsTo(action_factory, {"XFEMApp"});
 
+  registerTask("setup_xfem", false);
+  syntax.addDependency("setup_xfem", "setup_adaptivity");
   registerSyntax("XFEMAction", "XFEM");
 }
 
