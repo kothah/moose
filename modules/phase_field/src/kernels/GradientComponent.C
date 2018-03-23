@@ -9,6 +9,8 @@
 
 #include "GradientComponent.h"
 
+registerMooseObject("PhaseFieldApp", GradientComponent);
+
 template <>
 InputParameters
 validParams<GradientComponent>()
@@ -29,7 +31,7 @@ GradientComponent::GradientComponent(const InputParameters & parameters)
     _component(getParam<unsigned int>("component"))
 {
   if (_component >= LIBMESH_DIM)
-    mooseError("Component too large for LIBMESH_DIM");
+    paramError("component", "Component too large for LIBMESH_DIM");
 }
 
 Real

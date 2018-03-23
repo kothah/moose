@@ -136,6 +136,7 @@ public:
    * @return viscosity (Pa.s)
    */
   virtual Real mu(Real pressure, Real temperature) const = 0;
+
   /*
    * Dynamic viscosity and its derivatives wrt pressure and temperature
    * @param pressure fluid pressure (Pa)
@@ -153,7 +154,7 @@ public:
    * @param temperature fluid temperature (K)
    * @return viscosity (Pa.s)
    */
-  virtual Real mu_from_rho_T(Real density, Real temperature) const = 0;
+  virtual Real mu_from_rho_T(Real density, Real temperature) const;
 
   /**
    * Dynamic viscosity and its derivatives wrt density and temperature
@@ -169,7 +170,36 @@ public:
                                    Real ddensity_dT,
                                    Real & mu,
                                    Real & dmu_drho,
-                                   Real & dmu_dT) const = 0;
+                                   Real & dmu_dT) const;
+
+  /**
+   * Density and viscosity
+   * @param pressure fluid pressure (Pa)
+   * @param temperature fluid temperature (K)
+   * @param[out] rho density (kg/m^3)
+   * @param[out] mu viscosity (Pa.s)
+   */
+  virtual void rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const = 0;
+
+  /**
+   * Density and viscosity and their derivatives wrt pressure and temperature
+   * @param pressure fluid pressure (Pa)
+   * @param temperature fluid temperature (K)
+   * @param[out] rho density (kg/m^3)
+   * @param[out] drho_dp derivative of density wrt pressure
+   * @param[out] drho_dT derivative of density wrt temperature
+   * @param[out] mu viscosity (Pa.s)
+   * @param[out] dmu_dp derivative of viscosity wrt pressure
+   * @param[out] dmu_dT derivative of viscosity wrt temperature
+   */
+  virtual void rho_mu_dpT(Real pressure,
+                          Real temperature,
+                          Real & rho,
+                          Real & drho_dp,
+                          Real & drho_dT,
+                          Real & mu,
+                          Real & dmu_dp,
+                          Real & dmu_dT) const = 0;
   /**
    * Thermal conductivity
    * @param pressure fluid pressure (Pa)
@@ -195,7 +225,7 @@ public:
    * @param temperature fluid temperature (K)
    * @return thermal conductivity  (W/m/K)
    */
-  virtual Real k_from_rho_T(Real density, Real temperature) const = 0;
+  virtual Real k_from_rho_T(Real density, Real temperature) const;
 
   /**
    * Specific entropy
@@ -225,12 +255,15 @@ public:
   h_dpT(Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const = 0;
 
   /**
-   * Thermal expansion coefficient
+   * Isobaric thermal expansion coefficient, defined as
+   * 1/v (dv/dT)_p, where v is the volume, and the derivative wrt temperature is
+   * taken at constant pressure.
+   * Note: this is equivalent to -1/rho (drho/dT)_p, which is used in the calculation
    * @param pressure fluid pressure (Pa)
    * @param temperature fluid temperature (K)
    * @return beta (1/K)
    */
-  virtual Real beta(Real pressure, Real temperature) const = 0;
+  virtual Real beta(Real pressure, Real temperature) const;
 
   /**
    * Henry's law constant for dissolution in water

@@ -9,6 +9,8 @@
 
 #include "NaClFluidProperties.h"
 
+registerMooseObject("FluidPropertiesApp", NaClFluidProperties);
+
 template <>
 InputParameters
 validParams<NaClFluidProperties>()
@@ -177,41 +179,47 @@ NaClFluidProperties::mu_dpT(Real /*pressure*/,
   mooseError(name(), ": mu_dpT() is not implemented.");
 }
 
-Real NaClFluidProperties::mu_from_rho_T(Real /*density*/, Real /*temperature*/) const
+void
+NaClFluidProperties::rho_mu(Real /*pressure*/,
+                            Real /*temperature*/,
+                            Real & /*rho*/,
+                            Real & /*mu*/) const
 {
-  mooseError(name(), ": mu is not implemented");
+  mooseError(name(), ": rho_mu() is not implemented");
 }
 
 void
-NaClFluidProperties::mu_drhoT_from_rho_T(Real /*density*/,
-                                         Real /*temperature*/,
-                                         Real /*ddensity_dT*/,
-                                         Real & /*mu*/,
-                                         Real & /*dmu_drho*/,
-                                         Real & /*dmu_dT*/) const
+NaClFluidProperties::rho_mu_dpT(Real /*pressure*/,
+                                Real /*temperature*/,
+                                Real & /*rho*/,
+                                Real & /*drho_dp*/,
+                                Real & /*drho_dT*/,
+                                Real & /*mu*/,
+                                Real & /*dmu_dp*/,
+                                Real & /*dmu_dT*/) const
 {
-  mooseError(name(), ": mu_drhoT() is not implemented");
-}
-
-Real NaClFluidProperties::k(Real /*pressure*/, Real /*temperature*/) const
-{
-  mooseError(name(), ": k() is not implemented");
-}
-
-void
-NaClFluidProperties::k_dpT(
-    Real /*pressure*/, Real /*temperature*/, Real & /*k*/, Real & /*dk_dp*/, Real & /*dk_dT*/) const
-{
-  mooseError(name(), ": k_dpT() is not implemented");
+  mooseError(name(), ": rho_mu_dpT() is not implemented");
 }
 
 Real
-NaClFluidProperties::k_from_rho_T(Real /*density*/, Real temperature) const
+NaClFluidProperties::k(Real /*pressure*/, Real temperature) const
 {
   // Correlation requires temperature in Celcius
   Real Tc = temperature - _T_c2k;
 
   return 6.82793 - 3.16584e-2 * Tc + 1.03451e-4 * Tc * Tc - 1.48207e-7 * Tc * Tc * Tc;
+}
+
+void
+NaClFluidProperties::k_dpT(
+    Real /*pressure*/, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const
+{
+  // Correlation requires temperature in Celcius
+  Real Tc = temperature - _T_c2k;
+
+  k = 6.82793 - 3.16584e-2 * Tc + 1.03451e-4 * Tc * Tc - 1.48207e-7 * Tc * Tc * Tc;
+  dk_dp = 0.0;
+  dk_dT = -3.16584e-2 + 2.06902e-4 * Tc - 4.44621e-7 * Tc * Tc;
 }
 
 Real NaClFluidProperties::s(Real /*pressure*/, Real /*temperature*/) const
@@ -255,11 +263,6 @@ NaClFluidProperties::h_dpT(
 
   dh_dp = 44.14 * 1.0e-5;
   dh_dT = 8.7664e2 + 2.0 * 6.4139e-2 * Tc + 3.0 * 8.8101e-5 * Tc * Tc;
-}
-
-Real NaClFluidProperties::beta(Real /*pressure*/, Real /*temperature*/) const
-{
-  mooseError(name(), ": beta() is not implemented");
 }
 
 Real NaClFluidProperties::henryConstant(Real /*temperature*/) const

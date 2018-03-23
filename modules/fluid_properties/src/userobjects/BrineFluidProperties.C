@@ -9,6 +9,8 @@
 
 #include "BrineFluidProperties.h"
 
+registerMooseObject("FluidPropertiesApp", BrineFluidProperties);
+
 template <>
 InputParameters
 validParams<BrineFluidProperties>()
@@ -155,7 +157,7 @@ BrineFluidProperties::rho_dpTx(Real pressure,
 }
 
 Real
-BrineFluidProperties::mu_from_rho_T(Real water_density, Real temperature, Real xnacl) const
+BrineFluidProperties::mu(Real pressure, Real temperature, Real xnacl) const
 {
   // Correlation requires molal concentration (mol/kg)
   Real mol = massFractionToMolalConc(xnacl);
@@ -168,23 +170,21 @@ BrineFluidProperties::mu_from_rho_T(Real water_density, Real temperature, Real x
   Real a = 1.0 + 0.0816 * mol + 0.0122 * mol2 + 0.128e-3 * mol3 +
            0.629e-3 * Tc * (1.0 - std::exp(-0.7 * mol));
 
-  return a * _water_fp->mu_from_rho_T(water_density, temperature);
+  return a * _water_fp->mu(pressure, temperature);
 }
 
 void
-BrineFluidProperties::mu_drhoTx(Real water_density,
-                                Real temperature,
-                                Real xnacl,
-                                Real dwater_density_dT,
-                                Real & mu,
-                                Real & dmu_drho,
-                                Real & dmu_dT,
-                                Real & dmu_dx) const
+BrineFluidProperties::mu_dpTx(Real pressure,
+                              Real temperature,
+                              Real xnacl,
+                              Real & mu,
+                              Real & dmu_dp,
+                              Real & dmu_dT,
+                              Real & dmu_dx) const
 {
-  // Viscosity of water and derivatives wrt water density and temperature
-  Real muw, dmuw_drhow, dmuw_dT;
-  _water_fp->mu_drhoT_from_rho_T(
-      water_density, temperature, dwater_density_dT, muw, dmuw_drhow, dmuw_dT);
+  // Viscosity of water and derivatives wrt pressure and temperature
+  Real muw, dmuw_dp, dmuw_dT;
+  _water_fp->mu_dpT(pressure, temperature, muw, dmuw_dp, dmuw_dT);
 
   // Correlation requires molal concentration (mol/kg)
   Real mol = massFractionToMolalConc(xnacl);
@@ -202,9 +202,34 @@ BrineFluidProperties::mu_drhoTx(Real water_density,
   Real da_dT = 0.629e-3 * (1.0 - std::exp(-0.7 * mol));
 
   mu = a * muw;
-  dmu_drho = a * dmuw_drhow;
+  dmu_dp = a * dmuw_dp;
   dmu_dx = da_dx * muw;
   dmu_dT = da_dT * muw + a * dmuw_dT;
+}
+
+void
+BrineFluidProperties::rho_mu(
+    Real pressure, Real temperature, Real xnacl, Real & rho, Real & mu) const
+{
+  rho = this->rho(pressure, temperature, xnacl);
+  mu = this->mu(pressure, temperature, xnacl);
+}
+
+void
+BrineFluidProperties::rho_mu_dpT(Real pressure,
+                                 Real temperature,
+                                 Real xnacl,
+                                 Real & rho,
+                                 Real & drho_dp,
+                                 Real & drho_dT,
+                                 Real & drho_dx,
+                                 Real & mu,
+                                 Real & dmu_dp,
+                                 Real & dmu_dT,
+                                 Real dmu_dx) const
+{
+  this->rho_dpTx(pressure, temperature, xnacl, rho, drho_dp, drho_dT, drho_dx);
+  this->mu_dpTx(pressure, temperature, xnacl, mu, dmu_dp, dmu_dT, dmu_dx);
 }
 
 Real
@@ -328,7 +353,7 @@ BrineFluidProperties::e_dpTx(Real pressure,
 }
 
 Real
-BrineFluidProperties::k_from_rho_T(Real water_density, Real temperature, Real xnacl) const
+BrineFluidProperties::k(Real pressure, Real temperature, Real xnacl) const
 {
   // Correlation requires molal concentration (mol/kg)
   Real mol = massFractionToMolalConc(xnacl);
@@ -336,7 +361,7 @@ BrineFluidProperties::k_from_rho_T(Real water_density, Real temperature, Real xn
   Real Tc = temperature - _T_c2k;
 
   Real S = 100.0 * _Mnacl * mol / (1.0 + _Mnacl * mol);
-  Real lambdaw = _water_fp->k_from_rho_T(water_density, temperature);
+  Real lambdaw = _water_fp->k(pressure, temperature);
   Real lambda = 1.0 - (2.3434e-3 - 7.924e-6 * Tc + 3.924e-8 * Tc * Tc) * S +
                 (1.06e-5 - 2.0e-8 * Tc - 1.2e-10 * Tc * Tc) * S * S;
 

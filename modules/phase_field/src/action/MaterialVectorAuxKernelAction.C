@@ -12,6 +12,8 @@
 #include "Conversion.h"
 #include "FEProblem.h"
 
+registerMooseAction("PhaseFieldApp", MaterialVectorAuxKernelAction, "add_aux_kernel");
+
 template <>
 InputParameters
 validParams<MaterialVectorAuxKernelAction>()
@@ -42,7 +44,7 @@ void
 MaterialVectorAuxKernelAction::act()
 {
   if (_num_prop != _num_var)
-    mooseError("variable_base and property must be vectors of the same size");
+    paramError("property", "variable_base and property must be vectors of the same size");
 
   for (unsigned int gr = 0; gr < _grain_num; ++gr)
     for (unsigned int val = 0; val < _num_var; ++val)

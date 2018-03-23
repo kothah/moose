@@ -9,6 +9,8 @@
 
 #include "SimpleFluidProperties.h"
 
+registerMooseObject("FluidPropertiesApp", SimpleFluidProperties);
+
 template <>
 InputParameters
 validParams<SimpleFluidProperties>()
@@ -96,11 +98,6 @@ SimpleFluidProperties::k_dpT(
   dk_dT = 0;
 }
 
-Real SimpleFluidProperties::k_from_rho_T(Real /*density*/, Real /*temperature*/) const
-{
-  return _thermal_conductivity;
-}
-
 Real SimpleFluidProperties::s(Real /*pressure*/, Real /*temperature*/) const
 {
   return _specific_entropy;
@@ -170,22 +167,25 @@ SimpleFluidProperties::mu_dpT(
   dmu_dT = 0.0;
 }
 
-Real SimpleFluidProperties::mu_from_rho_T(Real /*density*/, Real /*temperature*/) const
+void
+SimpleFluidProperties::rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const
 {
-  return _viscosity;
+  rho = this->rho(pressure, temperature);
+  mu = this->mu(pressure, temperature);
 }
 
 void
-SimpleFluidProperties::mu_drhoT_from_rho_T(Real density,
-                                           Real temperature,
-                                           Real /*ddensity_dT*/,
-                                           Real & mu,
-                                           Real & dmu_drho,
-                                           Real & dmu_dT) const
+SimpleFluidProperties::rho_mu_dpT(Real pressure,
+                                  Real temperature,
+                                  Real & rho,
+                                  Real & drho_dp,
+                                  Real & drho_dT,
+                                  Real & mu,
+                                  Real & dmu_dp,
+                                  Real & dmu_dT) const
 {
-  mu = this->mu_from_rho_T(density, temperature);
-  dmu_drho = 0.0;
-  dmu_dT = 0.0;
+  this->rho_dpT(pressure, temperature, rho, drho_dp, drho_dT);
+  this->mu_dpT(pressure, temperature, mu, dmu_dp, dmu_dT);
 }
 
 Real

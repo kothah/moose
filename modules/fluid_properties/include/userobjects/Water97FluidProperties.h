@@ -123,6 +123,17 @@ public:
                                    Real & dmu_drho,
                                    Real & dmu_dT) const override;
 
+  virtual void rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const override;
+
+  virtual void rho_mu_dpT(Real pressure,
+                          Real temperature,
+                          Real & rho,
+                          Real & drho_dp,
+                          Real & drho_dT,
+                          Real & mu,
+                          Real & dmu_dp,
+                          Real & dmu_dT) const override;
+
   virtual Real k(Real pressure, Real temperature) const override;
 
   virtual void
@@ -136,8 +147,6 @@ public:
 
   virtual void
   h_dpT(Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const override;
-
-  virtual Real beta(Real pressure, Real temperature) const override;
 
   /**
    * Saturation pressure as a function of temperature

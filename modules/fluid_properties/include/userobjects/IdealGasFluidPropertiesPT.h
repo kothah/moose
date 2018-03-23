@@ -31,8 +31,6 @@ public:
 
   virtual Real molarMass() const override;
 
-  virtual Real beta(Real pressure, Real temperature) const override;
-
   virtual Real cp(Real pressure, Real temperature) const override;
 
   virtual Real cv(Real pressure, Real temperature) const override;
@@ -43,8 +41,6 @@ public:
 
   virtual void
   k_dpT(Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const override;
-
-  virtual Real k_from_rho_T(Real density, Real temperature) const override;
 
   virtual Real s(Real pressure, Real temperature) const override;
 
@@ -72,14 +68,16 @@ public:
   virtual void
   mu_dpT(Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const override;
 
-  virtual Real mu_from_rho_T(Real density, Real temperature) const override;
+  virtual void rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const override;
 
-  virtual void mu_drhoT_from_rho_T(Real density,
-                                   Real temperature,
-                                   Real ddensity_dT,
-                                   Real & mu,
-                                   Real & dmu_drho,
-                                   Real & dmu_dT) const override;
+  virtual void rho_mu_dpT(Real pressure,
+                          Real temperature,
+                          Real & rho,
+                          Real & drho_dp,
+                          Real & drho_dT,
+                          Real & mu,
+                          Real & dmu_dp,
+                          Real & dmu_dT) const override;
 
   virtual Real h(Real p, Real T) const override;
 
@@ -93,8 +91,6 @@ public:
 protected:
   /// molar mass
   const Real _molar_mass;
-  /// thermal expansion coefficient
-  const Real _thermal_expansion;
   /// specific heat at constant volume
   const Real _cv;
   /// specific heat at constant pressure
