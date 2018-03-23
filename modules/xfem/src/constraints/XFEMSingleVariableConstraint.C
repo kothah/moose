@@ -60,10 +60,11 @@ XFEMSingleVariableConstraint::computeQpResidual(Moose::DGResidualType type)
   switch (type)
   {
     case Moose::Element:
-      if(!_use_penalty){
+      if (!_use_penalty)
+      {
         r -= (0.5 * _grad_u[_qp] * _interface_normal +
-              0.5 * _grad_u_neighbor[_qp] * _interface_normal) * 
-              _test[_i][_qp];
+              0.5 * _grad_u_neighbor[_qp] * _interface_normal) *
+             _test[_i][_qp];
         r -= (_u[_qp] - _u_neighbor[_qp]) * 0.5 * _grad_test[_i][_qp] * _interface_normal;
         r += 0.5 * _grad_test[_i][_qp] * _interface_normal * _jump;
       }
@@ -72,10 +73,11 @@ XFEMSingleVariableConstraint::computeQpResidual(Moose::DGResidualType type)
       break;
 
     case Moose::Neighbor:
-      if(!_use_penalty){
+      if (!_use_penalty)
+      {
         r += (0.5 * _grad_u[_qp] * _interface_normal +
-            0.5 * _grad_u_neighbor[_qp] * _interface_normal) *
-            _test_neighbor[_i][_qp];
+              0.5 * _grad_u_neighbor[_qp] * _interface_normal) *
+             _test_neighbor[_i][_qp];
         r -= (_u[_qp] - _u_neighbor[_qp]) * 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal;
         r += 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal * _jump;
       }
@@ -95,30 +97,30 @@ XFEMSingleVariableConstraint::computeQpJacobian(Moose::DGJacobianType type)
   switch (type)
   {
     case Moose::ElementElement:
-      if(!_use_penalty)
+      if (!_use_penalty)
         r += -0.5 * _grad_phi[_j][_qp] * _interface_normal * _test[_i][_qp] -
              _phi[_j][_qp] * 0.5 * _grad_test[_i][_qp] * _interface_normal;
       r += (_alpha / _current_elem->hmax()) * _phi[_j][_qp] * _test[_i][_qp];
       break;
 
     case Moose::ElementNeighbor:
-      if(!_use_penalty)
+      if (!_use_penalty)
         r += -0.5 * _grad_phi_neighbor[_j][_qp] * _interface_normal * _test[_i][_qp] +
              _phi_neighbor[_j][_qp] * 0.5 * _grad_test[_i][_qp] * _interface_normal;
       r -= (_alpha / _current_elem->hmax()) * _phi_neighbor[_j][_qp] * _test[_i][_qp];
       break;
 
     case Moose::NeighborElement:
-      if(!_use_penalty)
+      if (!_use_penalty)
         r += 0.5 * _grad_phi[_j][_qp] * _interface_normal * _test_neighbor[_i][_qp] -
              _phi[_j][_qp] * 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal;
       r -= (_alpha / _neighbor_elem->hmax()) * _phi[_j][_qp] * _test_neighbor[_i][_qp];
       break;
 
     case Moose::NeighborNeighbor:
-      if(!_use_penalty)
+      if (!_use_penalty)
         r += 0.5 * _grad_phi_neighbor[_j][_qp] * _interface_normal * _test_neighbor[_i][_qp] +
-           _phi_neighbor[_j][_qp] * 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal;
+             _phi_neighbor[_j][_qp] * 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal;
       r += (_alpha / _neighbor_elem->hmax()) * _phi_neighbor[_j][_qp] * _test_neighbor[_i][_qp];
       break;
   }
