@@ -16,7 +16,7 @@
 #include "Assembly.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
-#include "MooseVariableField.h"
+#include "MooseVariableFEImpl.h"
 #include "MooseVariableScalar.h"
 
 #include "libmesh/quadrature.h"
@@ -79,18 +79,19 @@ VectorIntegratedBC::computeJacobian()
 }
 
 void
-VectorIntegratedBC::computeJacobianBlock(unsigned int jvar)
+VectorIntegratedBC::computeJacobianBlock(MooseVariableFEBase & jvar)
 {
-  DenseMatrix<Number> & ke = _assembly.jacobianBlock(_var.number(), jvar);
+  size_t jvar_num = jvar.number();
+  DenseMatrix<Number> & ke = _assembly.jacobianBlock(_var.number(), jvar_num);
 
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)
     for (_i = 0; _i < _test.size(); _i++)
-      for (_j = 0; _j < _phi.size(); _j++)
+      for (_j = 0; _j < jvar.phiFaceSize(); _j++)
       {
-        if (_var.number() == jvar)
+        if (_var.number() == jvar_num)
           ke(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpJacobian();
         else
-          ke(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpOffDiagJacobian(jvar);
+          ke(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpOffDiagJacobian(jvar_num);
       }
 }
 

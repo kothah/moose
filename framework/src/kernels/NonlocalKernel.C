@@ -9,7 +9,7 @@
 
 #include "NonlocalKernel.h"
 #include "Assembly.h"
-#include "MooseVariableField.h"
+#include "MooseVariableFEImpl.h"
 #include "Problem.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
@@ -66,23 +66,23 @@ NonlocalKernel::computeJacobian()
 }
 
 void
-NonlocalKernel::computeOffDiagJacobian(unsigned int jvar)
+NonlocalKernel::computeOffDiagJacobian(MooseVariableFEBase & jvar)
 {
-  if (jvar == _var.number())
+  size_t jvar_num = jvar.number();
+  if (jvar_num == _var.number())
     computeJacobian();
   else
   {
-    MooseVariableFE & jv = _sys.getVariable(_tid, jvar);
-    DenseMatrix<Number> & ke = _assembly.jacobianBlock(_var.number(), jvar);
+    DenseMatrix<Number> & ke = _assembly.jacobianBlock(_var.number(), jvar_num);
 
-    precalculateOffDiagJacobian(jvar);
-    for (_j = 0; _j < _phi.size();
+    precalculateOffDiagJacobian(jvar_num);
+    for (_j = 0; _j < jvar.phiSize();
          _j++) // looping order for _i & _j are reversed for performance improvement
     {
-      getUserObjectJacobian(jvar, jv.dofIndices()[_j]);
+      getUserObjectJacobian(jvar_num, jvar.dofIndices()[_j]);
       for (_i = 0; _i < _test.size(); _i++)
         for (_qp = 0; _qp < _qrule->n_points(); _qp++)
-          ke(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpOffDiagJacobian(jvar);
+          ke(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpOffDiagJacobian(jvar_num);
     }
   }
 }
@@ -124,7 +124,7 @@ NonlocalKernel::computeNonlocalOffDiagJacobian(unsigned int jvar)
     computeNonlocalJacobian();
   else
   {
-    MooseVariableFE & jv = _sys.getVariable(_tid, jvar);
+    MooseVariableFEBase & jv = _sys.getVariable(_tid, jvar);
     DenseMatrix<Number> & keg = _assembly.jacobianBlockNonlocal(_var.number(), jvar);
     // compiling set of global IDs for the local DOFs on the element
     std::set<dof_id_type> local_dofindices(jv.dofIndices().begin(), jv.dofIndices().end());

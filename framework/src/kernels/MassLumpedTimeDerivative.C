@@ -11,7 +11,7 @@
 
 // MOOSE includes
 #include "Assembly.h"
-#include "MooseVariableField.h"
+#include "MooseVariableFEImpl.h"
 
 #include "libmesh/quadrature.h"
 
@@ -30,7 +30,7 @@ validParams<MassLumpedTimeDerivative>()
 }
 
 MassLumpedTimeDerivative::MassLumpedTimeDerivative(const InputParameters & parameters)
-  : TimeKernel(parameters), _u_dot_nodal(_var.nodalValueDot())
+  : TimeKernel(parameters), _u_dot_nodal(_var.dofValuesDot())
 {
 }
 

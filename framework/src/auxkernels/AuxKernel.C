@@ -98,9 +98,9 @@ AuxKernel::AuxKernel(const InputParameters & parameters)
     _JxW(_bnd ? _assembly.JxWFace() : _assembly.JxW()),
     _coord(_assembly.coordTransformation()),
 
-    _u(_nodal ? _var.nodalValue() : _var.sln()),
-    _u_old(_nodal ? _var.nodalValueOld() : _var.slnOld()),
-    _u_older(_nodal ? _var.nodalValueOlder() : _var.slnOlder()),
+    _u(_nodal ? _var.dofValues() : _var.sln()),
+    _u_old(_nodal ? _var.dofValuesOld() : _var.slnOld()),
+    _u_older(_nodal ? _var.dofValuesOlder() : _var.slnOlder()),
     _test(_var.phi()),
 
     _current_elem(_assembly.elem()),
@@ -115,7 +115,7 @@ AuxKernel::AuxKernel(const InputParameters & parameters)
   addMooseVariableDependency(mooseVariable());
   _supplied_vars.insert(parameters.get<AuxVariableName>("variable"));
 
-  std::map<std::string, std::vector<MooseVariableFE *>> coupled_vars = getCoupledVars();
+  std::map<std::string, std::vector<MooseVariableFEBase *>> coupled_vars = getCoupledVars();
   for (const auto & it : coupled_vars)
     for (const auto & var : it.second)
       _depend_vars.insert(var->name());
@@ -241,7 +241,7 @@ AuxKernel::compute()
 const VariableValue &
 AuxKernel::coupledDot(const std::string & var_name, unsigned int comp)
 {
-  MooseVariableFE * var = getVar(var_name, comp);
+  MooseVariableFEBase * var = getVar(var_name, comp);
   if (var->kind() == Moose::VAR_AUXILIARY)
     mooseError(
         name(),
@@ -253,7 +253,7 @@ AuxKernel::coupledDot(const std::string & var_name, unsigned int comp)
 const VariableValue &
 AuxKernel::coupledDotDu(const std::string & var_name, unsigned int comp)
 {
-  MooseVariableFE * var = getVar(var_name, comp);
+  MooseVariableFEBase * var = getVar(var_name, comp);
   if (var->kind() == Moose::VAR_AUXILIARY)
     mooseError(
         name(),

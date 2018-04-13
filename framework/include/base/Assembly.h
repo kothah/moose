@@ -40,11 +40,11 @@ class SparseMatrix;
 class MooseMesh;
 class ArbitraryQuadrature;
 class SystemBase;
-class MooseVariableFE;
+class MooseVariableFEBase;
 template <typename>
-class MooseVariableField;
-typedef MooseVariableField<Real> MooseVariable;
-typedef MooseVariableField<RealVectorValue> VectorMooseVariable;
+class MooseVariableFEImpl;
+typedef MooseVariableFEImpl<Real> MooseVariable;
+typedef MooseVariableFEImpl<RealVectorValue> VectorMooseVariable;
 class XFEMInterface;
 
 /**
@@ -443,11 +443,6 @@ public:
   void reinit(const Node * node);
 
   /**
-   * Reinitialize assembly data for a neighbor node
-   */
-  void reinitNodeNeighbor(const Node * node);
-
-  /**
    * Initialize the Assembly object and set the CouplingMatrix for use throughout.
    */
   void init(const CouplingMatrix * cm);
@@ -466,8 +461,8 @@ public:
    *
    * @param var The variable that needs to have its datastructures prepared
    */
-  void prepareVariable(MooseVariableFE * var);
-  void prepareVariableNonlocal(MooseVariableFE * var);
+  void prepareVariable(MooseVariableFEBase * var);
+  void prepareVariableNonlocal(MooseVariableFEBase * var);
   void prepareNeighbor();
   void prepareBlock(unsigned int ivar, unsigned jvar, const std::vector<dof_id_type> & dof_indices);
   void prepareBlockNonlocal(unsigned int ivar,
@@ -478,15 +473,15 @@ public:
   void prepareOffDiagScalar();
 
   template <typename T>
-  void copyShapes(MooseVariableField<T> & v);
+  void copyShapes(MooseVariableFEImpl<T> & v);
   void copyShapes(unsigned int var);
 
   template <typename T>
-  void copyFaceShapes(MooseVariableField<T> & v);
+  void copyFaceShapes(MooseVariableFEImpl<T> & v);
   void copyFaceShapes(unsigned int var);
 
   template <typename T>
-  void copyNeighborShapes(MooseVariableField<T> & v);
+  void copyNeighborShapes(MooseVariableFEImpl<T> & v);
   void copyNeighborShapes(unsigned int var);
 
   void addResidual(NumericVector<Number> & residual, Moose::KernelType type = Moose::KT_NONTIME);
@@ -605,11 +600,11 @@ public:
                                   const std::vector<dof_id_type> & jdof_indices,
                                   Real scaling_factor);
 
-  std::vector<std::pair<MooseVariableFE *, MooseVariableFE *>> & couplingEntries()
+  std::vector<std::pair<MooseVariableFEBase *, MooseVariableFEBase *>> & couplingEntries()
   {
     return _cm_entry;
   }
-  std::vector<std::pair<MooseVariableFE *, MooseVariableFE *>> & nonlocalCouplingEntries()
+  std::vector<std::pair<MooseVariableFEBase *, MooseVariableFEBase *>> & nonlocalCouplingEntries()
   {
     return _cm_nonlocal_entry;
   }
@@ -850,32 +845,36 @@ public:
     return _fe_shape_data_face_neighbor[type]->_second_phi;
   }
 
-  const VectorVariablePhiCurl & feCurlPhi(FEType type)
+  template <typename OutputType>
+  const typename OutputTools<OutputType>::VariablePhiCurl & feCurlPhi(FEType type)
   {
     _need_curl[type] = true;
-    buildVectorFE(type);
-    return _vector_fe_shape_data[type]->_curl_phi;
+    buildFE(type);
+    return _fe_shape_data[type]->_curl_phi;
   }
 
-  const VectorVariablePhiCurl & feCurlPhiFace(FEType type)
+  template <typename OutputType>
+  const typename OutputTools<OutputType>::VariablePhiCurl & feCurlPhiFace(FEType type)
   {
     _need_curl[type] = true;
-    buildVectorFaceFE(type);
-    return _vector_fe_shape_data_face[type]->_curl_phi;
+    buildFaceFE(type);
+    return _fe_shape_data_face[type]->_curl_phi;
   }
 
-  const VectorVariablePhiCurl & feCurlPhiNeighbor(FEType type)
+  template <typename OutputType>
+  const typename OutputTools<OutputType>::VariablePhiCurl & feCurlPhiNeighbor(FEType type)
   {
     _need_curl[type] = true;
-    buildVectorNeighborFE(type);
-    return _vector_fe_shape_data_neighbor[type]->_curl_phi;
+    buildNeighborFE(type);
+    return _fe_shape_data_neighbor[type]->_curl_phi;
   }
 
-  const VectorVariablePhiCurl & feCurlPhiFaceNeighbor(FEType type)
+  template <typename OutputType>
+  const typename OutputTools<OutputType>::VariablePhiCurl & feCurlPhiFaceNeighbor(FEType type)
   {
     _need_curl[type] = true;
-    buildVectorFaceNeighborFE(type);
-    return _vector_fe_shape_data_face_neighbor[type]->_curl_phi;
+    buildFaceNeighborFE(type);
+    return _fe_shape_data_face_neighbor[type]->_curl_phi;
   }
 
   std::map<FEType, bool> _need_second_derivative;
@@ -991,8 +990,8 @@ protected:
   const CouplingMatrix * _cm;
   const CouplingMatrix & _nonlocal_cm;
   /// Entries in the coupling matrix (only for field variables)
-  std::vector<std::pair<MooseVariableFE *, MooseVariableFE *>> _cm_entry;
-  std::vector<std::pair<MooseVariableFE *, MooseVariableFE *>> _cm_nonlocal_entry;
+  std::vector<std::pair<MooseVariableFEBase *, MooseVariableFEBase *>> _cm_entry;
+  std::vector<std::pair<MooseVariableFEBase *, MooseVariableFEBase *>> _cm_nonlocal_entry;
   /// Flag that indicates if the jacobian block was used
   std::vector<std::vector<unsigned char>> _jacobian_block_used;
   std::vector<std::vector<unsigned char>> _jacobian_block_nonlocal_used;
@@ -1213,6 +1212,7 @@ protected:
     VariablePhiValue _phi;
     VariablePhiGradient _grad_phi;
     VariablePhiSecond _second_phi;
+    VariablePhiCurl _curl_phi;
   };
 
   class VectorFEShapeData
@@ -1317,5 +1317,21 @@ Assembly::feGradPhiFaceNeighbor<VectorValue<Real>>(FEType type);
 template <>
 const typename OutputTools<VectorValue<Real>>::VariablePhiSecond &
 Assembly::feSecondPhiFaceNeighbor<VectorValue<Real>>(FEType type);
+
+template <>
+const typename OutputTools<VectorValue<Real>>::VariablePhiCurl &
+Assembly::feCurlPhi<VectorValue<Real>>(FEType type);
+
+template <>
+const typename OutputTools<VectorValue<Real>>::VariablePhiCurl &
+Assembly::feCurlPhiFace<VectorValue<Real>>(FEType type);
+
+template <>
+const typename OutputTools<VectorValue<Real>>::VariablePhiCurl &
+Assembly::feCurlPhiNeighbor<VectorValue<Real>>(FEType type);
+
+template <>
+const typename OutputTools<VectorValue<Real>>::VariablePhiCurl &
+Assembly::feCurlPhiFaceNeighbor<VectorValue<Real>>(FEType type);
 
 #endif /* ASSEMBLY_H */

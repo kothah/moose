@@ -70,6 +70,7 @@ class Tester(MooseObject):
         params.addParam('should_execute', True, 'Whether or not the executable needs to be run.  Use this to chain together multiple tests based off of one executeable invocation')
         params.addParam('required_submodule', [], "A list of initialized submodules for which this test requires.")
         params.addParam('required_objects', [], "A list of required objects that are in the executable.")
+        params.addParam('required_applications', [], "A list of required registered applications that are in the executable.")
         params.addParam('check_input',    False, "Check for correct input file syntax")
         params.addParam('display_required', False, "The test requires and active display for rendering (i.e., ImageDiff tests).")
         params.addParam('timing',         True, "If True, the test will be allowed to run with the timing flag (i.e. Manually turning on performance logging).")
@@ -155,7 +156,7 @@ class Tester(MooseObject):
 
     def getMaxTime(self):
         """ return maximum time elapse before reporting a 'timeout' status """
-        return self.specs['max_time']
+        return float(self.specs['max_time'])
 
     def getRunnable(self, options):
         """ return bool and cache results, if this test can run """
@@ -293,9 +294,9 @@ class Tester(MooseObject):
     def setValgrindMode(self, mode):
         """ Increase the alloted time for tests when running with the valgrind option """
         if mode == 'NORMAL':
-            self.specs['max_time'] = self.specs['max_time'] * 2
+            self.specs['max_time'] = float(self.specs['max_time']) * 2
         elif mode == 'HEAVY':
-            self.specs['max_time'] = self.specs['max_time'] * 6
+            self.specs['max_time'] = float(self.specs['max_time']) * 6
 
     def checkRunnable(self, options):
         """
@@ -466,8 +467,10 @@ class Tester(MooseObject):
             self.setStatus(self.success_message, self.bucket_success)
 
         # Check if we only want to run failed tests
-        if options.failed_tests:
-            if self.specs['test_name'] not in options._test_list:
+        if options.failed_tests and options.results_storage is not None:
+            result_key = options.results_storage.get(self.getTestDir(), {})
+            status = result_key.get(self.getTestName(), {}).get('FAIL', '')
+            if not status:
                 self.setStatus('not failed', self.bucket_silent)
                 return False
 
@@ -529,7 +532,7 @@ class Tester(MooseObject):
                 tmp_reason = 'Valgrind==NONE'
             elif self.specs['valgrind'].upper() == 'HEAVY' and options.valgrind_mode.upper() == 'NORMAL':
                 tmp_reason = 'Valgrind==HEAVY'
-            elif self.specs['min_parallel'] > 1 or self.specs['min_threads'] > 1:
+            elif int(self.specs['min_parallel']) > 1 or int(self.specs['min_threads']) > 1:
                 tmp_reason = 'Valgrind requires serial'
             if tmp_reason != '':
                 reasons['valgrind'] = tmp_reason
@@ -600,6 +603,16 @@ class Tester(MooseObject):
         for var in self.specs['required_objects']:
             if var not in checks["exe_objects"]:
                 reasons['required_objects'] = '%s not found in executable' % var
+                break
+
+        # We extract the registered apps only if we need them
+        if self.specs["required_applications"] and checks["registered_apps"] is None:
+            checks["registered_apps"] = util.getExeRegisteredApps(self.specs["executable"])
+
+        # Check to see if we have the required application names
+        for var in self.specs['required_applications']:
+            if var not in checks["registered_apps"]:
+                reasons['required_applications'] = 'App %s not registered in executable' % var
                 break
 
         # Check to make sure required submodules are initialized

@@ -37,8 +37,9 @@ public:
    * additional getUserObjectJacobian method is provided as an option to obtain
    * jocobians of the integral term from userobject once per dof
    */
-  virtual void computeJacobian();
-  virtual void computeJacobianBlock(unsigned int jvar);
+  virtual void computeJacobian() override;
+  virtual void computeJacobianBlock(MooseVariableFEBase & jvar) override;
+  using IntegratedBC::computeJacobianBlock;
 
   /**
    * computeNonlocalJacobian and computeNonlocalOffDiagJacobian methods are
@@ -48,8 +49,8 @@ public:
    * additional globalDoFEnabled method is provided as an option to execute nonlocal
    * jocobian calculations only for nonlocal dofs that has nonzero jacobian contribution.
    */
-  virtual void computeNonlocalJacobian();
-  virtual void computeNonlocalOffDiagJacobian(unsigned int jvar);
+  virtual void computeNonlocalJacobian() override;
+  virtual void computeNonlocalOffDiagJacobian(unsigned int jvar) override;
 
 protected:
   /// Compute this IntegratedBC's contribution to the Jacobian corresponding to nolocal dof at the current quadrature point
@@ -62,7 +63,7 @@ protected:
   /// Optimization option for getting jocobinas from userobject once per dof
   virtual void getUserObjectJacobian(unsigned int /*jvar*/, dof_id_type /*dof_index*/) {}
   /// optimization option for executing nonlocal jacobian calculation only for nonzero elements
-  virtual bool globalDoFEnabled(MooseVariableFE & /*var*/, dof_id_type /*dof_index*/)
+  virtual bool globalDoFEnabled(MooseVariableFEBase & /*var*/, dof_id_type /*dof_index*/)
   {
     return true;
   }

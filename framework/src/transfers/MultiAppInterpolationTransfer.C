@@ -14,7 +14,7 @@
 #include "FEProblem.h"
 #include "MooseMesh.h"
 #include "MooseTypes.h"
-#include "MooseVariableField.h"
+#include "MooseVariableFEImpl.h"
 #include "MultiApp.h"
 
 #include "libmesh/meshfree_interpolation.h"
@@ -33,12 +33,6 @@ validParams<MultiAppInterpolationTransfer>()
   params.addRequiredParam<AuxVariableName>(
       "variable", "The auxiliary variable to store the transferred values in.");
   params.addRequiredParam<VariableName>("source_variable", "The variable to transfer from.");
-  params.addParam<bool>("displaced_source_mesh",
-                        false,
-                        "Whether or not to use the displaced mesh for the source mesh.");
-  params.addParam<bool>("displaced_target_mesh",
-                        false,
-                        "Whether or not to use the displaced mesh for the target mesh.");
 
   params.addParam<unsigned int>(
       "num_points", 3, "The number of nearest points to use for interpolation.");
@@ -68,8 +62,6 @@ MultiAppInterpolationTransfer::MultiAppInterpolationTransfer(const InputParamete
 {
   // This transfer does not work with DistributedMesh
   _fe_problem.mesh().errorIfDistributedMesh("MultiAppInterpolationTransfer");
-  _displaced_source_mesh = getParam<bool>("displaced_source_mesh");
-  _displaced_target_mesh = getParam<bool>("displaced_target_mesh");
 }
 
 void
@@ -91,7 +83,7 @@ MultiAppInterpolationTransfer::execute()
     case TO_MULTIAPP:
     {
       FEProblemBase & from_problem = _multi_app->problemBase();
-      MooseVariableFE & from_var = from_problem.getVariable(0, _from_var_name);
+      MooseVariableFEBase & from_var = from_problem.getVariable(0, _from_var_name);
 
       MeshBase * from_mesh = NULL;
 
@@ -267,7 +259,7 @@ MultiAppInterpolationTransfer::execute()
     case FROM_MULTIAPP:
     {
       FEProblemBase & to_problem = _multi_app->problemBase();
-      MooseVariableFE & to_var = to_problem.getVariable(0, _to_var_name);
+      MooseVariableFEBase & to_var = to_problem.getVariable(0, _to_var_name);
       SystemBase & to_system_base = to_var.sys();
 
       System & to_sys = to_system_base.system();
@@ -325,7 +317,7 @@ MultiAppInterpolationTransfer::execute()
         Moose::ScopedCommSwapper swapper(_multi_app->comm());
 
         FEProblemBase & from_problem = _multi_app->appProblemBase(i);
-        MooseVariableFE & from_var = from_problem.getVariable(0, _from_var_name);
+        MooseVariableFEBase & from_var = from_problem.getVariable(0, _from_var_name);
         SystemBase & from_system_base = from_var.sys();
 
         System & from_sys = from_system_base.system();

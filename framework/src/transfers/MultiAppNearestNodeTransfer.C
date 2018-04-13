@@ -14,7 +14,7 @@
 #include "FEProblem.h"
 #include "MooseMesh.h"
 #include "MooseTypes.h"
-#include "MooseVariableField.h"
+#include "MooseVariableFEImpl.h"
 
 #include "libmesh/system.h"
 #include "libmesh/mesh_tools.h"
@@ -38,12 +38,6 @@ validParams<MultiAppNearestNodeTransfer>()
   params.addParam<BoundaryName>(
       "target_boundary",
       "The boundary we are transferring to (if not specified, whole domain is used).");
-  params.addParam<bool>("displaced_source_mesh",
-                        false,
-                        "Whether or not to use the displaced mesh for the source mesh.");
-  params.addParam<bool>("displaced_target_mesh",
-                        false,
-                        "Whether or not to use the displaced mesh for the target mesh.");
   params.addParam<bool>("fixed_meshes",
                         false,
                         "Set to true when the meshes are not changing (ie, "
@@ -69,9 +63,6 @@ MultiAppNearestNodeTransfer::MultiAppNearestNodeTransfer(const InputParameters &
         declareRestartableData<std::map<dof_id_type, unsigned int>>("cached_from_ids")),
     _cached_qp_inds(declareRestartableData<std::map<dof_id_type, unsigned int>>("cached_qp_inds"))
 {
-  // This transfer does not work with DistributedMesh
-  _displaced_source_mesh = getParam<bool>("displaced_source_mesh");
-  _displaced_target_mesh = getParam<bool>("displaced_target_mesh");
 }
 
 void
@@ -300,7 +291,8 @@ MultiAppNearestNodeTransfer::execute()
         for (unsigned int i_local_from = 0; i_local_from < froms_per_proc[processor_id()];
              i_local_from++)
         {
-          MooseVariableFE & from_var = _from_problems[i_local_from]->getVariable(0, _from_var_name);
+          MooseVariableFEBase & from_var =
+              _from_problems[i_local_from]->getVariable(0, _from_var_name);
           System & from_sys = from_var.sys().system();
           unsigned int from_sys_num = from_sys.number();
           unsigned int from_var_num = from_sys.variable_number(from_var.name());
@@ -348,7 +340,7 @@ MultiAppNearestNodeTransfer::execute()
 
       for (unsigned int qp = 0; qp < outgoing_evals.size(); qp++)
       {
-        MooseVariableFE & from_var =
+        MooseVariableFEBase & from_var =
             _from_problems[_cached_froms[i_proc][qp]]->getVariable(0, _from_var_name);
         System & from_sys = from_var.sys().system();
         dof_id_type from_dof = _cached_dof_ids[i_proc][qp];

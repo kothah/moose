@@ -39,8 +39,8 @@ ALEKernel::computeJacobian()
 }
 
 void
-ALEKernel::computeOffDiagJacobian(unsigned int jvar)
+ALEKernel::computeOffDiagJacobian(MooseVariableFEBase & jvar)
 {
-  _fe_problem.prepareShapes(jvar, _tid);
+  _fe_problem.prepareShapes(jvar.number(), _tid);
   Kernel::computeOffDiagJacobian(jvar);
 }

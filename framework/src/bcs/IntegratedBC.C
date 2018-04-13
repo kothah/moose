@@ -13,7 +13,7 @@
 #include "Assembly.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
-#include "MooseVariableField.h"
+#include "MooseVariableFEImpl.h"
 #include "MooseVariableScalar.h"
 
 #include "libmesh/quadrature.h"
@@ -126,8 +126,27 @@ IntegratedBC::computeJacobian()
 }
 
 void
+IntegratedBC::computeJacobianBlock(MooseVariableFEBase & jvar)
+{
+  size_t jvar_num = jvar.number();
+  DenseMatrix<Number> & ke = _assembly.jacobianBlock(_var.number(), jvar_num);
+
+  for (_qp = 0; _qp < _qrule->n_points(); _qp++)
+    for (_i = 0; _i < _test.size(); _i++)
+      for (_j = 0; _j < jvar.phiFaceSize(); _j++)
+      {
+        if (_var.number() == jvar_num)
+          ke(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpJacobian();
+        else
+          ke(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpOffDiagJacobian(jvar_num);
+      }
+}
+
+void
 IntegratedBC::computeJacobianBlock(unsigned int jvar)
 {
+  mooseDeprecated("The computeOffDiagJacobian method signature has changed. Developers, please "
+                  "pass in a MooseVariableFEBase reference instead of the variable number");
   DenseMatrix<Number> & ke = _assembly.jacobianBlock(_var.number(), jvar);
 
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)

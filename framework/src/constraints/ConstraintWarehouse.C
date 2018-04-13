@@ -19,7 +19,9 @@
 ConstraintWarehouse::ConstraintWarehouse() : MooseObjectWarehouse<Constraint>(/*threaded=*/false) {}
 
 void
-ConstraintWarehouse::addObject(std::shared_ptr<Constraint> object, THREAD_ID /*tid = 0*/)
+ConstraintWarehouse::addObject(std::shared_ptr<Constraint> object,
+                               THREAD_ID /*tid = 0*/,
+                               bool /*recurse = true*/)
 {
   // Adds to the storage of _all_objects
   MooseObjectWarehouse<Constraint>::addObject(object);
@@ -220,7 +222,7 @@ ConstraintWarehouse::subdomainsCovered(std::set<SubdomainID> & subdomains_covere
     const auto & objects = it.second.getActiveObjects();
     for (const auto & ffc : objects)
     {
-      MooseVariableFE & var = ffc->variable();
+      MooseVariableFEBase & var = ffc->variable();
       unique_variables.insert(var.name());
       const std::set<SubdomainID> & subdomains = var.activeSubdomains();
       subdomains_covered.insert(subdomains.begin(), subdomains.end());

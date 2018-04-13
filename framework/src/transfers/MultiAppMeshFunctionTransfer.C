@@ -14,7 +14,7 @@
 #include "FEProblem.h"
 #include "MooseMesh.h"
 #include "MooseTypes.h"
-#include "MooseVariableField.h"
+#include "MooseVariableFEImpl.h"
 
 #include "libmesh/meshfree_interpolation.h"
 #include "libmesh/system.h"
@@ -33,12 +33,6 @@ validParams<MultiAppMeshFunctionTransfer>()
       "variable", "The auxiliary variable to store the transferred values in.");
   params.addRequiredParam<std::vector<VariableName>>("source_variable",
                                                      "The variable to transfer from.");
-  params.addParam<bool>("displaced_source_mesh",
-                        false,
-                        "Whether or not to use the displaced mesh for the source mesh.");
-  params.addParam<bool>("displaced_target_mesh",
-                        false,
-                        "Whether or not to use the displaced mesh for the target mesh.");
   params.addParam<bool>(
       "error_on_miss",
       false,
@@ -52,9 +46,6 @@ MultiAppMeshFunctionTransfer::MultiAppMeshFunctionTransfer(const InputParameters
     _from_var_name(getParam<std::vector<VariableName>>("source_variable")),
     _error_on_miss(getParam<bool>("error_on_miss"))
 {
-  _displaced_source_mesh = getParam<bool>("displaced_source_mesh");
-  _displaced_target_mesh = getParam<bool>("displaced_target_mesh");
-
   if (_to_var_name.size() == _from_var_name.size())
     _var_size = _to_var_name.size();
   else
@@ -235,7 +226,7 @@ MultiAppMeshFunctionTransfer::transferVariable(unsigned int i)
   for (unsigned int i_from = 0; i_from < _from_problems.size(); ++i_from)
   {
     FEProblemBase & from_problem = *_from_problems[i_from];
-    MooseVariableFE & from_var = from_problem.getVariable(0, _from_var_name[i]);
+    MooseVariableFEBase & from_var = from_problem.getVariable(0, _from_var_name[i]);
     System & from_sys = from_var.sys().system();
     unsigned int from_var_num = from_sys.variable_number(from_var.name());
 

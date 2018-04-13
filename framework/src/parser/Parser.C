@@ -1077,7 +1077,9 @@ Parser::extractParams(const std::string & prefix, InputParameters & p)
       setscalarvaltype(Real, double, Real);
       setscalarvaltype(int, int, long);
       setscalarvaltype(long, int, long);
-      setscalarvaltype(unsigned int, int, long);
+      setscalarvaltype(unsigned int, unsigned int, long);
+      setscalarvaltype(unsigned long, unsigned int, long);
+      setscalarvaltype(long int, int64_t, long);
 
       setscalar(bool, bool);
       setscalar(SubdomainID, int);
@@ -1243,6 +1245,20 @@ Parser::extractParams(const std::string & prefix, InputParameters & p)
   }
 }
 
+template <typename T>
+bool
+toBool(const std::string & /*s*/, T & /*val*/)
+{
+  return false;
+}
+
+template <>
+bool
+toBool<bool>(const std::string & s, bool & val)
+{
+  return hit::toBool(s, &val);
+}
+
 template <typename T, typename Base>
 void
 Parser::setScalarParameter(const std::string & full_name,
@@ -1260,17 +1276,16 @@ Parser::setScalarParameter(const std::string & full_name,
   {
     auto strval = _root->param<std::string>(full_name);
 
-    // handle the case where the user put a number inside quotes - we really shouldn't allow this,
-    // but "backwards compatibility" :-(
+    // handle the case where the user put a number inside quotes
     auto & t = typeid(T);
     if (t == typeid(int) || t == typeid(unsigned int) || t == typeid(SubdomainID) ||
         t == typeid(BoundaryID) || t == typeid(double))
     {
       try
       {
-        param->set() = MooseUtils::convert<T>(strval);
+        param->set() = MooseUtils::convert<T>(strval, true);
       }
-      catch (std::exception & /*e*/)
+      catch (std::invalid_argument & /*e*/)
       {
         const std::string format_type = (t == typeid(double)) ? "float" : "integer";
         _errmsg += errormsg(_input_filename,
@@ -1283,6 +1298,18 @@ Parser::setScalarParameter(const std::string & full_name,
                             strval) +
                    "\n";
       }
+    }
+    else if (t == typeid(bool))
+    {
+      bool isbool = toBool(strval, param->set());
+      if (!isbool)
+        _errmsg += errormsg(_input_filename,
+                            _root->find(full_name),
+                            "invalid boolean syntax for parameter: ",
+                            full_name,
+                            "=",
+                            strval) +
+                   "\n";
     }
     else
       throw;

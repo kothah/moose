@@ -1312,6 +1312,24 @@ XFEM::getPhysicalVolumeFraction(const Elem * elem) const
   return phys_volfrac;
 }
 
+bool
+XFEM::isPointInsidePhysicalDomain(const Elem * elem, const Point & point) const
+{
+  std::map<unique_id_type, XFEMCutElem *>::const_iterator it;
+  it = _cut_elem_map.find(elem->unique_id());
+  if (it != _cut_elem_map.end())
+  {
+    XFEMCutElem * xfce = it->second;
+
+    if (xfce->isPointPhysical(point))
+      return true;
+  }
+  else
+    return true;
+
+  return false;
+}
+
 Real
 XFEM::getCutPlane(const Elem * elem,
                   const Xfem::XFEM_CUTPLANE_QUANTITY quantity,
@@ -1746,7 +1764,7 @@ std::vector<dof_id_type>
 XFEM::getElementSolutionDofs(const Elem * elem, SystemBase & sys) const
 {
   SubdomainID sid = elem->subdomain_id();
-  const std::vector<MooseVariableFE *> & vars = sys.getVariables(0);
+  const std::vector<MooseVariableFEBase *> & vars = sys.getVariables(0);
   std::vector<dof_id_type> solution_dofs;
   solution_dofs.reserve(vars.size()); // just an approximation
   for (auto var : vars)
@@ -1772,7 +1790,7 @@ std::vector<dof_id_type>
 XFEM::getNodeSolutionDofs(const Node * node, SystemBase & sys) const
 {
   const std::set<SubdomainID> & sids = _moose_mesh->getNodeBlockIds(*node);
-  const std::vector<MooseVariableFE *> & vars = sys.getVariables(0);
+  const std::vector<MooseVariableFEBase *> & vars = sys.getVariables(0);
   std::vector<dof_id_type> solution_dofs;
   solution_dofs.reserve(vars.size()); // just an approximation
   for (auto var : vars)

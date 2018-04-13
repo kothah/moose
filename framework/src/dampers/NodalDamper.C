@@ -12,7 +12,7 @@
 // MOOSE includes
 #include "Assembly.h"
 #include "FEProblem.h"
-#include "MooseVariableField.h"
+#include "MooseVariableFEImpl.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
 
@@ -39,7 +39,7 @@ NodalDamper::NodalDamper(const InputParameters & parameters)
     _current_node(_var.node()),
     _qp(0),
     _u_increment(_var.increment()),
-    _u(_var.nodalValue())
+    _u(_var.dofValues())
 {
 }
 

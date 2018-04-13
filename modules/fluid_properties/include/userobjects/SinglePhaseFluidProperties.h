@@ -220,6 +220,25 @@ public:
   virtual void rho_from_p_T(Real p, Real T, Real & rho, Real & drho_dp, Real & drho_dT) const = 0;
 
   /**
+   * Specific volume from pressure and temperature
+   *
+   * @param[in] p   pressure
+   * @param[in] T   temperature
+   */
+  virtual Real v_from_p_T(Real p, Real T) const;
+
+  /**
+   * Specific volume and its derivatives from pressure and temperature
+   *
+   * @param[in] p          pressure
+   * @param[in] T          temperature
+   * @param[out] v         specific volume
+   * @param[out] dv_dp     derivative of specific volume w.r.t. pressure
+   * @param[out] dv_dT     derivative of specific volume w.r.t. temperature
+   */
+  virtual void v_from_p_T(Real p, Real T, Real & v, Real & dv_dp, Real & dv_dT) const;
+
+  /**
    * Specific internal energy from pressure and density
    *
    * @param[in] p     pressure
@@ -258,6 +277,25 @@ public:
   virtual void h_from_p_T(Real p, Real T, Real & h, Real & dh_dp, Real & dh_dT) const = 0;
 
   /**
+   * Internal energy from pressure and temperature
+   *
+   * @param[in] p   pressure
+   * @param[in] T   temperature
+   */
+  virtual Real e_from_p_T(Real p, Real T) const;
+
+  /**
+   * Internal energy and its derivatives from pressure and temperature
+   *
+   * @param[in] p        pressure
+   * @param[in] T        temperature
+   * @param[out] e       internal energy
+   * @param[out] de_dp   derivative of internal energy w.r.t. pressure
+   * @param[out] de_dT   derivative of internal energy w.r.t. temperature
+   */
+  virtual void e_from_p_T(Real p, Real T, Real & e, Real & de_dp, Real & de_dT) const;
+
+  /**
    * Pressure from specific enthalpy and specific entropy
    *
    * @param[in] h   specific enthalpy
@@ -287,7 +325,7 @@ public:
    * @param[in] p   pressure
    * @param[in] T   temperature
    */
-  virtual Real beta_from_p_T(Real p, Real T) const = 0;
+  virtual Real beta_from_p_T(Real p, Real T) const;
 };
 
 #endif /* SINGLEPHASEFLUIDPROPERTIES_H */
