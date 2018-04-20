@@ -1,13 +1,49 @@
 # Framework Development
 
-[Interfaces](framework_development/interfaces/index.md)
+The articles attached to this page are useful if you intend on contributing to the MOOSE reposistory. Information about the repository
+structure, code standards, testing, and software quality are all available here. If you are new to Git, we've created some information
+about how to get up and running here as well.
 
-[MooseUtils Namespace](moose_utils.md)
+For development of MOOSE-based applications see [Application Development](application_development/index.md).
 
-[MooseVariables](moose_variables.md)
+## Overview on contributing
 
-[Utils](utils/index.md)
+[Contributing](framework_development/contributing.md)
 
-[Warehouses](/warehouses.md)
+[How a patch becomes code](framework_development/patch_to_code.md)
+
+[Code Standards](code_standards.md) - How to format any code that goes into the framework
+
+## Git Tips
+
+[Git](git.md) - The revision control system we use
+
+## Build Status and Automatic Metrics
+
+[Build Status (external)](https://civet.inl.gov)
+
+[Build Status (internal)](https://moosebuild.inl.gov)
+
+[Code Coverage](http://mooseframework.com/docs/coverage/moose/)
+
+[Test Timing](http://mooseframework.org/docs/timing/)
+
+## Moose Interfaces
+
+[Interfaces](framework_development/interfaces/index.md) - Base-classes that allow cross-cutting data retrieval
+
+## Utilties
+
+[MooseUtils Namespace](moose_utils.md) - Basic utilities used throughout the framework
+
+[Utils](utils/index.md) - Basic utilities used throughout the framework
+
+## Internal Systems
+
+[MooseVariables](moose_variables.md) - The set of objects that compute and hold variable/field values
+
+[Warehouses](/warehouses.md) - Objects that store all of the dynamically built MOOSE objects (`Kernels`, `BCs`, etc.)
 
 [Code Standards](code_standards.md)
+
+[Tagging](tagging.md)
