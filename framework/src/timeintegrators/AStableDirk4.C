@@ -68,7 +68,6 @@ AStableDirk4::AStableDirk4(const InputParameters & parameters)
     // FEProblemBase::addTimeIntegrator() to ensure that the
     // getCheckedPointerParam() sanity checking is happy.  This is why
     // constructing MOOSE objects "manually" is generally frowned upon.
-    params.set<FEProblemBase *>("_fe_problem_base") = &_fe_problem;
     params.set<SystemBase *>("_sys") = &_sys;
 
     _bootstrap_method = factory.create<LStableDirk4>("LStableDirk4", name() + "_bootstrap", params);
@@ -91,9 +90,16 @@ AStableDirk4::computeTimeDerivatives()
 void
 AStableDirk4::solve()
 {
-  if (_t_step == 1 && _safe_start)
-    _bootstrap_method->solve();
+  // Reset iteration counts
+  _n_nonlinear_iterations = 0;
+  _n_linear_iterations = 0;
 
+  if (_t_step == 1 && _safe_start)
+  {
+    _bootstrap_method->solve();
+    _n_nonlinear_iterations = _bootstrap_method->getNumNonlinearIterations();
+    _n_linear_iterations = _bootstrap_method->getNumLinearIterations();
+  }
   else
   {
     // Time at end of step
@@ -125,6 +131,10 @@ AStableDirk4::solve()
 
       // Do the solve
       _fe_problem.getNonlinearSystemBase().system().solve();
+
+      // Update the iteration counts
+      _n_nonlinear_iterations += getNumNonlinearIterationsLastSolve();
+      _n_linear_iterations += getNumLinearIterationsLastSolve();
     }
   }
 }

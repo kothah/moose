@@ -77,6 +77,7 @@ class AppSyntaxExtension(command.CommandExtension):
     def __init__(self, *args, **kwargs):
         command.CommandExtension.__init__(self, *args, **kwargs)
 
+        self._app_type = None
         self._app_syntax = None
         if not self['disable'] and self['executable'] is not None:
             LOG.info("Reading MOOSE application syntax.")
@@ -85,17 +86,20 @@ class AppSyntaxExtension(command.CommandExtension):
 
             if exe is None:
                 LOG.error("Failed to locate a valid executable in %s.", self['executable'])
+            else:
+                try:
+                    self._app_syntax = app_syntax(exe,
+                                                  alias=self['alias'],
+                                                  remove=self['remove'],
+                                                  hide=self['hide'],
+                                                  allow_test_objects=self['allow-test-objects'])
 
-            try:
-                self._app_syntax = app_syntax(exe,
-                                              alias=self['alias'],
-                                              remove=self['remove'],
-                                              hide=self['hide'],
-                                              allow_test_objects=self['allow-test-objects'])
-            except Exception as e: #pylint: disable=broad-except
-                msg = "Failed to load application executable from '%s', " \
-                      "application syntax is being disabled:\n%s"
-                LOG.error(msg, self['executable'], e.message)
+                    self._app_type = mooseutils.runExe(exe, ['--type']).strip(' \n')
+
+                except Exception as e: #pylint: disable=broad-except
+                    msg = "Failed to load application executable from '%s', " \
+                          "application syntax is being disabled:\n%s"
+                    LOG.error(msg, self['executable'], e.message)
 
         LOG.info("Building MOOSE class database.")
         self._database = common.build_class_database(self['includes'], self['inputs'])
@@ -120,6 +124,10 @@ class AppSyntaxExtension(command.CommandExtension):
     @property
     def database(self):
         return self._database
+
+    @property
+    def apptype(self):
+        return self._app_type
 
     def find(self, name, node_type=None, exc=exceptions.TokenizeException):
         try:

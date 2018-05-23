@@ -11,7 +11,7 @@
 
 // MOOSE includes
 #include "Assembly.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "SystemBase.h"
 
 #include "libmesh/quadrature.h"
@@ -78,10 +78,11 @@ InterfaceKernel::InterfaceKernel(const InputParameters & parameters)
     FunctionInterface(this),
     UserObjectInterface(this),
     NeighborCoupleableMooseVariableDependencyIntermediateInterface(this, false, false),
-    NeighborMooseVariableInterface<Real>(this, false),
+    NeighborMooseVariableInterface<Real>(
+        this, false, Moose::VarKindType::VAR_NONLINEAR, Moose::VarFieldType::VAR_FIELD_STANDARD),
     Restartable(this, "InterfaceKernels"),
     MeshChangedInterface(parameters),
-    TwoMaterialPropertyInterface(this, boundaryIDs()),
+    TwoMaterialPropertyInterface(this, Moose::EMPTY_BLOCK_IDS, boundaryIDs()),
     _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
     _sys(*getCheckedPointerParam<SystemBase *>("_sys")),
     _tid(parameters.get<THREAD_ID>("_tid")),

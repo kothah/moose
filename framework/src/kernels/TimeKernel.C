@@ -11,7 +11,7 @@
 
 // MOOSE includes
 #include "Assembly.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "SystemBase.h"
 
 #include "libmesh/quadrature.h"
@@ -23,7 +23,7 @@ validParams<TimeKernel>()
   InputParameters params = validParams<Kernel>();
 
   params.set<MultiMooseEnum>("vector_tags") = "time";
-  params.set<MultiMooseEnum>("matrix_tags") = "system";
+  params.set<MultiMooseEnum>("matrix_tags") = "system time";
 
   return params;
 }

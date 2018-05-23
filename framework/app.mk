@@ -19,7 +19,6 @@ $APPLICATION_NAME$(STACK) := $(APPLICATION_NAME)
 $DEPEND_MODULES$(STACK) := $(DEPEND_MODULES)
 $GEN_REVISION$(STACK) := $(GEN_REVISION)
 $BUILD_EXEC$(STACK) := $(BUILD_EXEC)
-$DEP_APPS$(STACK) := $(DEP_APPS)
 
 -include $(APPLICATION_DIR)/$(APPLICATION_NAME).mk
 
@@ -31,7 +30,6 @@ APPLICATION_NAME := $($APPLICATION_NAME$(STACK))
 DEPEND_MODULES := $($DEPEND_MODULES$(STACK))
 GEN_REVISION := $($GEN_REVISION$(STACK))
 BUILD_EXEC := $($BUILD_EXEC$(STACK))
-DEP_APPS := $($DEP_APPS$(STACK))
 STACK := $(basename $(STACK))
 
 ifneq ($(SUFFIX),)
@@ -49,7 +47,7 @@ PLUGIN_DIR  := $(APPLICATION_DIR)/plugins
 
 excluded_srcfiles += main.C
 find_excludes     := $(foreach i, $(excluded_srcfiles), -not -name $(i))
-srcfiles    := $(shell find $(SRC_DIRS) -name "*.C" $(find_excludes))
+srcfiles    := $(shell find $(SRC_DIRS) -regex "[^\#~]*\.C" $(find_excludes))
 
 
 ### Unity Build ###
@@ -81,7 +79,7 @@ non_unity_srcsubdirs := $(filter $(non_unity_dirs), $(srcsubdirs))
 # Loop over the subdirectories, creating a rule to create the Unity source file
 # for each subdirectory.  To do that we need to create a unique name using the
 # full hierarchy of the path underneath src
-$(foreach srcsubdir,$(unity_srcsubdirs),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir)),$(shell find $(srcsubdir) -maxdepth 1 \( -type f -o -type l \) -name "*.C"),$(srcsubdir),$(unity_src_dir))))
+$(foreach srcsubdir,$(unity_srcsubdirs),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir)),$(shell find $(srcsubdir) -maxdepth 1 \( -type f -o -type l \) -regex "[^\#~]*\.C"),$(srcsubdir),$(unity_src_dir))))
 
 # This creates the whole list of Unity source files so we can use it as a dependency
 app_unity_srcfiles := $(foreach srcsubdir,$(unity_srcsubdirs),$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir)))
@@ -90,7 +88,7 @@ app_unity_srcfiles := $(foreach srcsubdir,$(unity_srcsubdirs),$(call unity_uniqu
 unity_srcfiles += $(app_unity_srcfiles)
 
 # Pick up all of the additional files in the src directory since we're not unity building those
-app_non_unity_srcfiles := $(filter-out %main.C, $(shell find $(non_unity_srcsubdirs) -maxdepth 1 \( -type f -o -type l \) -name "*.C"))
+app_non_unity_srcfiles := $(filter-out %main.C, $(shell find $(non_unity_srcsubdirs) -maxdepth 1 \( -type f -o -type l \) -regex "[^\#~]*\.C"))
 
 # Override srcfiles
 srcfiles    := $(app_unity_srcfiles) $(app_non_unity_srcfiles)
@@ -114,7 +112,7 @@ f90objects  := $(patsubst %.f90, %.$(obj-suffix), $(f90srcfiles))
 
 app_objects := $(objects) $(cobjects) $(fobjects) $(f90objects) $(ADDITIONAL_APP_OBJECTS)
 
-test_srcfiles    := $(shell find $(TEST_SRC_DIRS) -name "*.C" $(find_excludes) 2>/dev/null)
+test_srcfiles    := $(shell find $(TEST_SRC_DIRS) -regex "[^\#~]*\.C" $(find_excludes) 2>/dev/null)
 test_csrcfiles   := $(shell find $(TEST_SRC_DIRS) -name "*.c" 2>/dev/null)
 test_fsrcfiles   := $(shell find $(TEST_SRC_DIRS) -name "*.f" 2>/dev/null)
 test_f90srcfiles := $(shell find $(TEST_SRC_DIRS) -name "*.f90" 2>/dev/null)
@@ -130,7 +128,7 @@ test_f90objects:= $(patsubst %.f90, %.$(obj-suffix), $(test_f90srcfiles))
 app_test_objects := $(test_objects) $(test_cobjects) $(test_fobjects) $(test_f90objects)
 
 # plugin files
-plugfiles   := $(shell find $(PLUGIN_DIR) -name "*.C" 2>/dev/null)
+plugfiles   := $(shell find $(PLUGIN_DIR) -regex "[^\#~]*\.C" 2>/dev/null)
 cplugfiles  := $(shell find $(PLUGIN_DIR) -name "*.c" 2>/dev/null)
 fplugfiles  := $(shell find $(PLUGIN_DIR) -name "*.f" 2>/dev/null)
 f90plugfiles:= $(shell find $(PLUGIN_DIR) -name "*.f90" 2>/dev/null)
@@ -161,8 +159,8 @@ ifneq ($(wildcard $(APPLICATION_DIR)/test/include/*),)
 endif
 
 # header files
-include_dirs	:= $(shell find $(depend_dirs) -type d | grep -v "\.svn")
-include_files	:= $(shell find $(depend_dirs) -name "*.[hf]" | grep -v "\.svn")
+include_dirs	:= $(shell find $(depend_dirs) -type d)
+include_files	:= $(shell find $(depend_dirs) -regex "[^\#~]*\.[hf]")
 
 # clang static analyzer files
 app_analyzer := $(patsubst %.C, %.plist.$(obj-suffix), $(srcfiles))
@@ -283,7 +281,7 @@ $(app_LIB): curr_objs := $(app_objects)
 $(app_LIB): curr_dir  := $(APPLICATION_DIR)
 $(app_LIB): curr_deps := $(depend_libs)
 $(app_LIB): curr_libs := $(depend_libs_flags)
-$(app_LIB): $(app_HEADER) $(app_plugin_deps) $(depend_libs) $(app_objects)
+$(app_LIB): $(app_HEADER) $(app_plugin_deps) $(depend_libs) $(app_objects) $(ADDITIONAL_DEPEND_LIBS)
 	@echo "Linking Library "$@"..."
 	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
 	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(curr_objs) $(libmesh_LDFLAGS) $(EXTERNAL_FLAGS) -rpath $(curr_dir)/lib $(curr_libs)
@@ -299,7 +297,7 @@ $(app_test_LIB): curr_objs := $(app_test_objects)
 $(app_test_LIB): curr_dir  := $(APPLICATION_DIR)/test
 $(app_test_LIB): curr_deps := $(depend_libs)
 $(app_test_LIB): curr_libs := $(depend_libs_flags)
-$(app_test_LIB): $(app_HEADER) $(app_plugin_deps) $(depend_libs) $(app_test_objects)
+$(app_test_LIB): $(app_HEADER) $(app_plugin_deps) $(depend_libs) $(app_test_objects) $(ADDITIONAL_DEPEND_LIBS)
 	@echo "Linking Library "$@"..."
 	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
 	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(curr_objs) $(libmesh_LDFLAGS) $(EXTERNAL_FLAGS) -rpath $(curr_dir)/lib $(curr_libs)
@@ -315,9 +313,10 @@ endif
 # registered as expected.  See https://stackoverflow.com/questions/5202142/static-variable-initialization-over-a-library
 # and https://stackoverflow.com/questions/9459980/c-global-variable-not-initialized-when-linked-through-static-libraries-but-ok#11336506
 # for more explanations/details.
+uniq = $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1)))
 compilertype := unknown
-applibs := $(app_LIBS)
-applibs += $(app_test_LIB)
+applibs :=  $(app_test_LIB) $(app_LIBS) $(depend_test_libs)
+applibs := $(call uniq,$(applibs))
 ifeq ($(libmesh_static),yes)
   ifneq (,$(findstring clang,$(CXX)))
     compilertype := clang
@@ -346,7 +345,7 @@ endif
 $(app_EXEC): $(app_LIBS) $(mesh_library) $(main_object) $(app_test_LIB) $(depend_test_libs) $(ADDITIONAL_DEPEND_LIBS)
 	@echo "Linking Executable "$@"..."
 	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(main_object) $(applibs) $(depend_test_libs) $(libmesh_LIBS) $(libmesh_LDFLAGS) $(depend_test_libs_flags) $(EXTERNAL_FLAGS) $(ADDITIONAL_LIBS)
+	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(main_object) $(applibs) $(libmesh_LIBS) $(libmesh_LDFLAGS) $(depend_test_libs_flags) $(EXTERNAL_FLAGS) $(ADDITIONAL_LIBS)
 
 # Clang static analyzer
 sa:: $(app_analyzer)

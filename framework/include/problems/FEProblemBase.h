@@ -24,9 +24,10 @@
 #include "ExecuteMooseObjectWarehouse.h"
 #include "AuxGroupExecuteMooseObjectWarehouse.h"
 #include "MaterialWarehouse.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "MultiAppTransfer.h"
 #include "Postprocessor.h"
+#include "HashMap.h"
 
 #include "libmesh/enum_quadrature_type.h"
 #include "libmesh/equation_systems.h"
@@ -70,13 +71,14 @@ class Distribution;
 class Sampler;
 class KernelBase;
 class IntegratedBCBase;
+class LineSearch;
 
 // libMesh forward declarations
 namespace libMesh
 {
 class CouplingMatrix;
 class NonlinearImplicitSystem;
-}
+} // namespace libMesh
 
 template <>
 InputParameters validParams<FEProblemBase>();
@@ -220,7 +222,11 @@ public:
                                                               const PetscInt maxits);
 
   virtual bool hasVariable(const std::string & var_name) const override;
-  virtual MooseVariableFEBase & getVariable(THREAD_ID tid, const std::string & var_name) override;
+  virtual MooseVariableFEBase & getVariable(
+      THREAD_ID tid,
+      const std::string & var_name,
+      Moose::VarKindType expected_var_type = Moose::VarKindType::VAR_ANY,
+      Moose::VarFieldType expected_var_field_type = Moose::VarFieldType::VAR_FIELD_ANY) override;
   virtual MooseVariable & getStandardVariable(THREAD_ID tid, const std::string & var_name) override;
   virtual VectorMooseVariable & getVectorVariable(THREAD_ID tid,
                                                   const std::string & var_name) override;
@@ -490,6 +496,24 @@ public:
   virtual Function & getFunction(const std::string & name, THREAD_ID tid = 0);
 
   /**
+   * add a MOOSE line search
+   */
+  virtual void addLineSearch(const InputParameters & /*parameters*/)
+  {
+    mooseError("Line search not implemented for this problem type yet.");
+  }
+
+  /**
+   * execute MOOSE line search
+   */
+  virtual void lineSearch();
+
+  /**
+   * getter for the MOOSE line search
+   */
+  std::shared_ptr<LineSearch> getLineSearch() { return _line_search; }
+
+  /**
    * The following functions will enable MOOSE to have the capability to import distributions
    */
   virtual void
@@ -508,26 +532,26 @@ public:
 
   virtual NonlinearSystem & getNonlinearSystem();
 
-  void addVariable(const std::string & var_name,
-                   const FEType & type,
-                   Real scale_factor,
-                   const std::set<SubdomainID> * const active_subdomains = NULL);
-  void addScalarVariable(const std::string & var_name,
-                         Order order,
-                         Real scale_factor = 1.,
-                         const std::set<SubdomainID> * const active_subdomains = NULL);
-  void
+  virtual void addVariable(const std::string & var_name,
+                           const FEType & type,
+                           Real scale_factor,
+                           const std::set<SubdomainID> * const active_subdomains = NULL);
+  virtual void addScalarVariable(const std::string & var_name,
+                                 Order order,
+                                 Real scale_factor = 1.,
+                                 const std::set<SubdomainID> * const active_subdomains = NULL);
+  virtual void
   addKernel(const std::string & kernel_name, const std::string & name, InputParameters parameters);
-  void addNodalKernel(const std::string & kernel_name,
-                      const std::string & name,
-                      InputParameters parameters);
-  void addScalarKernel(const std::string & kernel_name,
-                       const std::string & name,
-                       InputParameters parameters);
-  void addBoundaryCondition(const std::string & bc_name,
-                            const std::string & name,
-                            InputParameters parameters);
-  void
+  virtual void addNodalKernel(const std::string & kernel_name,
+                              const std::string & name,
+                              InputParameters parameters);
+  virtual void addScalarKernel(const std::string & kernel_name,
+                               const std::string & name,
+                               InputParameters parameters);
+  virtual void addBoundaryCondition(const std::string & bc_name,
+                                    const std::string & name,
+                                    InputParameters parameters);
+  virtual void
   addConstraint(const std::string & c_name, const std::string & name, InputParameters parameters);
 
   virtual void setInputParametersFEProblem(InputParameters & parameters)
@@ -536,48 +560,48 @@ public:
   }
 
   // Aux /////
-  void addAuxVariable(const std::string & var_name,
-                      const FEType & type,
-                      const std::set<SubdomainID> * const active_subdomains = NULL);
-  void addAuxScalarVariable(const std::string & var_name,
-                            Order order,
-                            Real scale_factor = 1.,
-                            const std::set<SubdomainID> * const active_subdomains = NULL);
-  void addAuxKernel(const std::string & kernel_name,
-                    const std::string & name,
-                    InputParameters parameters);
-  void addAuxScalarKernel(const std::string & kernel_name,
-                          const std::string & name,
-                          InputParameters parameters);
+  virtual void addAuxVariable(const std::string & var_name,
+                              const FEType & type,
+                              const std::set<SubdomainID> * const active_subdomains = NULL);
+  virtual void addAuxScalarVariable(const std::string & var_name,
+                                    Order order,
+                                    Real scale_factor = 1.,
+                                    const std::set<SubdomainID> * const active_subdomains = NULL);
+  virtual void addAuxKernel(const std::string & kernel_name,
+                            const std::string & name,
+                            InputParameters parameters);
+  virtual void addAuxScalarKernel(const std::string & kernel_name,
+                                  const std::string & name,
+                                  InputParameters parameters);
 
   AuxiliarySystem & getAuxiliarySystem() { return *_aux; }
 
   // Dirac /////
-  void addDiracKernel(const std::string & kernel_name,
-                      const std::string & name,
-                      InputParameters parameters);
+  virtual void addDiracKernel(const std::string & kernel_name,
+                              const std::string & name,
+                              InputParameters parameters);
 
   // DG /////
-  void addDGKernel(const std::string & kernel_name,
-                   const std::string & name,
-                   InputParameters parameters);
-
-  // Interface /////
-  void addInterfaceKernel(const std::string & kernel_name,
-                          const std::string & name,
-                          InputParameters parameters);
-
-  // IC /////
-  void addInitialCondition(const std::string & ic_name,
+  virtual void addDGKernel(const std::string & kernel_name,
                            const std::string & name,
                            InputParameters parameters);
+
+  // Interface /////
+  virtual void addInterfaceKernel(const std::string & kernel_name,
+                                  const std::string & name,
+                                  InputParameters parameters);
+
+  // IC /////
+  virtual void addInitialCondition(const std::string & ic_name,
+                                   const std::string & name,
+                                   InputParameters parameters);
 
   void projectSolution();
 
   // Materials /////
-  void addMaterial(const std::string & kernel_name,
-                   const std::string & name,
-                   InputParameters parameters);
+  virtual void addMaterial(const std::string & kernel_name,
+                           const std::string & name,
+                           InputParameters parameters);
 
   /**
    * Add the MooseVariables that the current materials depend on to the dependency list.
@@ -612,6 +636,9 @@ public:
    * @see SetupPostprocessorDataAction
    */
   void initPostprocessorData(const std::string & name);
+
+  /// Initialize the VectorPostprocessor data
+  void initVectorPostprocessorData(const std::string & name);
 
   // UserObjects /////
   virtual void
@@ -733,7 +760,8 @@ public:
    * @return The reference to the vector declared
    */
   VectorPostprocessorValue & declareVectorPostprocessorVector(const VectorPostprocessorName & name,
-                                                              const std::string & vector_name);
+                                                              const std::string & vector_name,
+                                                              bool contains_complete_history);
 
   /**
    * Whether or not the specified VectorPostprocessor has declared any vectors
@@ -751,7 +779,8 @@ public:
   getVectorPostprocessorVectors(const std::string & vpp_name);
 
   // Dampers /////
-  void addDamper(std::string damper_name, const std::string & name, InputParameters parameters);
+  virtual void
+  addDamper(std::string damper_name, const std::string & name, InputParameters parameters);
   void setupDampers();
 
   /**
@@ -764,14 +793,15 @@ public:
   addIndicator(std::string indicator_name, const std::string & name, InputParameters parameters);
 
   // Markers //////
-  void addMarker(std::string marker_name, const std::string & name, InputParameters parameters);
+  virtual void
+  addMarker(std::string marker_name, const std::string & name, InputParameters parameters);
 
   /**
    * Add a MultiApp to the problem.
    */
-  void addMultiApp(const std::string & multi_app_name,
-                   const std::string & name,
-                   InputParameters parameters);
+  virtual void addMultiApp(const std::string & multi_app_name,
+                           const std::string & name,
+                           InputParameters parameters);
 
   /**
    * Get a MultiApp object by name.
@@ -836,9 +866,9 @@ public:
   /**
    * Add a Transfer to the problem.
    */
-  void addTransfer(const std::string & transfer_name,
-                   const std::string & name,
-                   InputParameters parameters);
+  virtual void addTransfer(const std::string & transfer_name,
+                           const std::string & name,
+                           InputParameters parameters);
 
   /**
    * Execute the Transfers associated with the ExecFlagType
@@ -1143,7 +1173,7 @@ public:
   std::shared_ptr<XFEMInterface> getXFEM() { return _xfem; }
 
   /// Find out whether the current analysis is using XFEM
-  bool haveXFEM() { return _xfem != NULL; }
+  bool haveXFEM() { return _xfem != nullptr; }
 
   /// Update the mesh due to changing XFEM cuts
   virtual bool updateMeshXFEM();
@@ -1217,8 +1247,8 @@ public:
    * @param tid the THREAD_ID of the caller
    * @return Boolean indicating whether material properties need to be stored
    */
-  bool needMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid);
-  bool needMaterialOnSide(SubdomainID subdomain_id, THREAD_ID tid);
+  bool needBoundaryMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid);
+  bool needSubdomainMaterialOnSide(SubdomainID subdomain_id, THREAD_ID tid);
   ///@}
 
   /**
@@ -1296,7 +1326,7 @@ public:
   /**
    * Convenience function for performing execution of MOOSE systems.
    */
-  void execute(const ExecFlagType & exec_type);
+  virtual void execute(const ExecFlagType & exec_type);
 
   /**
    * Call compute methods on UserObjects.
@@ -1361,7 +1391,7 @@ public:
   /**
    * Update the active objects in the warehouses
    */
-  void updateActiveObjects();
+  virtual void updateActiveObjects();
 
   /**
    * Register a MOOSE object dependency so we can either order
@@ -1372,14 +1402,9 @@ public:
 
   ExecuteMooseObjectWarehouse<MultiApp> & getMultiAppWarehouse() { return _multi_apps; }
 
-protected:
-  ///@{
-  /**
-   *
-   */
-  VectorPostprocessorData & getVectorPostprocessorData();
-  ///@}
+  const VectorPostprocessorData & getVectorPostprocessorData() const;
 
+protected:
   MooseMesh & _mesh;
   EquationSystems _eq;
   bool _initialized;
@@ -1615,6 +1640,8 @@ protected:
   /// PETSc option storage
   Moose::PetscSupport::PetscOptions _petsc_options;
 #endif // LIBMESH_HAVE_PETSC
+
+  std::shared_ptr<LineSearch> _line_search;
 
 private:
   bool _error_on_jacobian_nonzero_reallocation;

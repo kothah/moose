@@ -10,46 +10,25 @@
 #ifndef WATER97FLUIDPROPERTIESTEST_H
 #define WATER97FLUIDPROPERTIESTEST_H
 
-// CPPUnit includes
-#include "gtest_include.h"
-
-#include "MooseApp.h"
-#include "Utils.h"
-#include "FEProblem.h"
-#include "AppFactory.h"
-#include "GeneratedMesh.h"
+#include "MooseObjectUnitTest.h"
 #include "Water97FluidProperties.h"
+#include "Utils.h"
 
-class Water97FluidPropertiesTest : public ::testing::Test
+class Water97FluidPropertiesTest : public MooseObjectUnitTest
 {
-protected:
-  void SetUp()
+public:
+  Water97FluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp")
   {
-    const char * argv[] = {"foo", NULL};
-
-    _app = AppFactory::createAppShared("MooseUnitApp", 1, (char **)argv);
-    _factory = &_app->getFactory();
-    registerObjects(*_factory);
+    registerObjects(_factory);
     buildObjects();
   }
 
+protected:
   void registerObjects(Factory & factory) { registerUserObject(Water97FluidProperties); }
 
   void buildObjects()
   {
-    InputParameters mesh_params = _factory->getValidParams("GeneratedMesh");
-    mesh_params.set<MooseEnum>("dim") = "3";
-    mesh_params.set<std::string>("name") = "mesh";
-    mesh_params.set<std::string>("_object_name") = "name1";
-    _mesh = libmesh_make_unique<GeneratedMesh>(mesh_params);
-
-    InputParameters problem_params = _factory->getValidParams("FEProblem");
-    problem_params.set<MooseMesh *>("mesh") = _mesh.get();
-    problem_params.set<std::string>("name") = "problem";
-    problem_params.set<std::string>("_object_name") = "name2";
-    _fe_problem = libmesh_make_unique<FEProblem>(problem_params);
-
-    InputParameters uo_pars = _factory->getValidParams("Water97FluidProperties");
+    InputParameters uo_pars = _factory.getValidParams("Water97FluidProperties");
     _fe_problem->addUserObject("Water97FluidProperties", "fp", uo_pars);
     _fp = &_fe_problem->getUserObject<Water97FluidProperties>("fp");
   }
@@ -91,10 +70,6 @@ protected:
     REL_TEST("de_dT", de_dT, de_dT_fd, tol);
   }
 
-  std::shared_ptr<MooseApp> _app;
-  std::unique_ptr<MooseMesh> _mesh;
-  std::unique_ptr<FEProblem> _fe_problem;
-  Factory * _factory;
   const Water97FluidProperties * _fp;
 };
 

@@ -11,7 +11,7 @@
 
 // MOOSE includes
 #include "MooseMesh.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 
 #include "libmesh/mesh_tools.h"
 
@@ -32,7 +32,11 @@ validParams<PointSamplerBase>()
 PointSamplerBase::PointSamplerBase(const InputParameters & parameters)
   : GeneralVectorPostprocessor(parameters),
     CoupleableMooseVariableDependencyIntermediateInterface(this, false),
-    MooseVariableInterface<Real>(this, false),
+    MooseVariableInterface<Real>(this,
+                                 false,
+                                 "variable",
+                                 Moose::VarKindType::VAR_ANY,
+                                 Moose::VarFieldType::VAR_FIELD_STANDARD),
     SamplerBase(parameters, this, _communicator),
     _mesh(_subproblem.mesh())
 {

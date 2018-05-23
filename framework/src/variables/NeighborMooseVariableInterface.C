@@ -11,15 +11,19 @@
 
 // MOOSE includes
 #include "Assembly.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "MooseTypes.h"
 #include "Problem.h"
 #include "SubProblem.h"
 
 template <typename T>
-NeighborMooseVariableInterface<T>::NeighborMooseVariableInterface(const MooseObject * moose_object,
-                                                                  bool nodal)
-  : MooseVariableInterface<T>(moose_object, nodal)
+NeighborMooseVariableInterface<T>::NeighborMooseVariableInterface(
+    const MooseObject * moose_object,
+    bool nodal,
+    Moose::VarKindType expected_var_type,
+    Moose::VarFieldType expected_var_field_type)
+  : MooseVariableInterface<T>(
+        moose_object, nodal, "variable", expected_var_type, expected_var_field_type)
 {
 }
 

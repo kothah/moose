@@ -154,6 +154,10 @@ validParams<FeatureFloodCount>()
   params.addParam<MooseEnum>("flood_entity_type",
                              flood_type,
                              "Determines whether the flood algorithm runs on nodes or elements");
+
+  params.addClassDescription("The object is able to find and count \"connected components\" in any "
+                             "solution field or number of solution fields. A primary example would "
+                             "be to count \"bubbles\".");
   return params;
 }
 
@@ -283,11 +287,8 @@ FeatureFloodCount::meshChanged()
 void
 FeatureFloodCount::execute()
 {
-  const auto end = _mesh.getMesh().active_local_elements_end();
-  for (auto el = _mesh.getMesh().active_local_elements_begin(); el != end; ++el)
+  for (const auto & current_elem : _mesh.getMesh().active_local_element_ptr_range())
   {
-    const Elem * current_elem = *el;
-
     // Loop over elements or nodes
     if (_is_elemental)
     {
@@ -626,6 +627,24 @@ FeatureFloodCount::doesFeatureIntersectBoundary(unsigned int feature_id) const
   }
 
   return false;
+}
+
+Point
+FeatureFloodCount::featureCentroid(unsigned int feature_id) const
+{
+  if (feature_id >= _feature_id_to_local_index.size())
+    return invalid_id;
+
+  auto local_index = _feature_id_to_local_index[feature_id];
+
+  Real invalid_coord = std::numeric_limits<Real>::max();
+  Point p(invalid_coord, invalid_coord, invalid_coord);
+  if (local_index != invalid_size_t)
+  {
+    mooseAssert(local_index < _feature_sets.size(), "local_index out of bounds");
+    p = _feature_sets[local_index]._centroid;
+  }
+  return p;
 }
 
 Real

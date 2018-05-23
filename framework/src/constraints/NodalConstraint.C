@@ -11,7 +11,7 @@
 
 // MOOSE includes
 #include "Assembly.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "SystemBase.h"
 
 #include "libmesh/sparse_matrix.h"
@@ -31,7 +31,8 @@ validParams<NodalConstraint>()
 NodalConstraint::NodalConstraint(const InputParameters & parameters)
   : Constraint(parameters),
     NeighborCoupleableMooseVariableDependencyIntermediateInterface(this, true, true),
-    NeighborMooseVariableInterface<Real>(this, true),
+    NeighborMooseVariableInterface<Real>(
+        this, true, Moose::VarKindType::VAR_NONLINEAR, Moose::VarFieldType::VAR_FIELD_STANDARD),
     _u_slave(_var.dofValuesNeighbor()),
     _u_master(_var.dofValues())
 {

@@ -8,7 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "ElementUserObject.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "SubProblem.h"
 #include "Assembly.h"
 
@@ -29,7 +29,7 @@ validParams<ElementUserObject>()
 ElementUserObject::ElementUserObject(const InputParameters & parameters)
   : UserObject(parameters),
     BlockRestrictable(this),
-    MaterialPropertyInterface(this, blockIDs()),
+    MaterialPropertyInterface(this, blockIDs(), Moose::EMPTY_BOUNDARY_IDS),
     UserObjectInterface(this),
     Coupleable(this, false),
     MooseVariableDependencyInterface(),

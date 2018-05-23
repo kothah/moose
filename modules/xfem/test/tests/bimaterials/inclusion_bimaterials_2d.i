@@ -179,12 +179,14 @@
     use_displaced_mesh = false
     variable = disp_x
     alpha = 1e8
+    geometric_cut_userobject = 'level_set_cut_uo'
   [../]
   [./dispy_constraint]
     type = XFEMSingleVariableConstraint
     use_displaced_mesh = false
     variable = disp_y
     alpha = 1e8
+    geometric_cut_userobject = 'level_set_cut_uo'
   [../]
 []
 
@@ -266,8 +268,8 @@
 
 # controls for nonlinear iterations
   nl_max_its = 15
-  nl_rel_tol = 1e-6
-  nl_abs_tol = 1e-5
+  nl_rel_tol = 1e-14
+  nl_abs_tol = 1e-7
 
 # time control
   start_time = 0.0

@@ -187,16 +187,16 @@ enum AuxGroup
 enum VarKindType
 {
   VAR_NONLINEAR,
-  VAR_AUXILIARY
+  VAR_AUXILIARY,
+  VAR_ANY
 };
 
-enum KernelType
+enum VarFieldType
 {
-  KT_NONTIME = 0,
-  KT_TIME = 1,
-  KT_NONEIGEN = 2,
-  KT_EIGEN = 3,
-  KT_ALL
+  VAR_FIELD_STANDARD,
+  VAR_FIELD_SCALAR,
+  VAR_FIELD_VECTOR,
+  VAR_FIELD_ANY
 };
 
 enum CouplingType
@@ -367,6 +367,7 @@ enum LineSearchType
   LS_BASICNONORMS,
 #else
   LS_SHELL,
+  LS_CONTACT,
   LS_L2,
   LS_BT,
   LS_CP

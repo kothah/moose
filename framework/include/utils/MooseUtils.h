@@ -481,7 +481,7 @@ concatenate(T c1, const T & c2)
 }
 
 /**
- * Returns a vector that contains is teh concatenation of the two passed in vectors.
+ * Returns a vector that contains is the concatenation of the two passed in vectors.
  */
 template <typename T>
 std::vector<T>
@@ -528,7 +528,6 @@ ExecFlagEnum getDefaultExecFlagEnum();
  * @param throw_on_failure Throw an invalid_argument exception instead of mooseError.
  */
 int stringToInteger(const std::string & input, bool throw_on_failure = false);
-
 } // MooseUtils namespace
 
 #endif // MOOSEUTILS_H

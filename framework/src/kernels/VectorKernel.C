@@ -14,7 +14,7 @@
 
 #include "VectorKernel.h"
 #include "Assembly.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "MooseVariableScalar.h"
 #include "SubProblem.h"
 #include "NonlinearSystem.h"
@@ -33,7 +33,11 @@ validParams<VectorKernel>()
 
 VectorKernel::VectorKernel(const InputParameters & parameters)
   : KernelBase(parameters),
-    MooseVariableInterface<RealVectorValue>(this, false),
+    MooseVariableInterface<RealVectorValue>(this,
+                                            false,
+                                            "variable",
+                                            Moose::VarKindType::VAR_NONLINEAR,
+                                            Moose::VarFieldType::VAR_FIELD_VECTOR),
     _var(*mooseVariable()),
     _test(_var.phi()),
     _grad_test(_var.gradPhi()),

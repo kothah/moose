@@ -18,6 +18,11 @@
 #include "MultiMooseEnum.h"
 
 #include "libmesh/petsc_macro.h"
+#include "libmesh/linear_solver.h"
+#include "libmesh/petsc_linear_solver.h"
+#include "libmesh/petsc_nonlinear_solver.h"
+
+#include <petscksp.h>
 
 // Forward declarations
 class FEProblemBase;
@@ -57,6 +62,23 @@ public:
 void petscSetOptions(FEProblemBase & problem);
 
 /**
+ * Set the default options for a KSP
+ */
+void petscSetKSPDefaults(FEProblemBase & problem, KSP ksp);
+
+/**
+ * Set the defaults for a libMesh LinearSolver
+ *
+ * Used in explicit solves
+ */
+template <typename T>
+void
+setLinearSolverDefaults(FEProblemBase & problem, LinearSolver<T> & linear_solver)
+{
+  petscSetKSPDefaults(problem, libmesh_cast_ref<PetscLinearSolver<T> &>(linear_solver).ksp());
+}
+
+/**
  * Sets the default options for PETSc
  */
 void petscSetDefaults(FEProblemBase & problem);
@@ -79,6 +101,11 @@ PetscErrorCode petscLinearMonitor(KSP /*ksp*/, PetscInt its, PetscReal rnorm, vo
  * Stores the PETSc options supplied from the InputParameters with MOOSE
  */
 void storePetscOptions(FEProblemBase & fe_problem, const InputParameters & params);
+
+/**
+ * Returns the valid petsc line search options as a set of strings
+ */
+std::set<std::string> getPetscValidLineSearches();
 
 /**
  * Returns the PETSc options that are common between Executioners and Preconditioners
@@ -116,6 +143,30 @@ void colorAdjacencyMatrix(PetscScalar * adjacency_matrix,
                           unsigned int colors,
                           std::vector<unsigned int> & vertex_colors,
                           const char * coloring_algorithm);
+
+/**
+ * Wrapper of the libmesh ComputeLineSearchObject
+ */
+class ComputeLineSearchObjectWrapper
+  : public libMesh::PetscNonlinearSolver<Real>::ComputeLineSearchObject
+{
+public:
+  ComputeLineSearchObjectWrapper(FEProblemBase & fe_problem);
+
+  /**
+   * Shim that calls into the MOOSE line search system using FEProblemBase::linesearch
+   */
+  void linesearch(SNESLineSearch line_search_object) override;
+
+protected:
+  FEProblemBase & _fe_problem;
+};
+
+#if PETSC_VERSION_LESS_THAN(3, 4, 0)
+#define SNESGETLINESEARCH SNESGetSNESLineSearch
+#else
+#define SNESGETLINESEARCH SNESGetLineSearch
+#endif
 }
 }
 

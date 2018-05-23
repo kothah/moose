@@ -14,7 +14,7 @@
 #include "FEProblem.h"
 #include "MooseMesh.h"
 #include "MooseTypes.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 
 #include "libmesh/meshfree_interpolation.h"
 #include "libmesh/system.h"
@@ -126,13 +126,8 @@ MultiAppMeshFunctionTransfer::transferVariable(unsigned int i)
 
     if (is_nodal)
     {
-      MeshBase::const_node_iterator node_it = to_mesh->local_nodes_begin();
-      MeshBase::const_node_iterator node_end = to_mesh->local_nodes_end();
-
-      for (; node_it != node_end; ++node_it)
+      for (const auto & node : to_mesh->local_node_ptr_range())
       {
-        Node * node = *node_it;
-
         // Skip this node if the variable has no dofs at it.
         if (node->n_dofs(sys_num, var_num) < 1)
           continue;
@@ -161,13 +156,8 @@ MultiAppMeshFunctionTransfer::transferVariable(unsigned int i)
     }
     else // Elemental
     {
-      MeshBase::const_element_iterator elem_it = to_mesh->local_elements_begin();
-      MeshBase::const_element_iterator elem_end = to_mesh->local_elements_end();
-
-      for (; elem_it != elem_end; ++elem_it)
+      for (auto & elem : as_range(to_mesh->local_elements_begin(), to_mesh->local_elements_end()))
       {
-        Elem * elem = *elem_it;
-
         Point centroid = elem->centroid();
 
         // Skip this element if the variable has no dofs at it.
@@ -226,7 +216,8 @@ MultiAppMeshFunctionTransfer::transferVariable(unsigned int i)
   for (unsigned int i_from = 0; i_from < _from_problems.size(); ++i_from)
   {
     FEProblemBase & from_problem = *_from_problems[i_from];
-    MooseVariableFEBase & from_var = from_problem.getVariable(0, _from_var_name[i]);
+    MooseVariableFEBase & from_var = from_problem.getVariable(
+        0, _from_var_name[i], Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_STANDARD);
     System & from_sys = from_var.sys().system();
     unsigned int from_var_num = from_sys.variable_number(from_var.name());
 
@@ -355,13 +346,8 @@ MultiAppMeshFunctionTransfer::transferVariable(unsigned int i)
 
     if (is_nodal)
     {
-      MeshBase::const_node_iterator node_it = to_mesh->local_nodes_begin();
-      MeshBase::const_node_iterator node_end = to_mesh->local_nodes_end();
-
-      for (; node_it != node_end; ++node_it)
+      for (const auto & node : to_mesh->local_node_ptr_range())
       {
-        Node * node = *node_it;
-
         // Skip this node if the variable has no dofs at it.
         if (node->n_dofs(sys_num, var_num) < 1)
           continue;
@@ -402,13 +388,8 @@ MultiAppMeshFunctionTransfer::transferVariable(unsigned int i)
     }
     else // Elemental
     {
-      MeshBase::const_element_iterator elem_it = to_mesh->local_elements_begin();
-      MeshBase::const_element_iterator elem_end = to_mesh->local_elements_end();
-
-      for (; elem_it != elem_end; ++elem_it)
+      for (auto & elem : as_range(to_mesh->local_elements_begin(), to_mesh->local_elements_end()))
       {
-        Elem * elem = *elem_it;
-
         // Skip this element if the variable has no dofs at it.
         if (elem->n_dofs(sys_num, var_num) < 1)
           continue;

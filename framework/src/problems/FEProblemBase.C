@@ -77,8 +77,11 @@
 #include "NonlocalIntegratedBC.h"
 #include "ShapeElementUserObject.h"
 #include "ShapeSideUserObject.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "MooseVariableScalar.h"
+#include "InputParameterWarehouse.h"
+#include "TimeIntegrator.h"
+#include "LineSearch.h"
 
 #include "libmesh/exodusII_io.h"
 #include "libmesh/quadrature.h"
@@ -97,7 +100,7 @@ sortMooseVariables(MooseVariableFEBase * a, MooseVariableFEBase * b)
 {
   return a->number() < b->number();
 }
-}
+} // namespace
 
 Threads::spin_mutex get_function_mutex;
 
@@ -206,7 +209,8 @@ FEProblemBase::FEProblemBase(const InputParameters & parameters)
     _has_exception(false),
     _parallel_barrier_messaging(true),
     _current_execute_on_flag(EXEC_NONE),
-    _control_warehouse(_app.getExecuteOnEnum()),
+    _control_warehouse(_app.getExecuteOnEnum(), /*threaded=*/false),
+    _line_search(nullptr),
     _error_on_jacobian_nonzero_reallocation(
         getParam<bool>("error_on_jacobian_nonzero_reallocation")),
     _ignore_zeros_in_jacobian(getParam<bool>("ignore_zeros_in_jacobian")),
@@ -649,6 +653,11 @@ FEProblemBase::initialSetup()
   // Random interface objects
   for (const auto & it : _random_data_objects)
     it.second->updateSeeds(EXEC_INITIAL);
+
+  auto ti = _nl->getTimeIntegrator();
+
+  if (ti)
+    ti->initialSetup();
 
   if (_app.isRestarting() || _app.isRecovering())
   {
@@ -1539,7 +1548,6 @@ FEProblemBase::neighborSubdomainSetup(SubdomainID subdomain, THREAD_ID tid)
 void
 FEProblemBase::addFunction(std::string type, const std::string & name, InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   parameters.set<SubProblem *>("_subproblem") = this;
 
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
@@ -1596,6 +1604,12 @@ FEProblemBase::getFunction(const std::string & name, THREAD_ID tid)
   return *(_functions.getActiveObject(name, tid));
 }
 
+void
+FEProblemBase::lineSearch()
+{
+  _line_search->lineSearch();
+}
+
 NonlinearSystem &
 FEProblemBase::getNonlinearSystem()
 {
@@ -1615,7 +1629,6 @@ FEProblemBase::addDistribution(std::string type,
                                const std::string & name,
                                InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   parameters.set<std::string>("type") = type;
   std::shared_ptr<Distribution> dist = _factory.create<Distribution>(type, name, parameters);
   _distributions.addObject(dist);
@@ -1633,7 +1646,6 @@ FEProblemBase::getDistribution(const std::string & name)
 void
 FEProblemBase::addSampler(std::string type, const std::string & name, InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
   {
     std::shared_ptr<Sampler> dist = _factory.create<Sampler>(type, name, parameters, tid);
@@ -1722,7 +1734,6 @@ FEProblemBase::addKernel(const std::string & kernel_name,
                          const std::string & name,
                          InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -1745,13 +1756,6 @@ FEProblemBase::addKernel(const std::string & kernel_name,
     parameters.set<SystemBase *>("_sys") = _nl.get();
   }
 
-  // Check that "variable" is in the NonlinearSystem.
-  if (!_nl->hasVariable(parameters.get<NonlinearVariableName>("variable")))
-    mooseError(name,
-               ": Cannot add Kernel for variable ",
-               parameters.get<NonlinearVariableName>("variable"),
-               ", it is not a nonlinear variable!");
-
   _nl->addKernel(kernel_name, name, parameters);
 }
 
@@ -1760,7 +1764,6 @@ FEProblemBase::addNodalKernel(const std::string & kernel_name,
                               const std::string & name,
                               InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -1783,13 +1786,6 @@ FEProblemBase::addNodalKernel(const std::string & kernel_name,
     parameters.set<SystemBase *>("_sys") = _nl.get();
   }
   _nl->addNodalKernel(kernel_name, name, parameters);
-
-  // Check that "variable" is in the NonlinearSystem.
-  if (!_nl->hasVariable(parameters.get<NonlinearVariableName>("variable")))
-    mooseError(name,
-               ": Cannot add NodalKernel for variable ",
-               parameters.get<NonlinearVariableName>("variable"),
-               ", it is not a nonlinear variable!");
 }
 
 void
@@ -1797,7 +1793,6 @@ FEProblemBase::addScalarKernel(const std::string & kernel_name,
                                const std::string & name,
                                InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -1819,13 +1814,6 @@ FEProblemBase::addScalarKernel(const std::string & kernel_name,
     parameters.set<SystemBase *>("_sys") = _nl.get();
   }
 
-  // Check that "variable" is a Scalar variable on the NonlinearSystem
-  if (!_nl->hasScalarVariable(parameters.get<NonlinearVariableName>("variable")))
-    mooseError(name,
-               ": Cannot add ScalarKernel for variable ",
-               parameters.get<NonlinearVariableName>("variable"),
-               ", it is not a SCALAR variable!");
-
   _nl->addScalarKernel(kernel_name, name, parameters);
 }
 
@@ -1834,7 +1822,6 @@ FEProblemBase::addBoundaryCondition(const std::string & bc_name,
                                     const std::string & name,
                                     InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -1857,13 +1844,6 @@ FEProblemBase::addBoundaryCondition(const std::string & bc_name,
     parameters.set<SystemBase *>("_sys") = _nl.get();
   }
 
-  // Check that "variable" is in the NonlinearSystem.
-  if (!_nl->hasVariable(parameters.get<NonlinearVariableName>("variable")))
-    mooseError(name,
-               ": Cannot add BoundaryCondition for variable ",
-               parameters.get<NonlinearVariableName>("variable"),
-               ", it is not a nonlinear variable!");
-
   _nl->addBoundaryCondition(bc_name, name, parameters);
 }
 
@@ -1874,7 +1854,6 @@ FEProblemBase::addConstraint(const std::string & c_name,
 {
   _has_constraints = true;
 
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -1937,7 +1916,6 @@ FEProblemBase::addAuxKernel(const std::string & kernel_name,
                             const std::string & name,
                             InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -1965,13 +1943,6 @@ FEProblemBase::addAuxKernel(const std::string & kernel_name,
     parameters.set<SystemBase *>("_nl_sys") = _nl.get();
   }
 
-  // Check that "variable" is in the AuxiliarySystem.
-  if (!_aux->hasVariable(parameters.get<AuxVariableName>("variable")))
-    mooseError(name,
-               ": Cannot add AuxKernel for variable ",
-               parameters.get<AuxVariableName>("variable"),
-               ", it is not an auxiliary variable!");
-
   _aux->addKernel(kernel_name, name, parameters);
 }
 
@@ -1980,7 +1951,6 @@ FEProblemBase::addAuxScalarKernel(const std::string & kernel_name,
                                   const std::string & name,
                                   InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -2002,13 +1972,6 @@ FEProblemBase::addAuxScalarKernel(const std::string & kernel_name,
     parameters.set<SystemBase *>("_sys") = _aux.get();
   }
 
-  // Check that "variable" is in the AuxiliarySystem.
-  if (!_aux->hasScalarVariable(parameters.get<AuxVariableName>("variable")))
-    mooseError(name,
-               ": Cannot add AuxScalarKernel for variable ",
-               parameters.get<AuxVariableName>("variable"),
-               ", it is not a SCALAR auxiliary variable!");
-
   _aux->addScalarKernel(kernel_name, name, parameters);
 }
 
@@ -2017,7 +1980,6 @@ FEProblemBase::addDiracKernel(const std::string & kernel_name,
                               const std::string & name,
                               InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -2040,13 +2002,6 @@ FEProblemBase::addDiracKernel(const std::string & kernel_name,
     parameters.set<SystemBase *>("_sys") = _nl.get();
   }
 
-  // Check that "variable" is in the NonlinearSystem.
-  if (!_nl->hasVariable(parameters.get<NonlinearVariableName>("variable")))
-    mooseError(name,
-               ": Cannot add DiracKernel for variable ",
-               parameters.get<NonlinearVariableName>("variable"),
-               ", it is not a nonlinear variable!");
-
   _nl->addDiracKernel(kernel_name, name, parameters);
 }
 
@@ -2057,7 +2012,6 @@ FEProblemBase::addDGKernel(const std::string & dg_kernel_name,
                            const std::string & name,
                            InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -2080,13 +2034,6 @@ FEProblemBase::addDGKernel(const std::string & dg_kernel_name,
     parameters.set<SystemBase *>("_sys") = _nl.get();
   }
 
-  // Check that "variable" is in the NonlinearSystem.
-  if (!_nl->hasVariable(parameters.get<NonlinearVariableName>("variable")))
-    mooseError(name,
-               ": Cannot add DGKernel for variable ",
-               parameters.get<NonlinearVariableName>("variable"),
-               ", it is not a nonlinear variable!");
-
   _nl->addDGKernel(dg_kernel_name, name, parameters);
 
   _has_internal_edge_residual_objects = true;
@@ -2099,7 +2046,6 @@ FEProblemBase::addInterfaceKernel(const std::string & interface_kernel_name,
                                   const std::string & name,
                                   InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -2122,13 +2068,6 @@ FEProblemBase::addInterfaceKernel(const std::string & interface_kernel_name,
     parameters.set<SystemBase *>("_sys") = _nl.get();
   }
 
-  // Check that "variable" is in the NonlinearSystem.
-  if (!_nl->hasVariable(parameters.get<NonlinearVariableName>("variable")))
-    mooseError(name,
-               ": Cannot add InterfaceKernel for variable ",
-               parameters.get<NonlinearVariableName>("variable"),
-               ", it is not a nonlinear variable!");
-
   _nl->addInterfaceKernel(interface_kernel_name, name, parameters);
 
   _has_internal_edge_residual_objects = true;
@@ -2143,7 +2082,6 @@ FEProblemBase::addInitialCondition(const std::string & ic_name,
   // before we start to mess with the initial condition, we need to check parameters for errors.
   parameters.checkParams(name);
 
-  setInputParametersFEProblem(parameters);
   parameters.set<SubProblem *>("_subproblem") = this;
 
   const std::string & var_name = parameters.get<VariableName>("variable");
@@ -2152,7 +2090,8 @@ FEProblemBase::addInitialCondition(const std::string & ic_name,
   {
     for (THREAD_ID tid = 0; tid < libMesh::n_threads(); ++tid)
     {
-      MooseVariableFEBase & var = getVariable(tid, var_name);
+      MooseVariableFEBase & var = getVariable(
+          tid, var_name, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_ANY);
       parameters.set<SystemBase *>("_sys") = &var.sys();
       std::shared_ptr<InitialCondition> ic =
           _factory.create<InitialCondition>(ic_name, name, parameters, tid);
@@ -2287,7 +2226,6 @@ FEProblemBase::addMaterial(const std::string & mat_name,
                            const std::string & name,
                            InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -2358,14 +2296,14 @@ FEProblemBase::addMaterial(const std::string & mat_name,
       else
         _materials.addObjects(material, neighbor_material, face_material, tid);
 
-      // link enabled parameter of face and neighbor materials
-      MooseObjectParameterName name(MooseObjectName("Material", material->name()), "enabled");
-      MooseObjectParameterName face_name(MooseObjectName("Material", face_material->name()),
-                                         "enabled");
+      // link parameters of face and neighbor materials
+      MooseObjectParameterName name(MooseObjectName("Material", material->name()), "*");
+      MooseObjectParameterName face_name(MooseObjectName("Material", face_material->name()), "*");
       MooseObjectParameterName neighbor_name(MooseObjectName("Material", neighbor_material->name()),
-                                             "enabled");
-      _app.getInputParameterWarehouse().addControllableParameterConnection(name, face_name);
-      _app.getInputParameterWarehouse().addControllableParameterConnection(name, neighbor_name);
+                                             "*");
+      _app.getInputParameterWarehouse().addControllableParameterConnection(name, face_name, false);
+      _app.getInputParameterWarehouse().addControllableParameterConnection(
+          name, neighbor_name, false);
     }
   }
 }
@@ -2582,6 +2520,12 @@ FEProblemBase::initPostprocessorData(const std::string & name)
 }
 
 void
+FEProblemBase::initVectorPostprocessorData(const std::string & name)
+{
+  _vpps_data.init(name);
+}
+
+void
 FEProblemBase::addPostprocessor(std::string pp_name,
                                 const std::string & name,
                                 InputParameters parameters)
@@ -2606,6 +2550,7 @@ FEProblemBase::addVectorPostprocessor(std::string pp_name,
                "\" already exists.  You may not add a VectorPostprocessor by the same name.");
 
   addUserObject(pp_name, name, parameters);
+  initVectorPostprocessorData(name);
 }
 
 void
@@ -2613,7 +2558,6 @@ FEProblemBase::addUserObject(std::string user_object_name,
                              const std::string & name,
                              InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
   else
@@ -2713,8 +2657,8 @@ FEProblemBase::getPostprocessorValueOlder(const std::string & name)
   return _pps_data.getPostprocessorValueOlder(name);
 }
 
-VectorPostprocessorData &
-FEProblemBase::getVectorPostprocessorData()
+const VectorPostprocessorData &
+FEProblemBase::getVectorPostprocessorData() const
 {
   return _vpps_data;
 }
@@ -2729,7 +2673,8 @@ VectorPostprocessorValue &
 FEProblemBase::getVectorPostprocessorValue(const VectorPostprocessorName & name,
                                            const std::string & vector_name)
 {
-  return _vpps_data.getVectorPostprocessorValue(name, vector_name);
+  auto & val = _vpps_data.getVectorPostprocessorValue(name, vector_name);
+  return val;
 }
 
 VectorPostprocessorValue &
@@ -2741,9 +2686,10 @@ FEProblemBase::getVectorPostprocessorValueOld(const std::string & name,
 
 VectorPostprocessorValue &
 FEProblemBase::declareVectorPostprocessorVector(const VectorPostprocessorName & name,
-                                                const std::string & vector_name)
+                                                const std::string & vector_name,
+                                                bool contains_complete_history)
 {
-  return _vpps_data.declareVector(name, vector_name);
+  return _vpps_data.declareVector(name, vector_name, contains_complete_history);
 }
 
 const std::vector<std::pair<std::string, VectorPostprocessorData::VectorPostprocessorState>> &
@@ -2984,44 +2930,47 @@ FEProblemBase::computeUserObjects(const ExecFlagType & type, const Moose::AuxGro
 void
 FEProblemBase::executeControls(const ExecFlagType & exec_type)
 {
-  DependencyResolver<std::shared_ptr<Control>> resolver;
-
-  auto controls_wh = _control_warehouse[exec_type];
-  // Add all of the dependencies into the resolver and sort them
-  for (const auto & it : controls_wh.getActiveObjects())
+  if (_control_warehouse[exec_type].hasActiveObjects())
   {
-    // Make sure an item with no dependencies comes out too!
-    resolver.addItem(it);
+    DependencyResolver<std::shared_ptr<Control>> resolver;
 
-    std::vector<std::string> & dependent_controls = it->getDependencies();
-    for (const auto & depend_name : dependent_controls)
+    auto controls_wh = _control_warehouse[exec_type];
+    // Add all of the dependencies into the resolver and sort them
+    for (const auto & it : controls_wh.getActiveObjects())
     {
-      if (controls_wh.hasActiveObject(depend_name))
+      // Make sure an item with no dependencies comes out too!
+      resolver.addItem(it);
+
+      std::vector<std::string> & dependent_controls = it->getDependencies();
+      for (const auto & depend_name : dependent_controls)
       {
-        auto dep_control = controls_wh.getActiveObject(depend_name);
-        resolver.insertDependency(it, dep_control);
+        if (controls_wh.hasActiveObject(depend_name))
+        {
+          auto dep_control = controls_wh.getActiveObject(depend_name);
+          resolver.insertDependency(it, dep_control);
+        }
+        else
+          mooseError("The Control \"",
+                     depend_name,
+                     "\" was not created, did you make a "
+                     "spelling mistake or forget to include it "
+                     "in your input file?");
       }
-      else
-        mooseError("The Control \"",
-                   depend_name,
-                   "\" was not created, did you make a "
-                   "spelling mistake or forget to include it "
-                   "in your input file?");
     }
-  }
 
-  const auto & ordered_controls = resolver.getSortedValues();
+    const auto & ordered_controls = resolver.getSortedValues();
 
-  if (!ordered_controls.empty())
-  {
-    Moose::perf_log.push("computeControls()", "Execution");
+    if (!ordered_controls.empty())
+    {
+      Moose::perf_log.push("computeControls()", "Execution");
 
-    _control_warehouse.setup(exec_type);
-    // Run the controls in the proper order
-    for (const auto & control : ordered_controls)
-      control->execute();
+      _control_warehouse.setup(exec_type);
+      // Run the controls in the proper order
+      for (const auto & control : ordered_controls)
+        control->execute();
 
-    Moose::perf_log.pop("computeControls()", "Execution");
+      Moose::perf_log.pop("computeControls()", "Execution");
+    }
   }
 }
 
@@ -3105,7 +3054,6 @@ FEProblemBase::addDamper(std::string damper_name,
                          const std::string & name,
                          InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   parameters.set<SubProblem *>("_subproblem") = this;
   parameters.set<SystemBase *>("_sys") = _nl.get();
 
@@ -3124,7 +3072,6 @@ FEProblemBase::addIndicator(std::string indicator_name,
                             const std::string & name,
                             InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -3166,7 +3113,6 @@ FEProblemBase::addMarker(std::string marker_name,
                          const std::string & name,
                          InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -3201,7 +3147,6 @@ FEProblemBase::addMultiApp(const std::string & multi_app_name,
                            const std::string & name,
                            InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   parameters.set<MPI_Comm>("_mpi_comm") = _communicator.get();
   parameters.set<std::shared_ptr<CommandLine>>("_command_line") = _app.commandLine();
 
@@ -3449,7 +3394,6 @@ FEProblemBase::addTransfer(const std::string & transfer_name,
                            const std::string & name,
                            InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   if (_displaced_problem != NULL && parameters.get<bool>("use_displaced_mesh"))
   {
     parameters.set<SubProblem *>("_subproblem") = _displaced_problem.get();
@@ -3509,14 +3453,12 @@ FEProblemBase::hasVariable(const std::string & var_name) const
 }
 
 MooseVariableFEBase &
-FEProblemBase::getVariable(THREAD_ID tid, const std::string & var_name)
+FEProblemBase::getVariable(THREAD_ID tid,
+                           const std::string & var_name,
+                           Moose::VarKindType expected_var_type,
+                           Moose::VarFieldType expected_var_field_type)
 {
-  if (_nl->hasVariable(var_name))
-    return _nl->getVariable(tid, var_name);
-  else if (!_aux->hasVariable(var_name))
-    mooseError("Unknown variable " + var_name);
-
-  return _aux->getVariable(tid, var_name);
+  return getVariableHelper(tid, var_name, expected_var_type, expected_var_field_type, *_nl, *_aux);
 }
 
 MooseVariable &
@@ -3878,6 +3820,9 @@ FEProblemBase::checkExceptionAndStopSolve()
     // residual vector to let PETSc >= 3.6 return DIVERGED_NANORINF.
     _nl->stopSolve();
 
+    // and close Aux system (we MUST do this here; see #11525)
+    _aux->solution().close();
+
     // We've handled this exception, so we no longer have one.
     _has_exception = false;
 
@@ -3943,6 +3888,7 @@ FEProblemBase::advanceState()
   }
 
   _pps_data.copyValuesBack();
+  _vpps_data.copyValuesBack();
 
   if (_material_props.hasStatefulProperties())
     _material_props.shift();
@@ -4020,7 +3966,6 @@ FEProblemBase::addTimeIntegrator(const std::string & type,
                                  const std::string & name,
                                  InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   parameters.set<SubProblem *>("_subproblem") = this;
   _aux->addTimeIntegrator(type, name + ":aux", parameters);
   _nl->addTimeIntegrator(type, name, parameters);
@@ -4032,7 +3977,6 @@ FEProblemBase::addPredictor(const std::string & type,
                             const std::string & name,
                             InputParameters parameters)
 {
-  setInputParametersFEProblem(parameters);
   parameters.set<SubProblem *>("_subproblem") = this;
   std::shared_ptr<Predictor> predictor = _factory.create<Predictor>(type, name, parameters);
   _nl->setPredictor(predictor);
@@ -4752,6 +4696,9 @@ FEProblemBase::updateMeshXFEM()
   bool updated = false;
   if (haveXFEM())
   {
+    if (_xfem->updateHeal())
+      meshChanged();
+
     updated = _xfem->update(_time, *_nl, *_aux);
     if (updated)
     {
@@ -4964,13 +4911,11 @@ FEProblemBase::checkDisplacementOrders()
 {
   if (_displaced_problem)
   {
-    MeshBase::const_element_iterator it = _displaced_mesh->activeLocalElementsBegin(),
-                                     end = _displaced_mesh->activeLocalElementsEnd();
-
     bool mesh_has_second_order_elements = false;
-    for (; it != end; ++it)
+    for (const auto & elem : as_range(_displaced_mesh->activeLocalElementsBegin(),
+                                      _displaced_mesh->activeLocalElementsEnd()))
     {
-      if ((*it)->default_order() == SECOND)
+      if (elem->default_order() == SECOND)
       {
         mesh_has_second_order_elements = true;
         break;
@@ -4989,7 +4934,11 @@ FEProblemBase::checkDisplacementOrders()
 
       for (const auto & var_name : displacement_variables)
       {
-        MooseVariableFEBase & mv = _displaced_problem->getVariable(/*tid=*/0, var_name);
+        MooseVariableFEBase & mv =
+            _displaced_problem->getVariable(/*tid=*/0,
+                                            var_name,
+                                            Moose::VarKindType::VAR_ANY,
+                                            Moose::VarFieldType::VAR_FIELD_STANDARD);
         if (mv.order() != SECOND)
           mooseError("Error: mesh has SECOND order elements, so all displacement variables must be "
                      "SECOND order.");
@@ -5343,13 +5292,13 @@ FEProblemBase::registerRandomInterface(RandomInterface & random_interface, const
 }
 
 bool
-FEProblemBase::needMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid)
+FEProblemBase::needBoundaryMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid)
 {
   if (_bnd_mat_side_cache[tid].find(bnd_id) == _bnd_mat_side_cache[tid].end())
   {
     _bnd_mat_side_cache[tid][bnd_id] = false;
 
-    if (_nl->needMaterialOnSide(bnd_id, tid) || _aux->needMaterialOnSide(bnd_id))
+    if (_nl->needBoundaryMaterialOnSide(bnd_id, tid) || _aux->needMaterialOnSide(bnd_id))
       _bnd_mat_side_cache[tid][bnd_id] = true;
 
     else if (_side_user_objects.hasActiveBoundaryObjects(bnd_id, tid))
@@ -5360,13 +5309,13 @@ FEProblemBase::needMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid)
 }
 
 bool
-FEProblemBase::needMaterialOnSide(SubdomainID subdomain_id, THREAD_ID tid)
+FEProblemBase::needSubdomainMaterialOnSide(SubdomainID subdomain_id, THREAD_ID tid)
 {
   if (_block_mat_side_cache[tid].find(subdomain_id) == _block_mat_side_cache[tid].end())
   {
     _block_mat_side_cache[tid][subdomain_id] = false;
 
-    if (_nl->needMaterialOnSide(subdomain_id, tid))
+    if (_nl->needSubdomainMaterialOnSide(subdomain_id, tid))
       _block_mat_side_cache[tid][subdomain_id] = true;
     else if (_internal_side_user_objects.hasActiveBlockObjects(subdomain_id, tid))
       _block_mat_side_cache[tid][subdomain_id] = true;

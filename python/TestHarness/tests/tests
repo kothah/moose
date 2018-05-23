@@ -34,6 +34,7 @@
   [./duplicate]
     type = PythonUnitTest
     input = test_Duplicate.py
+    prereq = should_execute
   [../]
   [./deleted]
     type = PythonUnitTest
@@ -75,10 +76,6 @@
     type = PythonUnitTest
     input = test_ShouldExecute.py
   [../]
-  [./queue_pbs]
-    type = PythonUnitTest
-    input = test_QueuePBS.py
-  [../]
   [./report_skipped]
     type = PythonUnitTest
     input = test_ReportSkipped.py
@@ -115,5 +112,9 @@
   [./CSVDiffer]
     type = PythonUnitTest
     input = test_CSVDiffer.py
+  [../]
+  [./recover_tests]
+    type = PythonUnitTest
+    input = test_Recover.py
   [../]
 []

@@ -3,7 +3,8 @@
 The brine-CO$_2$ model available in PorousFlow is a high precision equation of state
 for brine and CO$_2$, including the mutual solubility of CO$_2$ into the liquid brine
 and water into the CO$_2$-rich gas phase. This model is suitable for simulations of
-geological storage of CO$_2$ in saline aquifers.
+geological storage of CO$_2$ in saline aquifers, and is valid for temperatures in the range
+$12^{\circ}C \le T \le 300^{\circ}C$ and pressures less than 60 MPa.
 
 Salt (NaCl) can be included as a nonlinear variable, allowing salt to be transported
 along with water to provide variable density brine.
@@ -11,9 +12,25 @@ along with water to provide variable density brine.
 ## Phase composition
 
 The mass fractions of CO$_2$ in the liquid phase and H$_2$O in the gas phase are calculated
-using the accurate fugacity-based formulation of [citet:spycher2003] and [citet:spycher2005].
+using the accurate fugacity-based formulation of [citet:spycher2003] and [citet:spycher2005]
+for temperatures below 100$^{\circ}$C, and the elevated temperature formulation of
+[citet:spycher2010] for temperatures above 110$^{\circ}$C.
 
-This is identical to the formulation provided in the ECO2N module of TOUGH2 [citep:pruess1999],
+As these formulations do not coincide for temperatures near 100$^{\circ}$C, a cubic
+polynomial is used to join the two curves smoothly, see [soltemp] for an example:
+
+!media media/porous_flow/solubility_temperature.png
+       id=soltemp
+       style=width:60%;margin-left:10px;
+       caption=Dissolved CO$_2$ mass fraction in brine versus temperature showing the low
+       and high temperature formulations joined smoothly by a cubic polynomial. Results for
+       pressure of 10 MPa and salt mass fraction of 0.01
+
+!alert note
+The mutual solubilities in the elevated temperature regime must be calculated iteratively,
+so an increase in computational expense can be expected.
+
+This is similar to the formulation provided in the ECO2N module of TOUGH2 [citep:pruess1999],
 see [xco2l] and [yh2og] for a comparison between the two codes.
 
 !media media/porous_flow/brineco2_xco2l.png
@@ -47,19 +64,18 @@ equilibrium value in this two phase region.
 ### Density
 
 The density of the aqueous phase with the contribution of dissolved CO$_2$ is calculated using
-
 \begin{equation}
 \frac{1}{\rho} = \frac{1 - X_{CO2}}{\rho_b} + \frac{X_{CO2}}{\rho_{CO2}},
 \end{equation}
-
 where $\rho_b$ is the density of brine (supplied using a
 [`BrineFluidProperties`](/BrineFluidProperties.md) UserObject), $X_{CO2}$ is the
 mass fraction of CO$_2$ dissolved in the aqueous phase, and $\rho_{CO2}$ is the partial
 density of dissolved CO$_2$ [citep:garcia2001].
 
-As water vapor is only ever a small component of the gas phase, the density of the gas phase
-is assumed to be simply the density of CO$_2$ at the given pressure and temperature, calculated
-using a [`CO2FluidProperties`](/CO2FluidProperties.md) UserObject.
+As water vapor is only ever a small component of the gas phase in the temperature and pressure ranges
+that this class is valid for, the density of the gas phase is assumed to be simply the density of CO$_2$
+at the given pressure and temperature, calculated using a [`CO2FluidProperties`](/CO2FluidProperties.md)
+UserObject.
 
 ### Viscosity
 
@@ -67,6 +83,29 @@ No contribution to the viscosity of each phase due to the presence of CO$_2$ in 
 phase or water vapor in the gas phase is included. As a result, the viscosity of the aqueous
 phase is simply the viscosity of brine, while the viscosity of the gas phase is the viscosity
 of CO$_2$.
+
+### Enthalpy
+
+The enthalpy of the gas phase is simply the enthalpy of CO$_2$ at the given pressure and temperature
+values, with no contribution due to the presence of water vapor included.
+
+The enthalpy of the liquid phase is also calculated as a weighted sum of the enthalpies
+of each individual component, but also includes a contribution due to the enthalpy of
+dissolution (a change in enthalpy due to dissolution of the NCG into the water phase)
+\begin{equation}
+h_l = (1 - X_{CO2}) h_b + X_{CO2} h_{CO2,aq},
+\end{equation}
+where $h_b$ is the enthalpy of brine, and $h_{CO2,aq}$ is the enthalpy of CO$_2$ in the liquid
+phase, which includes the enthalpy of dissolution $h_{dis}$
+\begin{equation}
+h_{CO2,aq} = h_{CO2} + h_{dis}.
+\end{equation}
+
+In the range of pressures and temperatures considered, CO$_2$ may exist as a gas or a supercritical fluid. Using a linear fit to the model of [citet:duan2003], the enthalpy of
+dissolution of both gas phase and supercritical CO$_2$ is calculated as
+\begin{equation}
+h_{dis}(T) = \frac{-58353.3 + 134.519 T}{M_{CO2}}.
+\end{equation}
 
 ## Implementation
 

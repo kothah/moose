@@ -12,7 +12,7 @@
 // MOOSE includes
 #include "Assembly.h"
 #include "FEProblem.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
 
@@ -31,7 +31,7 @@ validParams<NodalDamper>()
 
 NodalDamper::NodalDamper(const InputParameters & parameters)
   : Damper(parameters),
-    MaterialPropertyInterface(this),
+    MaterialPropertyInterface(this, Moose::EMPTY_BLOCK_IDS, Moose::EMPTY_BOUNDARY_IDS),
     _tid(parameters.get<THREAD_ID>("_tid")),
     _assembly(_subproblem.assembly(_tid)),
     _coord_sys(_assembly.coordSystem()),

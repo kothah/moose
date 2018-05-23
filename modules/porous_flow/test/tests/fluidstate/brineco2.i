@@ -1,7 +1,4 @@
-# Tests correct calculation of properties in PorousFlowFluidStateWaterNCG.
-# This test is run three times, with the initial condition of z (the total mass
-# fraction of NCG in all phases) varied to give either a single phase liquid, a
-# single phase gas, or two phases.
+# Tests correct calculation of properties in PorousFlowBrineCO2
 
 [Mesh]
   type = GeneratedMesh

@@ -24,8 +24,7 @@ ScalarCoupleable::ScalarCoupleable(const MooseObject * moose_object)
                         ? _sc_parameters.get<bool>("implicit")
                         : true),
     _coupleable_params(_sc_parameters),
-    _sc_tid(_sc_parameters.have_parameter<THREAD_ID>("_tid") ? _sc_parameters.get<THREAD_ID>("_tid")
-                                                             : 0),
+    _sc_tid(_sc_parameters.isParamValid("_tid") ? _sc_parameters.get<THREAD_ID>("_tid") : 0),
     _real_zero(_sc_fe_problem._real_zero[_sc_tid]),
     _scalar_zero(_sc_fe_problem._scalar_zero[_sc_tid]),
     _point_zero(_sc_fe_problem._point_zero[_sc_tid])
@@ -51,7 +50,11 @@ ScalarCoupleable::ScalarCoupleable(const MooseObject * moose_object)
         }
         else if (problem.hasVariable(coupled_var_name))
         {
-          MooseVariableFEBase * moose_var = &problem.getVariable(_sc_tid, coupled_var_name);
+          MooseVariableFEBase * moose_var =
+              &problem.getVariable(_sc_tid,
+                                   coupled_var_name,
+                                   Moose::VarKindType::VAR_ANY,
+                                   Moose::VarFieldType::VAR_FIELD_ANY);
           _sc_coupled_vars[name].push_back(moose_var);
         }
         else

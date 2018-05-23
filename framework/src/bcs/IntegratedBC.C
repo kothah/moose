@@ -13,7 +13,7 @@
 #include "Assembly.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "MooseVariableScalar.h"
 
 #include "libmesh/quadrature.h"
@@ -28,7 +28,11 @@ validParams<IntegratedBC>()
 
 IntegratedBC::IntegratedBC(const InputParameters & parameters)
   : IntegratedBCBase(parameters),
-    MooseVariableInterface<Real>(this, false),
+    MooseVariableInterface<Real>(this,
+                                 false,
+                                 "variable",
+                                 Moose::VarKindType::VAR_NONLINEAR,
+                                 Moose::VarFieldType::VAR_FIELD_STANDARD),
     _var(*mooseVariable()),
     _normals(_var.normals()),
     _phi(_assembly.phiFace(_var)),
@@ -145,7 +149,7 @@ IntegratedBC::computeJacobianBlock(MooseVariableFEBase & jvar)
 void
 IntegratedBC::computeJacobianBlock(unsigned int jvar)
 {
-  mooseDeprecated("The computeOffDiagJacobian method signature has changed. Developers, please "
+  mooseDeprecated("The computeJacobianBlock method signature has changed. Developers, please "
                   "pass in a MooseVariableFEBase reference instead of the variable number");
   DenseMatrix<Number> & ke = _assembly.jacobianBlock(_var.number(), jvar);
 

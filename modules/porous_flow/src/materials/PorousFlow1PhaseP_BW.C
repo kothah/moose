@@ -10,7 +10,7 @@
 #include "PorousFlow1PhaseP_BW.h"
 #include "libmesh/utility.h"
 
-registerMooseObject("PorousFlowApp", PorousFlow1PhaseP_BW);
+registerMooseObjectDeprecated("PorousFlowApp", PorousFlow1PhaseP_BW, "06/01/2018 00:00");
 
 template <>
 InputParameters
@@ -57,7 +57,8 @@ PorousFlow1PhaseP_BW::PorousFlow1PhaseP_BW(const InputParameters & parameters)
                   "PorousFlowCapillaryPressureBW UserObject instead");
 
   if (_ss <= _sn)
-    mooseError("In BW effective saturation Sn set to ",
+    mooseError(name(),
+               ": effective saturation Sn set to ",
                _sn,
                " and Ss set to ",
                _ss,

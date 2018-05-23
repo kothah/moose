@@ -19,7 +19,7 @@
 #include "InfixIterator.h"
 #include "MooseApp.h"
 #include "MooseUtils.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "Postprocessor.h"
 #include "Restartable.h"
 #include "VectorPostprocessor.h"
@@ -122,6 +122,11 @@ AdvancedOutput::AdvancedOutput(const InputParameters & parameters) : FileOutput(
 {
   _is_advanced = true;
   _advanced_execute_on = OutputOnWarehouse(_execute_on, parameters);
+  // Set nodal output variables if they appear in valid parameters
+  if (isParamValid("elemental_as_nodal"))
+    _elemental_as_nodal = getParam<bool>("elemental_as_nodal");
+  if (isParamValid("scalar_as_nodal"))
+    _scalar_as_nodal = getParam<bool>("scalar_as_nodal");
 }
 
 void
@@ -142,7 +147,7 @@ AdvancedOutput::initialSetup()
   // If 'elemental_as_nodal = true' the elemental variable names must be appended to the
   // nodal variable names. Thus, when libMesh::EquationSystem::build_solution_vector is called
   // it will create the correct nodal variable from the elemental
-  if (isParamValid("elemental_as_nodal") && getParam<bool>("elemental_as_nodal"))
+  if (isParamValid("elemental_as_nodal") && _elemental_as_nodal)
   {
     OutputData & nodal = _execute_data["nodal"];
     OutputData & elemental = _execute_data["elemental"];
@@ -152,7 +157,7 @@ AdvancedOutput::initialSetup()
   }
 
   // Similarly as above, if 'scalar_as_nodal = true' append the elemental variable lists
-  if (isParamValid("scalar_as_nodal") && getParam<bool>("scalar_as_nodal"))
+  if (isParamValid("scalar_as_nodal") && _scalar_as_nodal)
   {
     OutputData & nodal = _execute_data["nodal"];
     OutputData & scalar = _execute_data["scalars"];
@@ -382,7 +387,8 @@ AdvancedOutput::initAvailableLists()
   {
     if (_problem_ptr->hasVariable(var_name))
     {
-      MooseVariableFEBase & var = _problem_ptr->getVariable(0, var_name);
+      MooseVariableFEBase & var = _problem_ptr->getVariable(
+          0, var_name, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_ANY);
       const FEType type = var.feType();
       if (type.order == CONSTANT)
         _execute_data["elemental"].available.insert(var_name);
@@ -452,7 +458,8 @@ AdvancedOutput::initShowHideLists(const std::vector<VariableName> & show,
   {
     if (_problem_ptr->hasVariable(var_name))
     {
-      MooseVariableFEBase & var = _problem_ptr->getVariable(0, var_name);
+      MooseVariableFEBase & var = _problem_ptr->getVariable(
+          0, var_name, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_ANY);
       const FEType type = var.feType();
       if (type.order == CONSTANT)
         _execute_data["elemental"].show.insert(var_name);
@@ -493,7 +500,8 @@ AdvancedOutput::initShowHideLists(const std::vector<VariableName> & show,
   {
     if (_problem_ptr->hasVariable(var_name))
     {
-      MooseVariableFEBase & var = _problem_ptr->getVariable(0, var_name);
+      MooseVariableFEBase & var = _problem_ptr->getVariable(
+          0, var_name, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_ANY);
       const FEType type = var.feType();
       if (type.order == CONSTANT)
         _execute_data["elemental"].hide.insert(var_name);

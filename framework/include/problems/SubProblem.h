@@ -24,10 +24,11 @@ class Assembly;
 class MooseVariableFEBase;
 class MooseVariableScalar;
 template <typename>
-class MooseVariableFEImpl;
-typedef MooseVariableFEImpl<Real> MooseVariable;
-typedef MooseVariableFEImpl<RealVectorValue> VectorMooseVariable;
+class MooseVariableFE;
+typedef MooseVariableFE<Real> MooseVariable;
+typedef MooseVariableFE<RealVectorValue> VectorMooseVariable;
 class RestartableDataValue;
+class SystemBase;
 
 // libMesh forward declarations
 namespace libMesh
@@ -151,8 +152,20 @@ public:
   // Variables /////
   virtual bool hasVariable(const std::string & var_name) const = 0;
 
-  /// Returns the variable reference for requested variable which may be in any system
-  virtual MooseVariableFEBase & getVariable(THREAD_ID tid, const std::string & var_name) = 0;
+  /**
+   * Returns the variable reference for requested variable which must
+   * be of the expected_var_type (Nonlinear vs. Auxiliary) and
+   * expected_var_field_type (standard, scalar, vector). The default
+   * values of VAR_ANY and VAR_FIELD_ANY should be used when "any"
+   * type of variable is acceptable.  Throws an error if the variable
+   * in question is not in the expected System or of the expected
+   * type.
+   */
+  virtual MooseVariableFEBase &
+  getVariable(THREAD_ID tid,
+              const std::string & var_name,
+              Moose::VarKindType expected_var_type = Moose::VarKindType::VAR_ANY,
+              Moose::VarFieldType expected_var_field_type = Moose::VarFieldType::VAR_FIELD_ANY) = 0;
 
   /// Returns the variable reference for requested MooseVariable which may be in any system
   virtual MooseVariable & getStandardVariable(THREAD_ID tid, const std::string & var_name) = 0;
@@ -344,7 +357,7 @@ public:
    * @param block_id The block id for the MaterialProperty
    * @param name The name of the property
    */
-  virtual void storeMatPropName(SubdomainID block_id, const std::string & name);
+  virtual void storeSubdomainMatPropName(SubdomainID block_id, const std::string & name);
 
   /**
    * Adds the given material property to a storage map based on boundary ids
@@ -354,7 +367,7 @@ public:
    * @param boundary_id The block id for the MaterialProperty
    * @param name The name of the property
    */
-  virtual void storeMatPropName(BoundaryID boundary_id, const std::string & name);
+  virtual void storeBoundaryMatPropName(BoundaryID boundary_id, const std::string & name);
 
   /**
    * Adds to a map based on block ids of material properties for which a zero
@@ -364,7 +377,7 @@ public:
    * @param block_id The block id for the MaterialProperty
    * @param name The name of the property
    */
-  virtual void storeZeroMatProp(SubdomainID block_id, const MaterialPropertyName & name);
+  virtual void storeSubdomainZeroMatProp(SubdomainID block_id, const MaterialPropertyName & name);
 
   /**
    * Adds to a map based on boundary ids of material properties for which a zero
@@ -374,7 +387,7 @@ public:
    * @param boundary_id The block id for the MaterialProperty
    * @param name The name of the property
    */
-  virtual void storeZeroMatProp(BoundaryID boundary_id, const MaterialPropertyName & name);
+  virtual void storeBoundaryZeroMatProp(BoundaryID boundary_id, const MaterialPropertyName & name);
 
   /**
    * Adds to a map based on block ids of material properties to validate
@@ -382,9 +395,9 @@ public:
    * @param block_id The block id for the MaterialProperty
    * @param name The name of the property
    */
-  virtual void storeDelayedCheckMatProp(const std::string & requestor,
-                                        SubdomainID block_id,
-                                        const std::string & name);
+  virtual void storeSubdomainDelayedCheckMatProp(const std::string & requestor,
+                                                 SubdomainID block_id,
+                                                 const std::string & name);
 
   /**
    * Adds to a map based on boundary ids of material properties to validate
@@ -393,9 +406,9 @@ public:
    * @param boundary_id The block id for the MaterialProperty
    * @param name The name of the property
    */
-  virtual void storeDelayedCheckMatProp(const std::string & requestor,
-                                        BoundaryID boundary_id,
-                                        const std::string & name);
+  virtual void storeBoundaryDelayedCheckMatProp(const std::string & requestor,
+                                                BoundaryID boundary_id,
+                                                const std::string & name);
 
   /**
    * Checks block material properties integrity
@@ -490,6 +503,17 @@ public:
   bool & computingNonlinearResid() { return _computing_nonlinear_residual; }
 
 protected:
+  /**
+   * Helper function called by getVariable that handles the logic for
+   * checking whether Variables of the requested type are available.
+   */
+  MooseVariableFEBase & getVariableHelper(THREAD_ID tid,
+                                          const std::string & var_name,
+                                          Moose::VarKindType expected_var_type,
+                                          Moose::VarFieldType expected_var_field_type,
+                                          SystemBase & nl,
+                                          SystemBase & aux);
+
   /// The currently declared tags
   std::map<TagName, TagID> _vector_tag_name_to_tag_id;
 
@@ -561,24 +585,9 @@ protected:
   bool _computing_nonlinear_residual;
 
 private:
-  /**
-   * Helper method for performing material property checks
-   * @param props Reference to the map of properties known
-   * @param check_props Reference to the map of properties to check
-   * @param type - string describing the type of the material property being checked
-   * \see checkBlockMatProps
-   * \see checkBoundaryMatProps
-   */
-  template <typename T>
-  void checkMatProps(std::map<T, std::set<std::string>> & props,
-                     std::map<T, std::multimap<std::string, std::string>> & check_props,
-                     std::map<T, std::set<MaterialPropertyName>> & zero_props);
-
-  ///@{ Helper functions for checkMatProps
-  template <typename T>
-  std::string restrictionTypeName();
-  std::string restrictionCheckName(SubdomainID check_id);
-  std::string restrictionCheckName(BoundaryID check_id);
+  ///@{ Helper functions for checking MaterialProperties
+  std::string restrictionSubdomainCheckName(SubdomainID check_id);
+  std::string restrictionBoundaryCheckName(BoundaryID check_id);
   ///@}
 
   friend class Restartable;

@@ -33,6 +33,11 @@ validParams<FeatureVolumeVectorPostprocessor>()
                         "Set this Boolean if you wish to use an element based volume where"
                         " the dominant order parameter determines the feature that accumulates the "
                         "entire element volume");
+  params.addParam<bool>("output_centroids", false, "Set to true to output the feature centroids");
+  params.addClassDescription("This object is designed to pull information from the data structures "
+                             "of a \"FeatureFloodCount\" or derived object (e.g. individual "
+                             "feature volumes)");
+
   return params;
 }
 
@@ -41,6 +46,7 @@ FeatureVolumeVectorPostprocessor::FeatureVolumeVectorPostprocessor(
   : GeneralVectorPostprocessor(parameters),
     MooseVariableDependencyInterface(),
     _single_feature_per_elem(getParam<bool>("single_feature_per_element")),
+    _output_centroids(getParam<bool>("output_centroids")),
     _feature_counter(getUserObject<FeatureFloodCount>("flood_counter")),
     _var_num(declareVector("var_num")),
     _feature_volumes(declareVector("feature_volumes")),
@@ -83,12 +89,28 @@ FeatureVolumeVectorPostprocessor::execute()
         static_cast<unsigned int>(_feature_counter.doesFeatureIntersectBoundary(feature_num));
   }
 
+  if (_output_centroids)
+  {
+    VectorPostprocessorValue & center_x = declareVector("centroid_x");
+    center_x.resize(num_features);
+    VectorPostprocessorValue & center_y = declareVector("centroid_y");
+    center_y.resize(num_features);
+    VectorPostprocessorValue & center_z = declareVector("centroid_z");
+    center_z.resize(num_features);
+
+    for (auto feature_num = beginIndex(_var_num); feature_num < num_features; ++feature_num)
+    {
+      auto p = _feature_counter.featureCentroid(feature_num);
+      center_x[feature_num] = p(0);
+      center_y[feature_num] = p(1);
+      center_z[feature_num] = p(2);
+    }
+  }
+
   // Reset the volume vector
   _feature_volumes.assign(num_features, 0);
-  const auto end = _mesh.getMesh().active_local_elements_end();
-  for (auto el = _mesh.getMesh().active_local_elements_begin(); el != end; ++el)
+  for (const auto & elem : _mesh.getMesh().active_local_element_ptr_range())
   {
-    const Elem * elem = *el;
     _fe_problem.prepare(elem, 0);
     _fe_problem.reinitElem(elem, 0);
 

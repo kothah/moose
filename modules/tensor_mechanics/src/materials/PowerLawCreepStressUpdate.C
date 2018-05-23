@@ -8,9 +8,6 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "PowerLawCreepStressUpdate.h"
-#include "ElasticityTensorTools.h"
-
-#include "Function.h"
 
 registerMooseObject("TensorMechanicsApp", PowerLawCreepStressUpdate);
 
@@ -18,53 +15,39 @@ template <>
 InputParameters
 validParams<PowerLawCreepStressUpdate>()
 {
-  InputParameters params = validParams<RadialReturnStressUpdate>();
-  params.addClassDescription("This class uses the discrete material in a radial return isotropic "
-                             "power law creep model.  This class can be used in conjunction with "
-                             "other creep and plasticity materials for more complex simulations.");
+  InputParameters params = validParams<RadialReturnCreepStressUpdateBase>();
+  params.addClassDescription(
+      "This class uses the stress update material in a radial return isotropic power law creep "
+      "model.  This class can be used in conjunction with other creep and plasticity materials for "
+      "more complex simulations.");
 
   // Linear strain hardening parameters
+  params.addCoupledVar("temperature", 0.0, "Coupled temperature");
   params.addRequiredParam<Real>("coefficient", "Leading coefficent in power-law equation");
   params.addRequiredParam<Real>("n_exponent", "Exponent on effective stress in power-law equation");
   params.addParam<Real>("m_exponent", 0.0, "Exponent on time in power-law equation");
   params.addRequiredParam<Real>("activation_energy", "Activation energy");
   params.addParam<Real>("gas_constant", 8.3143, "Universal gas constant");
   params.addParam<Real>("start_time", 0.0, "Start time (if not zero)");
-  params.addCoupledVar("temperature", 0.0, "Coupled temperature");
-  params.addParam<std::string>(
-      "creep_prepend", "", "String that is prepended to the creep_strain Material Property");
 
   return params;
 }
 
 PowerLawCreepStressUpdate::PowerLawCreepStressUpdate(const InputParameters & parameters)
-  : RadialReturnStressUpdate(parameters, "creep"),
-    _creep_prepend(getParam<std::string>("creep_prepend")),
-    _coefficient(parameters.get<Real>("coefficient")),
-    _n_exponent(parameters.get<Real>("n_exponent")),
-    _m_exponent(parameters.get<Real>("m_exponent")),
-    _activation_energy(parameters.get<Real>("activation_energy")),
-    _gas_constant(parameters.get<Real>("gas_constant")),
-    _start_time(getParam<Real>("start_time")),
-    _has_temp(isCoupled("temperature")),
+  : RadialReturnCreepStressUpdateBase(parameters),
+    _has_temp(parameters.isParamSetByUser("temperature")),
     _temperature(_has_temp ? coupledValue("temperature") : _zero),
-    _creep_strain(declareProperty<RankTwoTensor>(_creep_prepend + "creep_strain")),
-    _creep_strain_old(getMaterialPropertyOld<RankTwoTensor>(_creep_prepend + "creep_strain"))
+    _coefficient(getParam<Real>("coefficient")),
+    _n_exponent(getParam<Real>("n_exponent")),
+    _m_exponent(getParam<Real>("m_exponent")),
+    _activation_energy(getParam<Real>("activation_energy")),
+    _gas_constant(getParam<Real>("gas_constant")),
+    _start_time(getParam<Real>("start_time"))
 {
-}
-
-void
-PowerLawCreepStressUpdate::initQpStatefulProperties()
-{
-  _creep_strain[_qp].zero();
-}
-
-void
-PowerLawCreepStressUpdate::propagateQpStatefulProperties()
-{
-  _creep_strain[_qp] = _creep_strain_old[_qp];
-
-  propagateQpStatefulPropertiesRadialReturn();
+  if (_start_time < _app.getStartTime() && (std::trunc(_m_exponent) != _m_exponent))
+    paramError("start_time",
+               "Start time must be equal to or greater than the Executioner start_time if a "
+               "non-integer m_exponent is used");
 }
 
 void
@@ -74,11 +57,9 @@ PowerLawCreepStressUpdate::computeStressInitialize(const Real /*effective_trial_
   if (_has_temp)
     _exponential = std::exp(-_activation_energy / (_gas_constant * _temperature[_qp]));
   else
-    _exponential = 1;
+    _exponential = 1.0;
 
   _exp_time = std::pow(_t - _start_time, _m_exponent);
-
-  _creep_strain[_qp] = _creep_strain_old[_qp];
 }
 
 Real
@@ -98,10 +79,4 @@ PowerLawCreepStressUpdate::computeDerivative(const Real effective_trial_stress, 
                                      std::pow(stress_delta, _n_exponent - 1.0) * _exponential *
                                      _exp_time;
   return creep_rate_derivative * _dt - 1.0;
-}
-
-void
-PowerLawCreepStressUpdate::computeStressFinalize(const RankTwoTensor & plasticStrainIncrement)
-{
-  _creep_strain[_qp] += plasticStrainIncrement;
 }

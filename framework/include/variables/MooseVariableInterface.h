@@ -16,7 +16,7 @@
 class Assembly;
 class MooseObject;
 template <typename T>
-class MooseVariableFEImpl;
+class MooseVariableFE;
 
 /**
  * Interface for objects that need to get values of MooseVariables
@@ -31,15 +31,18 @@ public:
    * @param nodal true if the variable is nodal
    * @param var_param_name the parameter name where we will find the coupled variable name
    */
-  MooseVariableInterface(const MooseObject * moose_object,
-                         bool nodal,
-                         std::string var_param_name = "variable");
+  MooseVariableInterface(
+      const MooseObject * moose_object,
+      bool nodal,
+      std::string var_param_name = "variable",
+      Moose::VarKindType expected_var_type = Moose::VarKindType::VAR_ANY,
+      Moose::VarFieldType expected_var_field_type = Moose::VarFieldType::VAR_FIELD_ANY);
 
   /**
    * Get the variable that this object is using.
    * @return The variable this object is using.
    */
-  MooseVariableFEImpl<T> * mooseVariable();
+  MooseVariableFE<T> * mooseVariable();
 
   virtual ~MooseVariableInterface();
 
@@ -164,7 +167,7 @@ protected:
   bool _nodal;
 
   /// The variable this object is acting on
-  MooseVariableFEImpl<T> * _variable;
+  MooseVariableFE<T> * _variable;
 
 protected:
   Assembly * _mvi_assembly;

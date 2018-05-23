@@ -14,7 +14,7 @@
 #include "FEProblem.h"
 #include "MooseMesh.h"
 #include "MooseTypes.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "MultiApp.h"
 #include "NonlinearSystem.h"
 
@@ -73,10 +73,12 @@ void
 MultiAppCopyTransfer::transfer(FEProblemBase & to_problem, FEProblemBase & from_problem)
 {
   // Populate the to/from variables needed to perform the transfer
-  MooseVariableFEBase & to_var = to_problem.getVariable(0, _to_var_name);
+  MooseVariableFEBase & to_var = to_problem.getVariable(
+      0, _to_var_name, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_STANDARD);
   MeshBase & to_mesh = to_problem.mesh().getMesh();
 
-  MooseVariableFEBase & from_var = from_problem.getVariable(0, _from_var_name);
+  MooseVariableFEBase & from_var = from_problem.getVariable(
+      0, _from_var_name, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_STANDARD);
   MeshBase & from_mesh = from_problem.mesh().getMesh();
 
   // Check integrity
@@ -90,20 +92,13 @@ MultiAppCopyTransfer::transfer(FEProblemBase & to_problem, FEProblemBase & from_
     mooseError("The meshes must be identical to utilize MultiAppCopyTransfer.");
 
   // Transfer node dofs
-  MeshBase::const_node_iterator node_it = to_mesh.local_nodes_begin();
-  MeshBase::const_node_iterator node_end = to_mesh.local_nodes_end();
-  for (; node_it != node_end; ++node_it)
-    transferDofObject(*node_it, from_mesh.node_ptr((*node_it)->id()), to_var, from_var);
+  for (const auto & node : as_range(to_mesh.local_nodes_begin(), to_mesh.local_nodes_end()))
+    transferDofObject(node, from_mesh.node_ptr(node->id()), to_var, from_var);
 
   // Transfer elem dofs
-  MeshBase::const_element_iterator elem_it = to_mesh.local_elements_begin();
-  MeshBase::const_element_iterator elem_end = to_mesh.local_elements_end();
-  Elem * to_elem;
-  Elem * from_elem;
-  for (; elem_it != elem_end; ++elem_it)
+  for (auto & to_elem : as_range(to_mesh.local_elements_begin(), to_mesh.local_elements_end()))
   {
-    to_elem = *elem_it;
-    from_elem = from_mesh.elem_ptr(to_elem->id());
+    Elem * from_elem = from_mesh.elem_ptr(to_elem->id());
     mooseAssert(to_elem->type() == from_elem->type(), "The elements must be the same type.");
     transferDofObject(to_elem, from_elem, to_var, from_var);
   }

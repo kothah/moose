@@ -11,7 +11,7 @@
 #include "AuxiliarySystem.h"
 #include "Problem.h"
 #include "FEProblem.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "MooseVariableScalar.h"
 #include "PetscSupport.h"
 #include "Factory.h"
@@ -144,6 +144,11 @@ NonlinearSystemBase::NonlinearSystemBase(FEProblemBase & fe_problem,
   getResidualNonTimeVector();
   // Don't need to add the matrix - it already exists (for now)
   _Ke_system_tag = _fe_problem.addMatrixTag("SYSTEM");
+
+  // The time matrix tag is not normally used - but must be added to the system
+  // in case it is so that objects can have 'time' in their matrix tags by default
+  _fe_problem.addMatrixTag("TIME");
+
   _Re_tag = _fe_problem.addVectorTag("RESIDUAL");
 
   _u_dot = &addVector("u_dot", true, GHOSTED);
@@ -240,20 +245,15 @@ NonlinearSystemBase::setDecomposition(const std::vector<std::string> & splits)
 {
   /// Although a single top-level split is allowed in Problem, treat it as a list of splits for conformity with the Split input syntax.
   if (splits.size() && splits.size() != 1)
-  {
-    std::ostringstream err;
-    err << "Only a single top-level split is allowed in a Problem's decomposition.";
-    mooseError(err.str());
-  }
+    mooseError("Only a single top-level split is allowed in a Problem's decomposition.");
+
   if (splits.size())
   {
     _decomposition_split = splits[0];
     _have_decomposition = true;
   }
   else
-  {
     _have_decomposition = false;
-  }
 }
 
 void
@@ -542,7 +542,7 @@ NonlinearSystemBase::computeResidualTags(const std::set<TagID> & tags)
 {
   Moose::perf_log.push("compute_residual()", "Execution");
 
-  bool reuired_residual = tags.find(residualVectorTag()) == tags.end() ? false : true;
+  bool required_residual = tags.find(residualVectorTag()) == tags.end() ? false : true;
 
   _n_residual_evaluations++;
 
@@ -565,7 +565,7 @@ NonlinearSystemBase::computeResidualTags(const std::set<TagID> & tags)
     computeResidualInternal(tags);
     closeTaggedVectors(tags);
 
-    if (reuired_residual)
+    if (required_residual)
     {
       auto & residual = getVector(residualVectorTag());
       if (_time_integrator)
@@ -579,7 +579,7 @@ NonlinearSystemBase::computeResidualTags(const std::set<TagID> & tags)
     closeTaggedVectors(tags);
 
     // If we are debugging residuals we need one more assignment to have the ghosted copy up to date
-    if (_need_residual_ghosted && _debugging_residuals && reuired_residual)
+    if (_need_residual_ghosted && _debugging_residuals && required_residual)
     {
       auto & residual = getVector(residualVectorTag());
 
@@ -600,7 +600,7 @@ NonlinearSystemBase::computeResidualTags(const std::set<TagID> & tags)
     // "diverged" reason during the next solve.
   }
 
-  // not suppose to do anythin on matrix
+  // not supposed to do anything on matrix
   activeAllMatrixTags();
   Moose::enableFPE(false);
   Moose::perf_log.pop("compute_residual()", "Execution");
@@ -1360,13 +1360,7 @@ NonlinearSystemBase::computeNodalBCs(const std::set<TagID> & tags)
             const auto & bcs = nbc_warehouse->getActiveBoundaryObjects(boundary_id);
             for (const auto & nbc : bcs)
               if (nbc->shouldApply())
-              {
                 nbc->computeResidual();
-                // This is used to have a backward compatibility, we should remove it
-                // as soon as possible
-                if (hasVector(residualVectorTag()))
-                  nbc->computeResidual(getVector(residualVectorTag()));
-              }
           }
         }
       }
@@ -1893,7 +1887,7 @@ NonlinearSystemBase::computeScalarKernelsJacobians()
 void
 NonlinearSystemBase::computeJacobianInternal(const std::set<TagID> & tags)
 {
-  // Make matrice ready to use
+  // Make matrix ready to use
   activeAllMatrixTags();
 
   for (auto tag : tags)
@@ -2718,12 +2712,13 @@ NonlinearSystemBase::setMooseKSPNormType(MooseEnum kspnorm)
 }
 
 bool
-NonlinearSystemBase::needMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid) const
+NonlinearSystemBase::needBoundaryMaterialOnSide(BoundaryID bnd_id, THREAD_ID tid) const
 {
   return _integrated_bcs.hasActiveBoundaryObjects(bnd_id, tid);
 }
 
-bool NonlinearSystemBase::needMaterialOnSide(SubdomainID /*subdomain_id*/, THREAD_ID /*tid*/) const
+bool NonlinearSystemBase::needSubdomainMaterialOnSide(SubdomainID /*subdomain_id*/,
+                                                      THREAD_ID /*tid*/) const
 {
   return _doing_dg;
 }

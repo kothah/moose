@@ -35,6 +35,7 @@ dataStore(std::ostream & stream, FormattedTable & table, void * context)
   storeHelper(stream, table._align_widths, context);
   storeHelper(stream, table._column_names, context);
   storeHelper(stream, table._output_row_index, context);
+  storeHelper(stream, table._headers_output, context);
 }
 
 template <>
@@ -45,26 +46,23 @@ dataLoad(std::istream & stream, FormattedTable & table, void * context)
   loadHelper(stream, table._align_widths, context);
   loadHelper(stream, table._column_names, context);
   loadHelper(stream, table._output_row_index, context);
-
-  // Don't assume that the stream is open if we've restored.
-  table._stream_open = false;
+  loadHelper(stream, table._headers_output, context);
 }
 
 void
 FormattedTable::close()
 {
-  if (!_stream_open)
+  if (!_output_file.is_open())
     return;
   _output_file.flush();
   _output_file.close();
-  _stream_open = false;
   _output_file_name = "";
 }
 
 void
 FormattedTable::open(const std::string & file_name)
 {
-  if (_stream_open && _output_file_name == file_name)
+  if (_output_file.is_open() && _output_file_name == file_name)
     return;
   close();
   _output_file_name = file_name;
@@ -76,15 +74,17 @@ FormattedTable::open(const std::string & file_name)
   {
     open_flags |= std::ios::trunc;
     _output_row_index = 0;
+    _headers_output = false;
   }
 
   _output_file.open(file_name.c_str(), open_flags);
-  _stream_open = true;
+  if (_output_file.fail())
+    mooseError("Unable to open file ", file_name);
 }
 
 FormattedTable::FormattedTable()
   : _output_row_index(0),
-    _stream_open(false),
+    _headers_output(false),
     _append(false),
     _output_time(true),
     _csv_delimiter(DEFAULT_CSV_DELIMITER),
@@ -96,14 +96,14 @@ FormattedTable::FormattedTable(const FormattedTable & o)
   : _column_names(o._column_names),
     _output_file_name(""),
     _output_row_index(o._output_row_index),
-    _stream_open(o._stream_open),
+    _headers_output(o._headers_output),
     _append(o._append),
     _output_time(o._output_time),
     _csv_delimiter(o._csv_delimiter),
     _csv_precision(o._csv_precision),
     _column_names_unsorted(o._column_names_unsorted)
 {
-  if (_stream_open)
+  if (_output_file.is_open())
     mooseError("Copying a FormattedTable with an open stream is not supported");
 
   for (const auto & it : o._data)
@@ -403,28 +403,27 @@ FormattedTable::printCSV(const std::string & file_name, int interval, bool align
     }
 
     // Output Header
+    if (!_headers_output)
     {
-      bool first = true;
-
       if (_output_time)
       {
         if (align)
           _output_file << std::setw(_align_widths["time"]) << "time";
         else
           _output_file << "time";
-        first = false;
+        _headers_output = true;
       }
 
       for (const auto & col_name : _column_names)
       {
-        if (!first)
+        if (_headers_output)
           _output_file << _csv_delimiter;
 
         if (align)
           _output_file << std::right << std::setw(_align_widths[col_name]) << col_name;
         else
           _output_file << col_name;
-        first = false;
+        _headers_output = true;
       }
       _output_file << "\n";
     }
@@ -515,6 +514,8 @@ FormattedTable::makeGnuplot(const std::string & base_file, const std::string & f
   std::string dat_name = base_file + ".dat";
   std::ofstream datfile;
   datfile.open(dat_name.c_str(), std::ios::trunc | std::ios::out);
+  if (datfile.fail())
+    mooseError("Unable to open file ", dat_name);
 
   datfile << "# time";
   for (const auto & col_name : _column_names)
@@ -538,6 +539,8 @@ FormattedTable::makeGnuplot(const std::string & base_file, const std::string & f
   std::string gp_name = base_file + ".gp";
   std::ofstream gpfile;
   gpfile.open(gp_name.c_str(), std::ios::trunc | std::ios::out);
+  if (gpfile.fail())
+    mooseError("Unable to open file ", gp_name);
 
   gpfile << gnuplot::before_terminal << terminal << gnuplot::before_ext << extension
          << gnuplot::after_ext;
@@ -567,17 +570,6 @@ FormattedTable::makeGnuplot(const std::string & base_file, const std::string & f
 
   gpfile.flush();
   gpfile.close();
-
-  // Run the gnuplot script
-  /* We aren't going to run gnuplot automatically
-
-    if (!system(NULL))
-      mooseError("No way to run gnuplot on this computer");
-
-    std::string command = "gnuplot " + gp_name;
-    if (system(command.c_str()))
-      mooseError("gnuplot command failed");
-  */
 }
 
 void

@@ -16,7 +16,7 @@
 #include "GeneratedMesh.h"
 #include "InputParameters.h"
 #include "MooseMesh.h"
-#include "MooseVariableFEImpl.h"
+#include "MooseVariableFE.h"
 #include "NonlinearSystem.h"
 
 #include "libmesh/periodic_boundary.h" // translation PBCs provided by libmesh
@@ -65,10 +65,12 @@ AddPeriodicBCAction::setPeriodicVars(PeriodicBoundaryBase & p,
 
   for (const auto & var_name : *var_names_ptr)
   {
-    unsigned int var_num = nl.getVariable(0, var_name).number();
-
-    p.set_variable(var_num);
-    _mesh->addPeriodicVariable(var_num, p.myboundary, p.pairedboundary);
+    if (!nl.hasScalarVariable(var_name))
+    {
+      unsigned int var_num = nl.getVariable(0, var_name).number();
+      p.set_variable(var_num);
+      _mesh->addPeriodicVariable(var_num, p.myboundary, p.pairedboundary);
+    }
   }
 }
 

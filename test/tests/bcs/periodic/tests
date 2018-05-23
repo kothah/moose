@@ -12,6 +12,7 @@
     exodiff = 'out_auto.e'
     group = 'periodic'
     abs_zero = 1e-6
+    rel_err = 1e-5
   [../]
 
   [./auto_wrap_2d_test_non_generated]
@@ -78,6 +79,7 @@
     exodiff = 'out.e'
     group = 'periodic'
     abs_zero = 1e-6
+    rel_err = 1e-5
   [../]
 
   [./testperiodic_dp]
@@ -117,5 +119,15 @@
     input = 'auto_dir_repeated_id.i'
     exodiff = 'auto_dir_repeated_id_out.e'
     group = 'periodic'
+  [../]
+
+  [./no_add_scalar]
+    type = 'Exodiff'
+    input = 'no_add_scalar.i'
+    exodiff = 'no_add_scalar_out.e'
+
+    requirement = 'The Periodic Boundary system shall not attempt to add PBCs to Scalar Variables'
+    design = '/AddPeriodicBCAction.md'
+    issues = '#11417'
   [../]
 []
