@@ -84,7 +84,14 @@ public:
   /**
    * Clone method.  Allocates memory you are responsible to clean up.
    */
-  virtual MooseMesh & clone() const = 0;
+  virtual MooseMesh & clone() const;
+
+  /**
+   * A safer version of the clone() method that hands back an
+   * allocated object wrapped in a smart pointer. This makes it much
+   * less likely that the caller will leak the memory in question.
+   */
+  virtual std::unique_ptr<MooseMesh> safeClone() const = 0;
 
   /**
    * Initialize the Mesh object.  Most of the time this will turn around
@@ -178,10 +185,16 @@ public:
   /**
    * Calls BoundaryInfo::build_side_list().
    * Fills in the three passed vectors with list logical (element, side, id) tuples.
+   * This function will eventually be deprecated in favor of the one below, which
+   * returns a single std::vector of (elem-id, side-id, bc-id) tuples instead.
    */
   void buildSideList(std::vector<dof_id_type> & el,
                      std::vector<unsigned short int> & sl,
                      std::vector<boundary_id_type> & il);
+  /**
+   * As above, but uses the non-deprecated std::tuple interface.
+   */
+  std::vector<std::tuple<dof_id_type, unsigned short int, boundary_id_type>> buildSideList();
 
   /**
    * Calls BoundaryInfo::side_with_boundary_id().
