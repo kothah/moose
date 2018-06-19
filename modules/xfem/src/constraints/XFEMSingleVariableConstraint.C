@@ -25,7 +25,7 @@ InputParameters
 validParams<XFEMSingleVariableConstraint>()
 {
   InputParameters params = validParams<ElemElemConstraint>();
-  params.addParam<Real>("alpha", 5, "Stablization parameter in Nitsche's formulation.");
+  params.addParam<Real>("alpha", 100, "Stablization parameter in Nitsche's formulation.");
   params.addParam<Real>("jump", 0, "Jump at the interface.");
   params.addParam<Real>("jump_flux", 0, "Flux jump at the interface.");
   params.addParam<UserObjectName>(
@@ -64,9 +64,6 @@ void
 XFEMSingleVariableConstraint::reinitConstraintQuadrature(const ElementPairInfo & element_pair_info)
 {
   _interface_normal = element_pair_info._elem1_normal;
-  _elem1_vol_frac = element_pair_info._elem1_physical_volfrac;
-  _elem2_vol_frac = element_pair_info._elem2_physical_volfrac;
-
   ElemElemConstraint::reinitConstraintQuadrature(element_pair_info);
 }
 
@@ -87,7 +84,7 @@ XFEMSingleVariableConstraint::computeQpResidual(Moose::DGResidualType type)
         r += 0.5 * _grad_test[_i][_qp] * _interface_normal * _jump;
       }
       r += 0.5 * _test[_i][_qp] * _jump_flux;
-      r += (_alpha / _current_elem->hmax()) * (_u[_qp] - _u_neighbor[_qp] - _jump) * _test[_i][_qp];
+      r += _alpha * (_u[_qp] - _u_neighbor[_qp] - _jump) * _test[_i][_qp];
       break;
 
     case Moose::Neighbor:
@@ -100,8 +97,7 @@ XFEMSingleVariableConstraint::computeQpResidual(Moose::DGResidualType type)
         r += 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal * _jump;
       }
       r += 0.5 * _test_neighbor[_i][_qp] * _jump_flux;
-      r -= (_alpha / _neighbor_elem->hmax()) * (_u[_qp] - _u_neighbor[_qp] - _jump) *
-           _test_neighbor[_i][_qp];
+      r -= _alpha * (_u[_qp] - _u_neighbor[_qp] - _jump) * _test_neighbor[_i][_qp];
       break;
   }
   return r;
@@ -118,29 +114,30 @@ XFEMSingleVariableConstraint::computeQpJacobian(Moose::DGJacobianType type)
       if (!_use_penalty)
         r += -0.5 * _grad_phi[_j][_qp] * _interface_normal * _test[_i][_qp] -
              _phi[_j][_qp] * 0.5 * _grad_test[_i][_qp] * _interface_normal;
-      r += (_alpha / _current_elem->hmax()) * _phi[_j][_qp] * _test[_i][_qp];
+      r += _alpha * _phi[_j][_qp] * _test[_i][_qp];
       break;
 
     case Moose::ElementNeighbor:
       if (!_use_penalty)
         r += -0.5 * _grad_phi_neighbor[_j][_qp] * _interface_normal * _test[_i][_qp] +
              _phi_neighbor[_j][_qp] * 0.5 * _grad_test[_i][_qp] * _interface_normal;
-      r -= (_alpha / _current_elem->hmax()) * _phi_neighbor[_j][_qp] * _test[_i][_qp];
+      r -= _alpha * _phi_neighbor[_j][_qp] * _test[_i][_qp];
       break;
 
     case Moose::NeighborElement:
       if (!_use_penalty)
         r += 0.5 * _grad_phi[_j][_qp] * _interface_normal * _test_neighbor[_i][_qp] -
              _phi[_j][_qp] * 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal;
-      r -= (_alpha / _neighbor_elem->hmax()) * _phi[_j][_qp] * _test_neighbor[_i][_qp];
+      r -= _alpha * _phi[_j][_qp] * _test_neighbor[_i][_qp];
       break;
 
     case Moose::NeighborNeighbor:
       if (!_use_penalty)
         r += 0.5 * _grad_phi_neighbor[_j][_qp] * _interface_normal * _test_neighbor[_i][_qp] +
              _phi_neighbor[_j][_qp] * 0.5 * _grad_test_neighbor[_i][_qp] * _interface_normal;
-      r += (_alpha / _neighbor_elem->hmax()) * _phi_neighbor[_j][_qp] * _test_neighbor[_i][_qp];
+      r += _alpha * _phi_neighbor[_j][_qp] * _test_neighbor[_i][_qp];
       break;
   }
+
   return r;
 }

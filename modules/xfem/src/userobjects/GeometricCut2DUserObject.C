@@ -42,9 +42,11 @@ GeometricCut2DUserObject::cutElementByGeometry(const Elem * elem,
                                                Real time) const
 {
   bool cut_elem = false;
+
   for (unsigned int cut = 0; cut < _cut_line_endpoints.size(); ++cut)
   {
     Real fraction = cutFraction(cut, time);
+
     if (fraction > 0.0)
     {
       unsigned int n_sides = elem->n_sides();

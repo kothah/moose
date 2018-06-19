@@ -29,12 +29,12 @@ XFEMElementPairLocator::reinit()
 
   _element_pair_info.clear();
 
-  for (std::list<std::pair<Elem *, Elem *>>::const_iterator it = _elem_pairs->begin();
+  for (std::list<std::pair<const Elem *, const Elem *>>::const_iterator it = _elem_pairs->begin();
        it != _elem_pairs->end();
        ++it)
   {
-    Elem * elem1 = it->first;
-    Elem * elem2 = it->second;
+    const Elem * elem1 = it->first;
+    const Elem * elem2 = it->second;
 
     std::vector<Point> intersectionPoints1;
     Point normal1;
@@ -51,25 +51,12 @@ XFEMElementPairLocator::reinit()
     else if (intersectionPoints1.size() > 2)
       _xfem->getXFEMqRuleOnSurface(intersectionPoints1, q_points1, weights1);
 
-    Real elem1_volfrac = 1.0;
-    Real elem2_volfrac = 1.0;
-    elem1_volfrac = _xfem->getPhysicalVolumeFraction(elem1);
-    elem2_volfrac = _xfem->getPhysicalVolumeFraction(elem2);
-
     if (!_use_displaced_mesh)
     {
-      ElementPairInfo new_elem_info(elem1,
-                                    elem2,
-                                    q_points1,
-                                    q_points1,
-                                    weights1,
-                                    weights1,
-                                    normal1,
-                                    -normal1,
-                                    elem1_volfrac,
-                                    elem2_volfrac);
+      ElementPairInfo new_elem_info(
+          elem1, elem2, q_points1, q_points1, weights1, weights1, normal1, -normal1);
       _element_pair_info.insert(
-          std::pair<std::pair<Elem *, Elem *>, ElementPairInfo>(*it, new_elem_info));
+          std::pair<std::pair<const Elem *, const Elem *>, ElementPairInfo>(*it, new_elem_info));
     }
     else
     {
@@ -89,18 +76,10 @@ XFEMElementPairLocator::reinit()
       else if (intersectionPoints2.size() > 2)
         _xfem->getXFEMqRuleOnSurface(intersectionPoints2, q_points2, weights2);
 
-      ElementPairInfo new_elem_info(elem1,
-                                    elem2,
-                                    q_points1,
-                                    q_points2,
-                                    weights1,
-                                    weights2,
-                                    normal1,
-                                    normal2,
-                                    elem1_volfrac,
-                                    elem2_volfrac);
+      ElementPairInfo new_elem_info(
+          elem1, elem2, q_points1, q_points2, weights1, weights2, normal1, normal2);
       _element_pair_info.insert(
-          std::pair<std::pair<Elem *, Elem *>, ElementPairInfo>(*it, new_elem_info));
+          std::pair<std::pair<const Elem *, const Elem *>, ElementPairInfo>(*it, new_elem_info));
     }
   }
 }

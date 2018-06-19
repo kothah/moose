@@ -38,9 +38,9 @@ public:
                   const std::vector<Real> & elem1_constraint_JxW,
                   const std::vector<Real> & elem2_constraint_JxW,
                   const Point & elem1_normal,
-                  const Point & elem2_normal,
-                  const Real & elem1_physical_volfrac,
-                  const Real & elem2_physical_volfrac);
+                  const Point & elem2_normal);
+                  //const Real & elem1_physical_volfrac,
+                  //const Real & elem2_physical_volfrac);
 
   virtual ~ElementPairInfo();
 
@@ -49,9 +49,9 @@ public:
                       const std::vector<Real> & elem1_constraint_JxW,
                       const std::vector<Real> & elem2_constraint_JxW,
                       const Point & elem1_normal,
-                      const Point & elem2_normal,
-                      const Real & elem1_physical_volfrac,
-                      const Real & elem2_physical_volfrac);
+                      const Point & elem2_normal);
+                      //const Real & elem1_physical_volfrac,
+                      //const Real & elem2_physical_volfrac);
 
   const Elem * _elem1;
   const Elem * _elem2;
@@ -61,8 +61,8 @@ public:
   std::vector<Real> _elem2_constraint_JxW;
   Point _elem1_normal;
   Point _elem2_normal;
-  Real _elem1_physical_volfrac;
-  Real _elem2_physical_volfrac;
+  //Real _elem1_physical_volfrac;
+  //Real _elem2_physical_volfrac;
 };
 
 #endif // ELEMENTPAIRLOCATOR_H
