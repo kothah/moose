@@ -47,6 +47,10 @@ protected:
   /// Vector normal to the internal interface
   Real _jump_flux;
 
+  /// Avtive time from-to
+  Real _time_from;
+  Real _time_to;
+
   /// Use penalty formulation
   bool _use_penalty;
 
