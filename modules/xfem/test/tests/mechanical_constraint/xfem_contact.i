@@ -101,10 +101,10 @@
     type = XFEMDispConstraint
     variable = disp_x
     component=0
-    E=1e6
-    nu=0.3
     time_from=0.5
     time_to=1.2
+    disp_x=disp_x
+    disp_y=disp_y
     use_penalty = true
     alpha = 1.0e8
     use_displaced_mesh = false
@@ -114,10 +114,10 @@
     type = XFEMDispConstraint
     variable = disp_y
     component=1
-    E=1e6
-    nu=0.3
     time_from=0.5
     time_to=1.2
+    disp_x=disp_x
+    disp_y=disp_y
     use_penalty = true
     alpha = 1.0e8
     use_displaced_mesh =false

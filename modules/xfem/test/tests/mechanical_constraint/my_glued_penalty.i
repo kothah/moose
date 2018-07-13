@@ -1,22 +1,12 @@
 [GlobalParams]
-  order = FIRST
-  family = LAGRANGE
-
   displacements = 'disp_x disp_y'
-  volumetric_locking_correction = false
+  volumetric_locking_correction = true
 []
 
 [XFEM]
   geometric_cut_userobjects = 'line_seg_cut_uo'
-  qrule = volfrac
+  qrule = moment_fitting
   output_cut_plane = true
-[]
-
-[Variables]
-  [./disp_x]
-  [../]
-  [./disp_y]
-  [../]
 []
 
 [Mesh]
@@ -40,21 +30,29 @@
   [../]
 []
 
-[Kernels]
-  [./TensorMechanics]
+[Variables]
+  [./disp_x]
   [../]
+  [./disp_y]
+  [../]
+[]
+
+[Modules/TensorMechanics/Master/All]
+  strain = SMALL
+  add_variables = true
 []
 
 [Functions]
   [./push]
     type = ParsedFunction
-    value = 0.05*(0.5-(5*(t-0.5)/4))
+    value = 0.09*(0.5-(5*(t-0.5)/4))
   [../]
   [./pull]
     type = ParsedFunction
-    value = 0.05*t
+    value = -0.01*t
   [../]
 []
+
 
 [BCs]
   [./bottomx]
@@ -81,105 +79,88 @@
     variable = disp_y
     function = pull
   [../]
-  [./topy_push]
-    type = FunctionPresetBC
-    boundary = top
-    variable = disp_y
-    function = push
-  [../]
-[]
-
-[Postprocessors]
-  [./nonlinear_its]
-    type = NumNonlinearIterations
-    execute_on = timestep_end
-  [../]
+#  [./topy_push]
+#    type = FunctionPresetBC
+#    boundary = top
+#    variable = disp_y
+#    function = push
+#  [../]
 []
 
 [Constraints]
   [./disp_x]
     type = XFEMDispConstraint
     variable = disp_x
-    component=0
-    E=1e6
-    nu=0.3
-    time_from=0.5
-    time_to=1.2
+    component = 0
     use_penalty = true
-    alpha = 1.0e8
-    use_displaced_mesh = false
+    alpha = 0.5e6
+    time_from = 0.5 
+    time_to = 2
+    use_displaced_mesh = true
     geometric_cut_userobject = 'line_seg_cut_uo'
   [../]
   [./disp_y]
     type = XFEMDispConstraint
     variable = disp_y
-    component=1
-    E=1e6
-    nu=0.3
-    time_from=0.5
-    time_to=1.2
+    component = 1
     use_penalty = true
-    alpha = 1.0e8
-    use_displaced_mesh =false
+    alpha = 0.5e6
+    time_from = 0.5
+    time_to = 2
+    use_displaced_mesh = true
     geometric_cut_userobject = 'line_seg_cut_uo'
   [../]
 []
 
-[Controls]
-  [./period1]
-    type = TimePeriod
-    disable_objects = 'BCs::topy_push'
-    start_time = '0'
-    end_time = '0.5'
-    execute_on = 'initial timestep_begin'
-  [../]
-
-  [./period2]
-    type = TimePeriod
-    disable_objects = 'BCs::topy_pull'
-    enable_objects = 'BCs::topy_push'
-    start_time = '0.51'
-    execute_on = 'initial timestep_begin'
-  [../]
-[]
-
-
 [Materials]
   [./elasticity_tensor]
-    type = ComputeIsotropicElasticityTensor
-    youngs_modulus = 1e6
-    poissons_ratio = 0.3
+    type = ComputeElasticityTensor
+    fill_method = symmetric9
+    #reading C_11  C_12  C_13  C_22  C_23  C_33  C_44  C_55  C_66
+    C_ijkl ='1.0e6  0.0   0.0 1.0e6  0.0  1.0e6 0.5e6 0.5e6 0.5e6'
   [../]
   [./stress]
     type = ComputeLinearElasticStress
   [../]
-  [./strain]
-    type = ComputeSmallStrain
-  [../]
 []
+
+#[Controls]
+#  [./period1]
+#    type = TimePeriod
+#    disable_objects = 'BCs::topy_push'
+#    start_time = '0'
+#    end_time = '0.5'
+#    execute_on = 'initial timestep_begin'
+#  [../]
+#  [./period2]
+#    type = TimePeriod
+#    disable_objects = 'BCs::topy_pull'
+#    enable_objects = 'BCs::topy_push'
+#    start_time = '0.51'
+#    execute_on = 'initial timestep_begin'
+#  [../]
+#[]
 
 [Executioner]
   type = Transient
-
   solve_type = 'PJFNK'
-  petsc_options_iname = '-ksp_gmres_restart -pc_type -pc_hypre_type -pc_hypre_boomeramg_max_iter'
-  petsc_options_value = '201                hypre    boomeramg      30'
+
+  petsc_options_iname = '-pc_type -pc_factor_mat_solver_package'# -ksp_type
+  petsc_options_value = 'lu       superlu_dist'#  preonly
 
   line_search = 'none'
 
-  [./Predictor]
-    type = SimplePredictor
-    scale = 1.0
-  [../]
-
-# controls for linear iterations
   l_max_its = 100
-  l_tol = 1e-2
+  nl_max_its = 1000
 
-# controls for nonlinear iterations
-  nl_max_its = 50
-  nl_rel_tol = 1e-7
-  nl_abs_tol = 1e-7
+  l_tol = 1e-6
+  nl_rel_tol = 1e-8
+  nl_abs_tol = 1e-8
+ 
+# [./Predictor]
+#    type = SimplePredictor
+#    scale = 1.0
+#  [../]
 
 # time control
   start_time = 0.0
@@ -192,7 +173,7 @@
 
 [Outputs]
   exodus = true
-  execute_on = timestep_end
+  execute_on = 'initial timestep_end'
   [./console]
     type = Console
     perf_log = true
