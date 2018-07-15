@@ -74,6 +74,7 @@ protected:
 
   /// Vector normal to the internal interface
   Point _interface_normal;
+  Point _interface_normal_neighbor;
 
   /// Stabilization parameter in Nitsche's formulation
   Real _alpha;

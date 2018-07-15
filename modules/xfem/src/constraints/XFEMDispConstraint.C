@@ -143,6 +143,7 @@ void
 XFEMDispConstraint::reinitConstraintQuadrature(const ElementPairInfo & element_pair_info)
 {
   _interface_normal = element_pair_info._elem1_normal;
+  _interface_normal_neighbor = element_pair_info._elem2_normal;
   ElemElemConstraint::reinitConstraintQuadrature(element_pair_info);
 }
 
@@ -199,7 +200,8 @@ XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
   strain_neighbor = (grad_tensor_n + grad_tensor_n.transpose()) / 2.0;
   stress_neighbor = _Cijkl * strain_neighbor;
 
-  Real contact_pressure_neighbor = (stress_neighbor * _interface_normal) * _interface_normal;
+  Real contact_pressure_neighbor =
+      (stress_neighbor * _interface_normal_neighbor) * _interface_normal;
 
   // -- Compure contact pressure of the variation on the Neighbor element --------------------------
 
@@ -216,7 +218,7 @@ XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
   test_stress = _Cijkl * test_strain_neighbor;
 
   Real test_contact_pressure_neighbor =
-      (test_stress_neighbor * _interface_normal) * _interface_normal;
+      (test_stress_neighbor * _interface_normal_neighbor) * _interface_normal;
   //
   // -----------------------------------------------------------------------------------------------
   //
