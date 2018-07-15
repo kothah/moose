@@ -59,14 +59,6 @@ protected:
   std::vector<const VariableValue *> _disp_neighbor;
   std::vector<const VariableGradient *> _grad_disp_neighbor;
 
-  //  const VariableValue & disp_x_neighbor;
-  //  const VariableValue & disp_y_neighbor;
-  //  const VariableValue & disp_z_neighbor;
-  //
-  //  const VariableGradient & grad_disp_x_neighbor;
-  //  const VariableGradient & grad_disp_y_neighbor;
-  //  const VariableGradient & grad_disp_z_neighbor;
-
   Real _E;
   Real _nu;
 
@@ -82,9 +74,6 @@ protected:
   /// Avtive time from-to
   Real _time_from;
   Real _time_to;
-
-  /// Use penalty formulation
-  bool _use_penalty;
 
   /// Pointer to the XFEM controller object
   std::shared_ptr<XFEM> _xfem;
