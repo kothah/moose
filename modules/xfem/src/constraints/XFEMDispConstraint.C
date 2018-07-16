@@ -97,8 +97,6 @@ XFEMDispConstraint::XFEMDispConstraint(const InputParameters & parameters)
   //----------------------------------------------------------------------------------------------
   // displacements
   //
-  std::cout << "I want to c 1" << std::endl;
-
   if (_ndisp != _mesh.dimension())
     paramError(
         "displacements",
@@ -265,7 +263,7 @@ XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
   phi_strain.zero();
   phi_stress.zero();
 
-  RankTwoTensor grad_phi_tensor(_grad_phi[0][_qp], _grad_phi[1][_qp], _grad_phi[2][_qp]);
+  RankTwoTensor grad_phi_tensor(_grad_phi[_j][_qp], _grad_phi[_j][_qp], _grad_phi[_j][_qp]);
   phi_strain = (grad_phi_tensor + grad_phi_tensor.transpose()) / 2.0;
   phi_stress = _Cijkl * phi_strain;
 
@@ -297,13 +295,13 @@ XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
   phi_stress_neighbor.zero();
 
   RankTwoTensor grad_phi_tensor_n(
-      _grad_phi_neighbor[0][_qp], _grad_phi_neighbor[1][_qp], _grad_phi_neighbor[2][_qp]);
+      _grad_phi_neighbor[_j][_qp], _grad_phi_neighbor[_j][_qp], _grad_phi_neighbor[_j][_qp]);
 
   phi_strain_neighbor = (grad_phi_tensor_n + grad_phi_tensor_n.transpose()) / 2.0;
   phi_stress_neighbor = _Cijkl * phi_strain_neighbor;
 
   Real phi_contact_pressure_neighbor =
-      (phi_stress_neighbor * _interface_normal) * _interface_normal;
+      (phi_stress_neighbor * _interface_normal_neighbor) * _interface_normal;
 
   // -- Compure contact pressure of the variation on the Neighbor element --------------------------
 
