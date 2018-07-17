@@ -17,8 +17,8 @@
 /* problems                                                     */
 /****************************************************************/
 
-#ifndef XFEMDISPCONSTRAINT_H
-#define XFEMDISPCONSTRAINT_H
+#ifndef XFEMDISPBIMATERIALCONSTRAINT_H
+#define XFEMDISPBIMATERIALCONSTRAINT_H
 
 // MOOSE includes
 #include "ElemElemConstraint.h"
@@ -28,17 +28,17 @@
 #include "RankFourTensor.h"
 
 // Forward Declarations
-class XFEMDispConstraint;
+class XFEMDispBimaterialConstraint;
 class XFEM;
 
 template <>
-InputParameters validParams<XFEMDispConstraint>();
+InputParameters validParams<XFEMDispBimaterialConstraint>();
 
-class XFEMDispConstraint : public ElemElemConstraint
+class XFEMDispBimaterialConstraint : public ElemElemConstraint
 {
 public:
-  XFEMDispConstraint(const InputParameters & parameters);
-  virtual ~XFEMDispConstraint();
+  XFEMDispBimaterialConstraint(const InputParameters & parameters);
+  virtual ~XFEMDispBimaterialConstraint();
 
 protected:
   virtual void reinitConstraintQuadrature(const ElementPairInfo & element_pair_info) override;
@@ -59,14 +59,22 @@ protected:
   std::vector<const VariableValue *> _disp_neighbor;
   std::vector<const VariableGradient *> _grad_disp_neighbor;
 
-  Real _E;
-  Real _nu;
+  Real _E_pos;
+  Real _nu_pos;
 
-  RankFourTensor _Cijkl;
+  Real _E_neg;
+  Real _nu_neg;
+
+  RankFourTensor _Cijkl_pos;
+  RankFourTensor _Cijkl_neg;
 
   /// Vector normal to the internal interface
   Point _interface_normal;
   Point _interface_normal_neighbor;
+
+  /// volume fractions of both elements
+  Real _elem_vol_frac;
+  Real _elem_neighbor_vol_frac;
 
   /// Stabilization parameter in Nitsche's formulation
   Real _alpha;
@@ -75,8 +83,20 @@ protected:
   Real _time_from;
   Real _time_to;
 
+  /// The variable number of the level set variable we are operating on
+  const unsigned int _level_set_var_number;
+
+  /// system reference
+  const System & _system;
+
+  /// the subproblem solution vector
+  const NumericVector<Number> * _solution;
+
+  /// use the positive level set region's material properties
+  bool _use_positive_property;
+
   /// Pointer to the XFEM controller object
   std::shared_ptr<XFEM> _xfem;
 };
 
-#endif /* XFEMDISPCONSTRAINT_H_ */
+#endif /* XFEMDISPBIMATERIALCONSTRAINT_H */

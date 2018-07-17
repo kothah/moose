@@ -16,9 +16,9 @@ ElementPairInfo::ElementPairInfo(const Elem * elem1,
                                  const std::vector<Real> & elem1_constraint_JxW,
                                  const std::vector<Real> & elem2_constraint_JxW,
                                  const Point & elem1_normal,
-                                 const Point & elem2_normal)
-                                 //const Real & elem1_physical_volfrac,
-                                 //const Real & elem2_physical_volfrac)
+                                 const Point & elem2_normal,
+                                 const Real & elem1_physical_volfrac,
+                                 const Real & elem2_physical_volfrac)
   : _elem1(elem1),
     _elem2(elem2),
     _elem1_constraint_q_point(elem1_constraint_q_point),
@@ -26,9 +26,9 @@ ElementPairInfo::ElementPairInfo(const Elem * elem1,
     _elem1_constraint_JxW(elem1_constraint_JxW),
     _elem2_constraint_JxW(elem2_constraint_JxW),
     _elem1_normal(elem1_normal),
-    _elem2_normal(elem2_normal)
-    //_elem1_physical_volfrac(elem1_physical_volfrac),
-    //_elem2_physical_volfrac(elem2_physical_volfrac)
+    _elem2_normal(elem2_normal),
+    _elem1_physical_volfrac(elem1_physical_volfrac),
+    _elem2_physical_volfrac(elem2_physical_volfrac)
 {
 }
 
@@ -40,9 +40,9 @@ ElementPairInfo::update(const std::vector<Point> & elem1_constraint_q_point,
                         const std::vector<Real> & elem1_constraint_JxW,
                         const std::vector<Real> & elem2_constraint_JxW,
                         const Point & elem1_normal,
-                        const Point & elem2_normal)
-                        //const Real & elem1_physical_volfrac,
-                        //const Real & elem2_physical_volfrac)
+                        const Point & elem2_normal,
+                        const Real & elem1_physical_volfrac,
+                        const Real & elem2_physical_volfrac)
 {
   _elem1_constraint_q_point = elem1_constraint_q_point;
   _elem2_constraint_q_point = elem2_constraint_q_point;
@@ -50,6 +50,6 @@ ElementPairInfo::update(const std::vector<Point> & elem1_constraint_q_point,
   _elem2_constraint_JxW = elem2_constraint_JxW;
   _elem1_normal = elem1_normal;
   _elem2_normal = elem2_normal;
-  //_elem1_physical_volfrac = elem1_physical_volfrac;
-  //_elem2_physical_volfrac = elem2_physical_volfrac;
+  _elem1_physical_volfrac = elem1_physical_volfrac;
+  _elem2_physical_volfrac = elem2_physical_volfrac;
 }
