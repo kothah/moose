@@ -17,8 +17,8 @@
 /* problems                                                     */
 /****************************************************************/
 
-#ifndef XFEMDISPCONSTRAINT_H
-#define XFEMDISPCONSTRAINT_H
+#ifndef XFEMDISPTIMECONSTRAINT_H
+#define XFEMDISPTIMECONSTRAINT_H
 
 // MOOSE includes
 #include "ElemElemConstraint.h"
@@ -28,17 +28,17 @@
 #include "RankFourTensor.h"
 
 // Forward Declarations
-class XFEMDispConstraint;
+class XFEMDispTimeConstraint;
 class XFEM;
 
 template <>
-InputParameters validParams<XFEMDispConstraint>();
+InputParameters validParams<XFEMDispTimeConstraint>();
 
-class XFEMDispConstraint : public ElemElemConstraint
+class XFEMDispTimeConstraint : public ElemElemConstraint
 {
 public:
-  XFEMDispConstraint(const InputParameters & parameters);
-  virtual ~XFEMDispConstraint();
+  XFEMDispTimeConstraint(const InputParameters & parameters);
+  virtual ~XFEMDispTimeConstraint();
 
 protected:
   virtual void reinitConstraintQuadrature(const ElementPairInfo & element_pair_info) override;
@@ -71,8 +71,12 @@ protected:
   /// Stabilization parameter in Nitsche's formulation
   Real _alpha;
 
+  /// Avtive time from-to
+  Real _time_from;
+  Real _time_to;
+
   /// Pointer to the XFEM controller object
   std::shared_ptr<XFEM> _xfem;
 };
 
-#endif /* XFEMDISPCONSTRAINT_H_ */
+#endif /* XFEMDISPTIMECONSTRAINT_H_ */

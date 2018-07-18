@@ -1,4 +1,4 @@
-///* This file is part of the MOOSE framework
+//* This file is part of the MOOSE framework
 //* https://www.mooseframework.org
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
@@ -165,111 +165,116 @@ Real
 XFEMDispBimaterialConstraint::computeQpResidual(Moose::DGResidualType type)
 {
   Real r = 0;
-
-  Real norm_comp = _interface_normal(_component);
-  RankFourTensor Cijkl;
-  RankFourTensor Cijkl_neighbor;
-
-  // -----------------------------------------------------------------------------------------------
-  // -- Check on which side the element belongs to, positive or negative ---------------------------
-  // -----------------------------------------------------------------------------------------------
-  const Node * node = _current_elem->node_ptr(0);
-  dof_id_type ls_dof_id = node->dof_number(_system.number(), _level_set_var_number, 0);
-  Number ls_node_value = (*_solution)(ls_dof_id);
-  if (_xfem->isPointInsidePhysicalDomain(_current_elem, *node))
-  {
-    if (ls_node_value > 0.0)
-      _use_positive_property = true;
-  }
-  else
-  {
-    if (ls_node_value < 0.0)
-      _use_positive_property = true;
-  }
-  //-- decide if to use property of positive or negative ls
-  if (_use_positive_property == true)
-  {
-    Cijkl = _Cijkl_pos;
-    Cijkl_neighbor = _Cijkl_neg;
-  }
-  else
-  {
-    Cijkl_neighbor = _Cijkl_pos;
-    Cijkl = _Cijkl_neg;
-  }
-  // -----------------------------------------------------------------------------------------------
-  // -- Compute contact pressure on the current element -------------------------------------------
-  // -----------------------------------------------------------------------------------------------
-
-  RankTwoTensor strain;
-  RankTwoTensor stress;
-
-  strain.zero();
-  stress.zero();
-
-  RankTwoTensor grad_tensor((*_grad_disp[0])[_qp], (*_grad_disp[1])[_qp], (*_grad_disp[2])[_qp]);
-  strain = (grad_tensor + grad_tensor.transpose()) / 2.0;
-  stress = Cijkl * strain;
-
-  Real contact_pressure = (stress * _interface_normal) * _interface_normal;
-
-  // -- Compure contact pressure of the variation on the current element --------------------------
-
-  RankTwoTensor test_strain;
-  RankTwoTensor test_stress;
-
-  test_strain.zero();
-  test_stress.zero();
-
-  RankTwoTensor grad_test_tensor(_grad_test[_i][_qp], _grad_test[_i][_qp], _grad_test[_i][_qp]);
-
-  test_strain = (grad_test_tensor + grad_test_tensor.transpose()) / 2.0;
-  test_stress = Cijkl * test_strain;
-
-  Real test_contact_pressure = (test_stress * _interface_normal) * _interface_normal;
-
-  // -----------------------------------------------------------------------------------------------
-  // -- Compute contact pressure on the Neighbor element -------------------------------------------
-  // -----------------------------------------------------------------------------------------------
-
-  RankTwoTensor strain_neighbor;
-  RankTwoTensor stress_neighbor;
-
-  strain_neighbor.zero();
-  stress_neighbor.zero();
-
-  RankTwoTensor grad_tensor_n((*_grad_disp_neighbor[0])[_qp],
-                              (*_grad_disp_neighbor[1])[_qp],
-                              (*_grad_disp_neighbor[2])[_qp]);
-  strain_neighbor = (grad_tensor_n + grad_tensor_n.transpose()) / 2.0;
-  stress_neighbor = Cijkl_neighbor * strain_neighbor;
-
-  Real contact_pressure_neighbor =
-      (stress_neighbor * _interface_normal_neighbor) * _interface_normal;
-
-  // -- Compure contact pressure of the variation on the Neighbor element --------------------------
-
-  RankTwoTensor test_strain_neighbor;
-  RankTwoTensor test_stress_neighbor;
-
-  test_strain_neighbor.zero();
-  test_stress_neighbor.zero();
-
-  RankTwoTensor grad_test_tensor_neighbor(
-      _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp]);
-
-  test_strain = (grad_test_tensor_neighbor + grad_test_tensor_neighbor.transpose()) / 2.0;
-  test_stress = Cijkl_neighbor * test_strain_neighbor;
-
-  Real test_contact_pressure_neighbor =
-      (test_stress_neighbor * _interface_normal_neighbor) * _interface_normal;
-
-  // -----------------------------------------------------------------------------------------------
-  // -- kernel -------------------------------------------------------------------------------------
-  // -----------------------------------------------------------------------------------------------
-
   if ((_fe_problem.time() >= _time_from) && (_fe_problem.time() <= _time_to))
   {
+    Real norm_comp = _interface_normal(_component);
+    RankFourTensor Cijkl;
+    RankFourTensor Cijkl_neighbor;
+
+    // ---------------------------------------------------------------------------------------------
+    // -- Check on which side the element belongs to, positive or negative--------------------------
+    // ---------------------------------------------------------------------------------------------
+    const Node * node = _current_elem->node_ptr(0);
+    dof_id_type ls_dof_id = node->dof_number(_system.number(), _level_set_var_number, 0);
+    Number ls_node_value = (*_solution)(ls_dof_id);
+    if (_xfem->isPointInsidePhysicalDomain(_current_elem, *node))
+    {
+      if (ls_node_value > 0.0)
+        _use_positive_property = true;
+    }
+    else
+    {
+      if (ls_node_value < 0.0)
+        _use_positive_property = true;
+    }
+    //-- decide if to use property of positive or negative ls
+    if (_use_positive_property == true)
+    {
+      Cijkl = _Cijkl_pos;
+      Cijkl_neighbor = _Cijkl_neg;
+    }
+    else
+    {
+      Cijkl_neighbor = _Cijkl_pos;
+      Cijkl = _Cijkl_neg;
+    }
+    // ---------------------------------------------------------------------------------------------
+    // -- Compute contact pressure on the current element ------------------------------------------
+    // ---------------------------------------------------------------------------------------------
+
+    RankTwoTensor strain;
+    RankTwoTensor stress;
+
+    strain.zero();
+    stress.zero();
+
+    RankTwoTensor grad_tensor((*_grad_disp[0])[_qp], (*_grad_disp[1])[_qp], (*_grad_disp[2])[_qp]);
+    strain = (grad_tensor + grad_tensor.transpose()) / 2.0;
+    stress = Cijkl * strain;
+
+    // adding negative sign, as we know the contact stresses are negative already
+    Real contact_pressure = -(stress * _interface_normal) * _interface_normal;
+
+    // -- Compure contact pressure of the variation on the current element
+    // --------------------------
+
+    RankTwoTensor test_strain;
+    RankTwoTensor test_stress;
+
+    test_strain.zero();
+    test_stress.zero();
+
+    RankTwoTensor grad_test_tensor(_grad_test[_i][_qp], _grad_test[_i][_qp], _grad_test[_i][_qp]);
+
+    test_strain = (grad_test_tensor + grad_test_tensor.transpose()) / 2.0;
+    test_stress = Cijkl * test_strain;
+
+    // adding negative sign, as we know the contact stresses are negative already
+    Real test_contact_pressure = -(test_stress * _interface_normal) * _interface_normal;
+
+    // -----------------------------------------------------------------------------------------------
+    // -- Compute contact pressure on the Neighbor element
+    // -------------------------------------------
+    // -----------------------------------------------------------------------------------------------
+
+    RankTwoTensor strain_neighbor;
+    RankTwoTensor stress_neighbor;
+
+    strain_neighbor.zero();
+    stress_neighbor.zero();
+
+    RankTwoTensor grad_tensor_n((*_grad_disp_neighbor[0])[_qp],
+                                (*_grad_disp_neighbor[1])[_qp],
+                                (*_grad_disp_neighbor[2])[_qp]);
+    strain_neighbor = (grad_tensor_n + grad_tensor_n.transpose()) / 2.0;
+    stress_neighbor = Cijkl_neighbor * strain_neighbor;
+
+    Real contact_pressure_neighbor =
+        -(stress_neighbor * _interface_normal_neighbor) * _interface_normal;
+
+    // -- Compure contact pressure of the variation on the Neighbor element
+    // --------------------------
+
+    RankTwoTensor test_strain_neighbor;
+    RankTwoTensor test_stress_neighbor;
+
+    test_strain_neighbor.zero();
+    test_stress_neighbor.zero();
+
+    RankTwoTensor grad_test_tensor_neighbor(
+        _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp]);
+
+    test_strain = (grad_test_tensor_neighbor + grad_test_tensor_neighbor.transpose()) / 2.0;
+    test_stress = Cijkl_neighbor * test_strain_neighbor;
+
+    Real test_contact_pressure_neighbor =
+        -(test_stress_neighbor * _interface_normal_neighbor) * _interface_normal;
+
+    // -----------------------------------------------------------------------------------------------
+    // -- kernel
+    // -------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------
+
     switch (type)
     {
       case Moose::Element:
@@ -306,110 +311,112 @@ Real
 XFEMDispBimaterialConstraint::computeQpJacobian(Moose::DGJacobianType type)
 {
   Real r = 0;
-
-  Real norm_comp = _interface_normal(_component);
-
-  RankFourTensor Cijkl;
-  RankFourTensor Cijkl_neighbor;
-
-  // -----------------------------------------------------------------------------------------------
-  // -- Check on which side the element belongs to, positive or negative ---------------------------
-  // -----------------------------------------------------------------------------------------------
-  const Node * node = _current_elem->node_ptr(0);
-  dof_id_type ls_dof_id = node->dof_number(_system.number(), _level_set_var_number, 0);
-  Number ls_node_value = (*_solution)(ls_dof_id);
-  if (_xfem->isPointInsidePhysicalDomain(_current_elem, *node))
-  {
-    if (ls_node_value > 0.0)
-      _use_positive_property = true;
-  }
-  else
-  {
-    if (ls_node_value < 0.0)
-      _use_positive_property = true;
-  }
-  //-- decide if to use property of positive or negative ls
-  if (_use_positive_property == true)
-  {
-    Cijkl = _Cijkl_pos;
-    Cijkl_neighbor = _Cijkl_neg;
-  }
-  else
-  {
-    Cijkl_neighbor = _Cijkl_pos;
-    Cijkl = _Cijkl_neg;
-  }
-  // -----------------------------------------------------------------------------------------------
-  // -- Compute contact pressure on the current element --------------------------------------------
-  // -----------------------------------------------------------------------------------------------
-
-  RankTwoTensor phi_strain;
-  RankTwoTensor phi_stress;
-
-  phi_strain.zero();
-  phi_stress.zero();
-
-  RankTwoTensor grad_phi_tensor(_grad_phi[_j][_qp], _grad_phi[_j][_qp], _grad_phi[_j][_qp]);
-  phi_strain = (grad_phi_tensor + grad_phi_tensor.transpose()) / 2.0;
-  phi_stress = Cijkl * phi_strain;
-
-  Real phi_contact_pressure = (phi_stress * _interface_normal) * _interface_normal;
-
-  // -- Compure contact pressure of the variation on the current element --------------------------
-
-  RankTwoTensor test_strain;
-  RankTwoTensor test_stress;
-
-  test_strain.zero();
-  test_stress.zero();
-
-  RankTwoTensor grad_test_tensor(_grad_test[_i][_qp], _grad_test[_i][_qp], _grad_test[_i][_qp]);
-
-  test_strain = (grad_test_tensor + grad_test_tensor.transpose()) / 2.0;
-  test_stress = Cijkl * test_strain;
-
-  Real test_contact_pressure = (test_stress * _interface_normal) * _interface_normal;
-
-  // -----------------------------------------------------------------------------------------------
-  // -- Compute contact pressure on the Neighbor element -------------------------------------------
-  // -----------------------------------------------------------------------------------------------
-
-  RankTwoTensor phi_strain_neighbor;
-  RankTwoTensor phi_stress_neighbor;
-
-  phi_strain_neighbor.zero();
-  phi_stress_neighbor.zero();
-
-  RankTwoTensor grad_phi_tensor_n(
-      _grad_phi_neighbor[_j][_qp], _grad_phi_neighbor[_j][_qp], _grad_phi_neighbor[_j][_qp]);
-
-  phi_strain_neighbor = (grad_phi_tensor_n + grad_phi_tensor_n.transpose()) / 2.0;
-  phi_stress_neighbor = Cijkl_neighbor * phi_strain_neighbor;
-
-  Real phi_contact_pressure_neighbor =
-      (phi_stress_neighbor * _interface_normal_neighbor) * _interface_normal;
-
-  // -- Compure contact pressure of the variation on the Neighbor element --------------------------
-
-  RankTwoTensor test_strain_neighbor;
-  RankTwoTensor test_stress_neighbor;
-
-  test_strain_neighbor.zero();
-  test_stress_neighbor.zero();
-
-  RankTwoTensor grad_test_tensor_neighbor(
-      _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp]);
-
-  test_strain = (grad_test_tensor_neighbor + grad_test_tensor_neighbor.transpose()) / 2.0;
-  test_stress = Cijkl_neighbor * test_strain_neighbor;
-
-  Real test_contact_pressure_neighbor =
-      (test_stress_neighbor * _interface_normal_neighbor) * _interface_normal;
-
-  // -- kernel -------------------------------------------------------------------------------------
-
   if ((_fe_problem.time() >= _time_from) && (_fe_problem.time() <= _time_to))
   {
+    Real norm_comp = _interface_normal(_component);
+
+    RankFourTensor Cijkl;
+    RankFourTensor Cijkl_neighbor;
+
+    // ---------------------------------------------------------------------------------------------
+    // -- Check on which side the element belongs to, positive or negative -------------------------
+    // ---------------------------------------------------------------------------------------------
+    const Node * node = _current_elem->node_ptr(0);
+    dof_id_type ls_dof_id = node->dof_number(_system.number(), _level_set_var_number, 0);
+    Number ls_node_value = (*_solution)(ls_dof_id);
+    if (_xfem->isPointInsidePhysicalDomain(_current_elem, *node))
+    {
+      if (ls_node_value > 0.0)
+        _use_positive_property = true;
+    }
+    else
+    {
+      if (ls_node_value < 0.0)
+        _use_positive_property = true;
+    }
+    //-- decide if to use property of positive or negative ls
+    if (_use_positive_property == true)
+    {
+      Cijkl = _Cijkl_pos;
+      Cijkl_neighbor = _Cijkl_neg;
+    }
+    else
+    {
+      Cijkl_neighbor = _Cijkl_pos;
+      Cijkl = _Cijkl_neg;
+    }
+    // ---------------------------------------------------------------------------------------------
+    // -- Compute contact pressure on the current element ------------------------------------------
+    // ---------------------------------------------------------------------------------------------
+
+    RankTwoTensor phi_strain;
+    RankTwoTensor phi_stress;
+
+    phi_strain.zero();
+    phi_stress.zero();
+
+    RankTwoTensor grad_phi_tensor(_grad_phi[_j][_qp], _grad_phi[_j][_qp], _grad_phi[_j][_qp]);
+    phi_strain = (grad_phi_tensor + grad_phi_tensor.transpose()) / 2.0;
+    phi_stress = Cijkl * phi_strain;
+
+    Real phi_contact_pressure = -(phi_stress * _interface_normal) * _interface_normal;
+
+    // -- Compure contact pressure of the variation on the current element
+    // --------------------------
+
+    RankTwoTensor test_strain;
+    RankTwoTensor test_stress;
+
+    test_strain.zero();
+    test_stress.zero();
+
+    RankTwoTensor grad_test_tensor(_grad_test[_i][_qp], _grad_test[_i][_qp], _grad_test[_i][_qp]);
+
+    test_strain = (grad_test_tensor + grad_test_tensor.transpose()) / 2.0;
+    test_stress = Cijkl * test_strain;
+
+    Real test_contact_pressure = -(test_stress * _interface_normal) * _interface_normal;
+
+    // ---------------------------------------------------------------------------------------------
+    // -- Compute contact pressure on the Neighbor element -----------------------------------------
+    // ---------------------------------------------------------------------------------------------
+
+    RankTwoTensor phi_strain_neighbor;
+    RankTwoTensor phi_stress_neighbor;
+
+    phi_strain_neighbor.zero();
+    phi_stress_neighbor.zero();
+
+    RankTwoTensor grad_phi_tensor_n(
+        _grad_phi_neighbor[_j][_qp], _grad_phi_neighbor[_j][_qp], _grad_phi_neighbor[_j][_qp]);
+
+    phi_strain_neighbor = (grad_phi_tensor_n + grad_phi_tensor_n.transpose()) / 2.0;
+    phi_stress_neighbor = Cijkl_neighbor * phi_strain_neighbor;
+
+    Real phi_contact_pressure_neighbor =
+        -(phi_stress_neighbor * _interface_normal_neighbor) * _interface_normal;
+
+    // -- Compure contact pressure of the variation on the Neighbor element
+    // --------------------------
+
+    RankTwoTensor test_strain_neighbor;
+    RankTwoTensor test_stress_neighbor;
+
+    test_strain_neighbor.zero();
+    test_stress_neighbor.zero();
+
+    RankTwoTensor grad_test_tensor_neighbor(
+        _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp]);
+
+    test_strain = (grad_test_tensor_neighbor + grad_test_tensor_neighbor.transpose()) / 2.0;
+    test_stress = Cijkl_neighbor * test_strain_neighbor;
+
+    Real test_contact_pressure_neighbor =
+        -(test_stress_neighbor * _interface_normal_neighbor) * _interface_normal;
+
+    // -- kernel
+    // -------------------------------------------------------------------------------------
+
     switch (type)
     {
       case Moose::ElementElement:

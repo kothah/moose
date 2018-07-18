@@ -17,7 +17,7 @@
 /* problems                                                     */
 /****************************************************************/
 
-#include "XFEMDispConstraint.h"
+#include "XFEMDispTimeConstraint.h"
 
 // MOOSE includes
 #include "Assembly.h"
@@ -36,17 +36,19 @@
 #include "SymmElasticityTensor.h"
 #include "Kernel.h"
 
-registerMooseObject("XFEMApp", XFEMDispConstraint);
+registerMooseObject("XFEMApp", XFEMDispTimeConstraint);
 
 template <>
 InputParameters
-validParams<XFEMDispConstraint>()
+validParams<XFEMDispTimeConstraint>()
 {
   InputParameters params = validParams<ElemElemConstraint>();
   params.addRequiredCoupledVar(
       "displacements",
       "The displacements appropriate for the simulation geometry and coordinate system");
   params.addParam<Real>("alpha", 100, "Stablization parameter in Nitsche's formulation.");
+  params.addParam<Real>("time_from", 0, "time when the constraint is activated.");
+  params.addParam<Real>("time_to", 0, "time when the constraint is deactivated.");
   params.addParam<UserObjectName>(
       "geometric_cut_userobject",
       "Name of GeometricCutUserObject associated with this constraint.");
@@ -63,7 +65,7 @@ validParams<XFEMDispConstraint>()
   return params;
 }
 
-XFEMDispConstraint::XFEMDispConstraint(const InputParameters & parameters)
+XFEMDispTimeConstraint::XFEMDispTimeConstraint(const InputParameters & parameters)
   : ElemElemConstraint(parameters),
     _component(getParam<unsigned int>("component")),
     _ndisp(coupledComponents("displacements")),
@@ -76,17 +78,19 @@ XFEMDispConstraint::XFEMDispConstraint(const InputParameters & parameters)
 
     _E(getParam<Real>("E")),
     _nu(getParam<Real>("nu")),
-    _alpha(getParam<Real>("alpha"))
+    _alpha(getParam<Real>("alpha")),
+    _time_from(getParam<Real>("time_from")),
+    _time_to(getParam<Real>("time_to"))
 {
   _xfem = std::dynamic_pointer_cast<XFEM>(_fe_problem.getXFEM());
   if (_xfem == nullptr)
-    mooseError("Problem casting to XFEM in XFEMDispConstraint");
+    mooseError("Problem casting to XFEM in XFEMDispTimeConstraint");
 
   const UserObject * uo =
       &(_fe_problem.getUserObjectBase(getParam<UserObjectName>("geometric_cut_userobject")));
 
   if (dynamic_cast<const GeometricCutUserObject *>(uo) == nullptr)
-    mooseError("UserObject casting to GeometricCutUserObject in XFEMDispConstraint");
+    mooseError("UserObject casting to GeometricCutUserObject in XFEMDispTimeConstraint");
 
   _interface_id = _xfem->getGeometricCutID(dynamic_cast<const GeometricCutUserObject *>(uo));
 
@@ -124,10 +128,10 @@ XFEMDispConstraint::XFEMDispConstraint(const InputParameters & parameters)
   _Cijkl.fillSymmetricIsotropicEandNu(_E, _nu);
 }
 
-XFEMDispConstraint::~XFEMDispConstraint() {}
+XFEMDispTimeConstraint::~XFEMDispTimeConstraint() {}
 
 void
-XFEMDispConstraint::reinitConstraintQuadrature(const ElementPairInfo & element_pair_info)
+XFEMDispTimeConstraint::reinitConstraintQuadrature(const ElementPairInfo & element_pair_info)
 {
   _interface_normal = element_pair_info._elem1_normal;
   _interface_normal_neighbor = element_pair_info._elem2_normal;
@@ -135,7 +139,7 @@ XFEMDispConstraint::reinitConstraintQuadrature(const ElementPairInfo & element_p
 }
 
 Real
-XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
+XFEMDispTimeConstraint::computeQpResidual(Moose::DGResidualType type)
 {
   Real r = 0;
 
@@ -216,35 +220,38 @@ XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
   // -- kernel -------------------------------------------------------------------------------------
   // -----------------------------------------------------------------------------------------------
 
-  switch (type)
+  if ((_fe_problem.time() >= _time_from) && (_fe_problem.time() <= _time_to))
   {
-    case Moose::Element:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r -= (0.5 * (contact_pressure + contact_pressure_neighbor)) * (_test[_i][_qp] * norm_comp);
-        r -= ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) * (0.5 * test_contact_pressure);
-        r += (_alpha / _current_elem->hmax()) * ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
-             (_test[_i][_qp] * norm_comp);
-      }
-      break;
-
-    case Moose::Neighbor:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r += (0.5 * (contact_pressure + contact_pressure_neighbor)) *
-             (_test_neighbor[_i][_qp] * norm_comp);
-        r -= ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) * (0.5 * test_contact_pressure_neighbor);
-        r -= (_alpha / _neighbor_elem->hmax()) * ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
-             (_test_neighbor[_i][_qp] * norm_comp);
+    switch (type)
+    {
+      case Moose::Element:
+        if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
+        {
+          r -=
+              (0.5 * (contact_pressure + contact_pressure_neighbor)) * (_test[_i][_qp] * norm_comp);
+          r -= ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) * (0.5 * test_contact_pressure);
+          r += (_alpha / _current_elem->hmax()) * ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
+               (_test[_i][_qp] * norm_comp);
+        }
         break;
-      }
-  }
 
+      case Moose::Neighbor:
+        if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
+        {
+          r += (0.5 * (contact_pressure + contact_pressure_neighbor)) *
+               (_test_neighbor[_i][_qp] * norm_comp);
+          r -= ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) * (0.5 * test_contact_pressure_neighbor);
+          r -= (_alpha / _neighbor_elem->hmax()) * ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
+               (_test_neighbor[_i][_qp] * norm_comp);
+          break;
+        }
+    }
+  }
   return r;
 }
 
 Real
-XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
+XFEMDispTimeConstraint::computeQpJacobian(Moose::DGJacobianType type)
 {
   Real r = 0;
 
@@ -323,47 +330,50 @@ XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
 
   // -- kernel -------------------------------------------------------------------------------------
 
-  switch (type)
+  if ((_fe_problem.time() >= _time_from) && (_fe_problem.time() <= _time_to))
   {
-    case Moose::ElementElement:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r -= 0.5 * phi_contact_pressure * (_test[_i][_qp] * norm_comp);
-        r -= (_phi[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure);
-        r += (_alpha / _current_elem->hmax()) * (_phi[_j][_qp] * norm_comp) *
-             (_test[_i][_qp] * norm_comp);
-      }
-      break;
+    switch (type)
+    {
+      case Moose::ElementElement:
+        if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
+        {
+          r -= 0.5 * phi_contact_pressure * (_test[_i][_qp] * norm_comp);
+          r -= (_phi[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure);
+          r += (_alpha / _current_elem->hmax()) * (_phi[_j][_qp] * norm_comp) *
+               (_test[_i][_qp] * norm_comp);
+        }
+        break;
 
-    case Moose::ElementNeighbor:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r -= 0.5 * phi_contact_pressure_neighbor * (_test[_i][_qp] * norm_comp);
-        r += (_phi_neighbor[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure);
-        r -= (_alpha / _current_elem->hmax()) * (_phi_neighbor[_j][_qp] * norm_comp) *
-             (_test[_i][_qp] * norm_comp);
-      }
-      break;
+      case Moose::ElementNeighbor:
+        if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
+        {
+          r -= 0.5 * phi_contact_pressure_neighbor * (_test[_i][_qp] * norm_comp);
+          r += (_phi_neighbor[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure);
+          r -= (_alpha / _current_elem->hmax()) * (_phi_neighbor[_j][_qp] * norm_comp) *
+               (_test[_i][_qp] * norm_comp);
+        }
+        break;
 
-    case Moose::NeighborElement:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r += 0.5 * phi_contact_pressure * (_test_neighbor[_i][_qp] * norm_comp);
-        r -= (_phi[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure_neighbor);
-        r -= (_alpha / _neighbor_elem->hmax()) * (_phi[_j][_qp] * norm_comp) *
-             (_test_neighbor[_i][_qp] * norm_comp);
-      }
-      break;
+      case Moose::NeighborElement:
+        if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
+        {
+          r += 0.5 * phi_contact_pressure * (_test_neighbor[_i][_qp] * norm_comp);
+          r -= (_phi[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure_neighbor);
+          r -= (_alpha / _neighbor_elem->hmax()) * (_phi[_j][_qp] * norm_comp) *
+               (_test_neighbor[_i][_qp] * norm_comp);
+        }
+        break;
 
-    case Moose::NeighborNeighbor:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r += 0.5 * phi_contact_pressure_neighbor * (_test_neighbor[_i][_qp] * norm_comp);
-        r += (_phi_neighbor[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure_neighbor);
-        r += (_alpha / _neighbor_elem->hmax()) * (_phi_neighbor[_j][_qp] * norm_comp) *
-             (_test_neighbor[_i][_qp] * norm_comp);
-      }
-      break;
+      case Moose::NeighborNeighbor:
+        if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
+        {
+          r += 0.5 * phi_contact_pressure_neighbor * (_test_neighbor[_i][_qp] * norm_comp);
+          r += (_phi_neighbor[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure_neighbor);
+          r += (_alpha / _neighbor_elem->hmax()) * (_phi_neighbor[_j][_qp] * norm_comp) *
+               (_test_neighbor[_i][_qp] * norm_comp);
+        }
+        break;
+    }
   }
   return r;
 }

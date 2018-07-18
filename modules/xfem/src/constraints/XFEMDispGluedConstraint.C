@@ -17,7 +17,7 @@
 /* problems                                                     */
 /****************************************************************/
 
-#include "XFEMDispConstraint.h"
+#include "XFEMDispGluedConstraint.h"
 
 // MOOSE includes
 #include "Assembly.h"
@@ -36,16 +36,19 @@
 #include "SymmElasticityTensor.h"
 #include "Kernel.h"
 
-registerMooseObject("XFEMApp", XFEMDispConstraint);
+registerMooseObject("XFEMApp", XFEMDispGluedConstraint);
 
 template <>
 InputParameters
-validParams<XFEMDispConstraint>()
+validParams<XFEMDispGluedConstraint>()
 {
   InputParameters params = validParams<ElemElemConstraint>();
   params.addRequiredCoupledVar(
       "displacements",
       "The displacements appropriate for the simulation geometry and coordinate system");
+  params.addRequiredParam<VariableName>(
+      "level_set_var", "The name of level set variable used to represent the interface");
+
   params.addParam<Real>("alpha", 100, "Stablization parameter in Nitsche's formulation.");
   params.addParam<UserObjectName>(
       "geometric_cut_userobject",
@@ -54,8 +57,11 @@ validParams<XFEMDispConstraint>()
                                         "An integer corresponding to the direction "
                                         "the variable this kernel acts in. (0 for x, "
                                         "1 for y, 2 for z)");
-  params.addParam<Real>("E", "Young's modulus of the material.");
-  params.addParam<Real>("nu", "Poisson's ratio for the material.");
+  params.addParam<Real>("E_pos", "Young's modulus of the material.");
+  params.addParam<Real>("nu_pos", "Poisson's ratio for the material.");
+
+  params.addParam<Real>("E_neg", "Young's modulus of the material.");
+  params.addParam<Real>("nu_neg", "Poisson's ratio for the material.");
 
   params.addCoupledVar(
       "displacements",
@@ -63,7 +69,7 @@ validParams<XFEMDispConstraint>()
   return params;
 }
 
-XFEMDispConstraint::XFEMDispConstraint(const InputParameters & parameters)
+XFEMDispGluedConstraint::XFEMDispGluedConstraint(const InputParameters & parameters)
   : ElemElemConstraint(parameters),
     _component(getParam<unsigned int>("component")),
     _ndisp(coupledComponents("displacements")),
@@ -74,19 +80,31 @@ XFEMDispConstraint::XFEMDispConstraint(const InputParameters & parameters)
     _disp_neighbor(3),
     _grad_disp_neighbor(3),
 
-    _E(getParam<Real>("E")),
-    _nu(getParam<Real>("nu")),
-    _alpha(getParam<Real>("alpha"))
+    _E_pos(getParam<Real>("E_pos")),
+    _nu_pos(getParam<Real>("nu_pos")),
+    _E_neg(getParam<Real>("E_neg")),
+    _nu_neg(getParam<Real>("nu_neg")),
+
+    _alpha(getParam<Real>("alpha")),
+    _level_set_var_number(_subproblem
+                              .getVariable(_tid,
+                                           parameters.get<VariableName>("level_set_var"),
+                                           Moose::VarKindType::VAR_ANY,
+                                           Moose::VarFieldType::VAR_FIELD_STANDARD)
+                              .number()),
+    _system(_subproblem.getSystem(getParam<VariableName>("level_set_var"))),
+    _solution(_system.current_local_solution.get()),
+    _use_positive_property(false)
 {
   _xfem = std::dynamic_pointer_cast<XFEM>(_fe_problem.getXFEM());
   if (_xfem == nullptr)
-    mooseError("Problem casting to XFEM in XFEMDispConstraint");
+    mooseError("Problem casting to XFEM in XFEMDispGluedConstraint");
 
   const UserObject * uo =
       &(_fe_problem.getUserObjectBase(getParam<UserObjectName>("geometric_cut_userobject")));
 
   if (dynamic_cast<const GeometricCutUserObject *>(uo) == nullptr)
-    mooseError("UserObject casting to GeometricCutUserObject in XFEMDispConstraint");
+    mooseError("UserObject casting to GeometricCutUserObject in XFEMDispGluedConstraint");
 
   _interface_id = _xfem->getGeometricCutID(dynamic_cast<const GeometricCutUserObject *>(uo));
 
@@ -121,25 +139,60 @@ XFEMDispConstraint::XFEMDispConstraint(const InputParameters & parameters)
   }
 
   // -- Elasticity tensor ---
-  _Cijkl.fillSymmetricIsotropicEandNu(_E, _nu);
+  _Cijkl_pos.fillSymmetricIsotropicEandNu(_E_pos, _nu_pos);
+  _Cijkl_neg.fillSymmetricIsotropicEandNu(_E_neg, _nu_neg);
 }
 
-XFEMDispConstraint::~XFEMDispConstraint() {}
+XFEMDispGluedConstraint::~XFEMDispGluedConstraint() {}
 
 void
-XFEMDispConstraint::reinitConstraintQuadrature(const ElementPairInfo & element_pair_info)
+XFEMDispGluedConstraint::reinitConstraintQuadrature(const ElementPairInfo & element_pair_info)
 {
   _interface_normal = element_pair_info._elem1_normal;
   _interface_normal_neighbor = element_pair_info._elem2_normal;
+
+  _elem_vol_frac = element_pair_info._elem1_physical_volfrac;
+  _elem_neighbor_vol_frac = element_pair_info._elem2_physical_volfrac;
+
   ElemElemConstraint::reinitConstraintQuadrature(element_pair_info);
 }
 
 Real
-XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
+XFEMDispGluedConstraint::computeQpResidual(Moose::DGResidualType type)
 {
   Real r = 0;
 
   Real norm_comp = _interface_normal(_component);
+  RankFourTensor Cijkl;
+  RankFourTensor Cijkl_neighbor;
+
+  // ---------------------------------------------------------------------------------------------
+  // -- Check on which side the element belongs to, positive or negative--------------------------
+  // ---------------------------------------------------------------------------------------------
+  const Node * node = _current_elem->node_ptr(0);
+  dof_id_type ls_dof_id = node->dof_number(_system.number(), _level_set_var_number, 0);
+  Number ls_node_value = (*_solution)(ls_dof_id);
+  if (_xfem->isPointInsidePhysicalDomain(_current_elem, *node))
+  {
+    if (ls_node_value > 0.0)
+      _use_positive_property = true;
+  }
+  else
+  {
+    if (ls_node_value < 0.0)
+      _use_positive_property = true;
+  }
+  //-- decide if to use property of positive or negative ls
+  if (_use_positive_property == true)
+  {
+    Cijkl = _Cijkl_pos;
+    Cijkl_neighbor = _Cijkl_neg;
+  }
+  else
+  {
+    Cijkl_neighbor = _Cijkl_pos;
+    Cijkl = _Cijkl_neg;
+  }
 
   // -----------------------------------------------------------------------------------------------
   // -- Compute contact pressure on the current element -------------------------------------------
@@ -153,7 +206,7 @@ XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
 
   RankTwoTensor grad_tensor((*_grad_disp[0])[_qp], (*_grad_disp[1])[_qp], (*_grad_disp[2])[_qp]);
   strain = (grad_tensor + grad_tensor.transpose()) / 2.0;
-  stress = _Cijkl * strain;
+  stress = Cijkl * strain;
 
   // adding negative sign, as we know the contact stresses are negative already
   Real contact_pressure = -(stress * _interface_normal) * _interface_normal;
@@ -169,7 +222,7 @@ XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
   RankTwoTensor grad_test_tensor(_grad_test[_i][_qp], _grad_test[_i][_qp], _grad_test[_i][_qp]);
 
   test_strain = (grad_test_tensor + grad_test_tensor.transpose()) / 2.0;
-  test_stress = _Cijkl * test_strain;
+  test_stress = Cijkl * test_strain;
 
   // adding negative sign, as we know the contact stresses are negative already
   Real test_contact_pressure = -(test_stress * _interface_normal) * _interface_normal;
@@ -188,7 +241,7 @@ XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
                               (*_grad_disp_neighbor[1])[_qp],
                               (*_grad_disp_neighbor[2])[_qp]);
   strain_neighbor = (grad_tensor_n + grad_tensor_n.transpose()) / 2.0;
-  stress_neighbor = _Cijkl * strain_neighbor;
+  stress_neighbor = Cijkl_neighbor * strain_neighbor;
 
   // adding negative sign, as we know the contact stresses are negative already
   Real contact_pressure_neighbor =
@@ -206,7 +259,7 @@ XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
       _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp]);
 
   test_strain = (grad_test_tensor_neighbor + grad_test_tensor_neighbor.transpose()) / 2.0;
-  test_stress = _Cijkl * test_strain_neighbor;
+  test_stress = Cijkl_neighbor * test_strain_neighbor;
 
   // adding negative sign, as we know the contact stresses are negative already
   Real test_contact_pressure_neighbor =
@@ -219,36 +272,65 @@ XFEMDispConstraint::computeQpResidual(Moose::DGResidualType type)
   switch (type)
   {
     case Moose::Element:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r -= (0.5 * (contact_pressure + contact_pressure_neighbor)) * (_test[_i][_qp] * norm_comp);
-        r -= ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) * (0.5 * test_contact_pressure);
-        r += (_alpha / _current_elem->hmax()) * ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
-             (_test[_i][_qp] * norm_comp);
-      }
+      r -= (0.5 * (contact_pressure * _elem_vol_frac +
+                   contact_pressure_neighbor * _elem_neighbor_vol_frac)) *
+           (_test[_i][_qp] * norm_comp);
+      r -= ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
+           (0.5 * _elem_vol_frac * test_contact_pressure);
+      r += (_alpha / _current_elem->hmax()) * ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
+           (_test[_i][_qp] * norm_comp);
       break;
 
     case Moose::Neighbor:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r += (0.5 * (contact_pressure + contact_pressure_neighbor)) *
-             (_test_neighbor[_i][_qp] * norm_comp);
-        r -= ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) * (0.5 * test_contact_pressure_neighbor);
-        r -= (_alpha / _neighbor_elem->hmax()) * ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
-             (_test_neighbor[_i][_qp] * norm_comp);
-        break;
-      }
+      r += (0.5 * (contact_pressure * _elem_vol_frac +
+                   contact_pressure_neighbor * _elem_neighbor_vol_frac)) *
+           (_test_neighbor[_i][_qp] * norm_comp);
+      r -= ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
+           (0.5 * _elem_neighbor_vol_frac * test_contact_pressure_neighbor);
+      r -= (_alpha / _neighbor_elem->hmax()) * ((_u[_qp] - _u_neighbor[_qp]) * norm_comp) *
+           (_test_neighbor[_i][_qp] * norm_comp);
+      break;
   }
 
   return r;
 }
 
 Real
-XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
+XFEMDispGluedConstraint::computeQpJacobian(Moose::DGJacobianType type)
 {
   Real r = 0;
 
   Real norm_comp = _interface_normal(_component);
+  RankFourTensor Cijkl;
+  RankFourTensor Cijkl_neighbor;
+
+  // -----------------------------------------------------------------------------------------------
+  // -- Check on which side the element belongs to, positive or negative ---------------------------
+  // -----------------------------------------------------------------------------------------------
+  const Node * node = _current_elem->node_ptr(0);
+  dof_id_type ls_dof_id = node->dof_number(_system.number(), _level_set_var_number, 0);
+  Number ls_node_value = (*_solution)(ls_dof_id);
+  if (_xfem->isPointInsidePhysicalDomain(_current_elem, *node))
+  {
+    if (ls_node_value > 0.0)
+      _use_positive_property = true;
+  }
+  else
+  {
+    if (ls_node_value < 0.0)
+      _use_positive_property = true;
+  }
+  //-- decide if to use property of positive or negative ls
+  if (_use_positive_property == true)
+  {
+    Cijkl = _Cijkl_pos;
+    Cijkl_neighbor = _Cijkl_neg;
+  }
+  else
+  {
+    Cijkl_neighbor = _Cijkl_pos;
+    Cijkl = _Cijkl_neg;
+  }
 
   // -----------------------------------------------------------------------------------------------
   // -- Compute contact pressure on the current element --------------------------------------------
@@ -262,12 +344,12 @@ XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
 
   RankTwoTensor grad_phi_tensor(_grad_phi[_j][_qp], _grad_phi[_j][_qp], _grad_phi[_j][_qp]);
   phi_strain = (grad_phi_tensor + grad_phi_tensor.transpose()) / 2.0;
-  phi_stress = _Cijkl * phi_strain;
+  phi_stress = Cijkl * phi_strain;
 
   // adding negative sign, as we know the contact stresses are negative already
   Real phi_contact_pressure = -(phi_stress * _interface_normal) * _interface_normal;
 
-  // -- Compure contact pressure of the variation on the current element --------------------------
+  // -- Compure contact pressure of the variation on the current element ---------------------------
 
   RankTwoTensor test_strain;
   RankTwoTensor test_stress;
@@ -278,7 +360,7 @@ XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
   RankTwoTensor grad_test_tensor(_grad_test[_i][_qp], _grad_test[_i][_qp], _grad_test[_i][_qp]);
 
   test_strain = (grad_test_tensor + grad_test_tensor.transpose()) / 2.0;
-  test_stress = _Cijkl * test_strain;
+  test_stress = Cijkl * test_strain;
 
   // adding negative sign, as we know the contact stresses are negative already
   Real test_contact_pressure = -(test_stress * _interface_normal) * _interface_normal;
@@ -297,7 +379,7 @@ XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
       _grad_phi_neighbor[_j][_qp], _grad_phi_neighbor[_j][_qp], _grad_phi_neighbor[_j][_qp]);
 
   phi_strain_neighbor = (grad_phi_tensor_n + grad_phi_tensor_n.transpose()) / 2.0;
-  phi_stress_neighbor = _Cijkl * phi_strain_neighbor;
+  phi_stress_neighbor = Cijkl_neighbor * phi_strain_neighbor;
 
   // adding negative sign, as we know the contact stresses are negative already
   Real phi_contact_pressure_neighbor =
@@ -315,7 +397,7 @@ XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
       _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp], _grad_test_neighbor[_i][_qp]);
 
   test_strain = (grad_test_tensor_neighbor + grad_test_tensor_neighbor.transpose()) / 2.0;
-  test_stress = _Cijkl * test_strain_neighbor;
+  test_stress = Cijkl_neighbor * test_strain_neighbor;
 
   // adding negative sign, as we know the contact stresses are negative already
   Real test_contact_pressure_neighbor =
@@ -326,43 +408,35 @@ XFEMDispConstraint::computeQpJacobian(Moose::DGJacobianType type)
   switch (type)
   {
     case Moose::ElementElement:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r -= 0.5 * phi_contact_pressure * (_test[_i][_qp] * norm_comp);
-        r -= (_phi[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure);
-        r += (_alpha / _current_elem->hmax()) * (_phi[_j][_qp] * norm_comp) *
-             (_test[_i][_qp] * norm_comp);
-      }
+      r -= 0.5 * (phi_contact_pressure * _elem_vol_frac) * (_test[_i][_qp] * norm_comp);
+      r -= (_phi[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure * _elem_vol_frac);
+      r += (_alpha / _current_elem->hmax()) * (_phi[_j][_qp] * norm_comp) *
+           (_test[_i][_qp] * norm_comp);
       break;
 
     case Moose::ElementNeighbor:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r -= 0.5 * phi_contact_pressure_neighbor * (_test[_i][_qp] * norm_comp);
-        r += (_phi_neighbor[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure);
-        r -= (_alpha / _current_elem->hmax()) * (_phi_neighbor[_j][_qp] * norm_comp) *
-             (_test[_i][_qp] * norm_comp);
-      }
+      r -= 0.5 * (phi_contact_pressure_neighbor * _elem_neighbor_vol_frac) *
+           (_test[_i][_qp] * norm_comp);
+      r += (_phi_neighbor[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure * _elem_vol_frac);
+      r -= (_alpha / _current_elem->hmax()) * (_phi_neighbor[_j][_qp] * norm_comp) *
+           (_test[_i][_qp] * norm_comp);
       break;
 
     case Moose::NeighborElement:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r += 0.5 * phi_contact_pressure * (_test_neighbor[_i][_qp] * norm_comp);
-        r -= (_phi[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure_neighbor);
-        r -= (_alpha / _neighbor_elem->hmax()) * (_phi[_j][_qp] * norm_comp) *
-             (_test_neighbor[_i][_qp] * norm_comp);
-      }
+      r += 0.5 * (phi_contact_pressure * _elem_vol_frac) * (_test_neighbor[_i][_qp] * norm_comp);
+      r -= (_phi[_j][_qp] * norm_comp) *
+           (0.5 * test_contact_pressure_neighbor * _elem_neighbor_vol_frac);
+      r -= (_alpha / _neighbor_elem->hmax()) * (_phi[_j][_qp] * norm_comp) *
+           (_test_neighbor[_i][_qp] * norm_comp);
       break;
 
     case Moose::NeighborNeighbor:
-      if (((_u[_qp] - _u_neighbor[_qp]) * norm_comp) >= 0)
-      {
-        r += 0.5 * phi_contact_pressure_neighbor * (_test_neighbor[_i][_qp] * norm_comp);
-        r += (_phi_neighbor[_j][_qp] * norm_comp) * (0.5 * test_contact_pressure_neighbor);
-        r += (_alpha / _neighbor_elem->hmax()) * (_phi_neighbor[_j][_qp] * norm_comp) *
-             (_test_neighbor[_i][_qp] * norm_comp);
-      }
+      r += 0.5 * (phi_contact_pressure_neighbor * _elem_neighbor_vol_frac) *
+           (_test_neighbor[_i][_qp] * norm_comp);
+      r += (_phi_neighbor[_j][_qp] * norm_comp) *
+           (0.5 * test_contact_pressure_neighbor * _elem_neighbor_vol_frac);
+      r += (_alpha / _neighbor_elem->hmax()) * (_phi_neighbor[_j][_qp] * norm_comp) *
+           (_test_neighbor[_i][_qp] * norm_comp);
       break;
   }
   return r;
