@@ -24,12 +24,12 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 31
-  ny = 31
-  xmin = 0.0
-  xmax = 1.0
-  ymin = 0.0
-  ymax = 1.0
+  nx = 251
+  ny = 251
+  xmin = -1.7
+  xmax = 1.7
+  ymin = -1.7
+  ymax = 1.7
   elem_type = QUAD4
 []
 
@@ -49,7 +49,8 @@
   [./ls_func]
     type = ParsedFunction
     #value = 'y-0.51'
-    value = 'sqrt((y-.5)*(y-.5) + (x-.5)*(x-.5)) - 0.3'
+    #value = 'sqrt((y-.5)*(y-.5) + (x-.5)*(x-.5)) - 0.3'
+    value='(cos(x*x)+sin(y*y))*(sin(x*x)+cos(y*y))-1.0'
   [../]
   [./push]
     type = ParsedFunction
@@ -110,7 +111,7 @@
     alpha = 1e10
     E_pos=1e6
     nu_pos=0.3
-    E_neg=1e8
+    E_neg=1e7
     nu_neg=0.3
     geometric_cut_userobject = 'level_set_cut_uo'
     level_set_var = ls
@@ -123,7 +124,7 @@
     component=1
     E_pos=1e6
     nu_pos=0.3
-    E_neg=1e8
+    E_neg=1e7
     nu_neg=0.3
     geometric_cut_userobject = 'level_set_cut_uo'
     level_set_var = ls
@@ -143,6 +144,14 @@
   [./b_strain_xx]    order = CONSTANT    family = MONOMIAL  [../]
   [./b_strain_yy]    order = CONSTANT    family = MONOMIAL  [../]
   [./b_strain_xy]    order = CONSTANT    family = MONOMIAL  [../]
+
+
+  [./a_vmstress]    order = CONSTANT    family = MONOMIAL  [../]
+  [./b_vmstress]    order = CONSTANT    family = MONOMIAL  [../]
+
+  [./stress_max]    order = CONSTANT    family = MONOMIAL  [../]
+  [./stress_mid]    order = CONSTANT    family = MONOMIAL  [../]
+  [./stress_min]    order = CONSTANT    family = MONOMIAL  [../]
 []
 
 [AuxKernels]
@@ -205,6 +214,39 @@
     index_i = 0    index_j = 1
     variable = b_strain_xy
   [../]
+  [./a_vmstress]
+    type = RankTwoScalarAux
+    rank_two_tensor = A_total_strain
+    variable = a_vmstress
+    scalar_type = VonMisesStress
+    execute_on = timestep_end
+  [../]
+  [./b_vmstress]
+    type = RankTwoScalarAux
+    rank_two_tensor = B_total_strain
+    variable = b_vmstress
+    scalar_type = VonMisesStress
+    execute_on = timestep_end
+  [../]
+ 
+  [./stress_max]
+    type = RankTwoScalarAux
+    rank_two_tensor = stress
+    variable = stress_max
+    scalar_type = MaxPrincipal
+  [../]
+  [./stress_mid]
+    type = RankTwoScalarAux
+    rank_two_tensor = stress
+    variable = stress_mid
+    scalar_type = MidPrincipal
+  [../]
+  [./stress_min]
+    type = RankTwoScalarAux
+    rank_two_tensor = stress
+    variable = stress_min
+    scalar_type = MinPrincipal
+  [../]
 []
 
 [Controls]
@@ -243,7 +285,7 @@
   [./elasticity_tensor_B]
     type = ComputeIsotropicElasticityTensor
     base_name = B
-    youngs_modulus = 1e8
+    youngs_modulus = 1e7
     poissons_ratio = 0.3
   [../]
   [./strain_B]
@@ -274,9 +316,7 @@
   type = Transient
 
   solve_type = 'NEWTON'
-  #petsc_options_iname = '-ksp_gmres_restart -pc_type -pc_hypre_type -pc_hypre_boomeramg_max_iter'
-  #petsc_options_value = '201                hypre    boomeramg      30'
- petsc_options_iname = '-ksp_gmres_restart -pc_type -pc_hypre_type -pc_hypre_boomeramg_max_iter'
+  petsc_options_iname = '-ksp_gmres_restart -pc_type -pc_hypre_type -pc_hypre_boomeramg_max_iter'
   petsc_options_value = '201                hypre    boomeramg      30'
 
   #petsc_options_iname = '-pc_type -pc_factor_mat_solver_package -ksp_type'
@@ -294,8 +334,7 @@
 
 # controls for nonlinear iterations
   nl_max_its = 50
-  #nl_rel_tol = 1e-10
-  nl_abs_tol = 1e-9
+  nl_abs_tol = 1e-6
 
 # time control
   start_time = 0.0

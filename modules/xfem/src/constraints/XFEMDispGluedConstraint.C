@@ -166,6 +166,9 @@ XFEMDispGluedConstraint::computeQpResidual(Moose::DGResidualType type)
   RankFourTensor Cijkl;
   RankFourTensor Cijkl_neighbor;
 
+ // Real material_par = 0.0;
+ // Real material_par_neighbor = 0.0;
+
   // ---------------------------------------------------------------------------------------------
   // -- Check on which side the element belongs to, positive or negative--------------------------
   // ---------------------------------------------------------------------------------------------
@@ -187,12 +190,20 @@ XFEMDispGluedConstraint::computeQpResidual(Moose::DGResidualType type)
   {
     Cijkl = _Cijkl_pos;
     Cijkl_neighbor = _Cijkl_neg;
+   // material_par = _E_pos;
+   // material_par_neighbor = _E_neg;
   }
   else
   {
     Cijkl_neighbor = _Cijkl_pos;
     Cijkl = _Cijkl_neg;
+   // material_par = _E_neg;
+   // material_par_neighbor = _E_pos;
   }
+
+  //Real denom = material_par * _elem_neighbor_vol_frac + material_par_neighbor * _elem_vol_frac;
+  //_elem_vol_frac = (_elem_vol_frac * material_par_neighbor) / denom;
+  //_elem_neighbor_vol_frac = (_elem_neighbor_vol_frac * material_par) / denom;
 
   // -----------------------------------------------------------------------------------------------
   // -- Compute contact pressure on the current element -------------------------------------------
@@ -303,6 +314,8 @@ XFEMDispGluedConstraint::computeQpJacobian(Moose::DGJacobianType type)
   Real norm_comp = _interface_normal(_component);
   RankFourTensor Cijkl;
   RankFourTensor Cijkl_neighbor;
+ // Real material_par = 0.0;
+ // Real material_par_neighbor = 0.0;
 
   // -----------------------------------------------------------------------------------------------
   // -- Check on which side the element belongs to, positive or negative ---------------------------
@@ -325,12 +338,20 @@ XFEMDispGluedConstraint::computeQpJacobian(Moose::DGJacobianType type)
   {
     Cijkl = _Cijkl_pos;
     Cijkl_neighbor = _Cijkl_neg;
+   // material_par = _E_pos;
+   // material_par_neighbor = _E_neg;
   }
   else
   {
     Cijkl_neighbor = _Cijkl_pos;
     Cijkl = _Cijkl_neg;
+   // material_par = _E_neg;
+  //  material_par_neighbor = _E_pos;
   }
+
+  //Real denom = material_par * _elem_neighbor_vol_frac + material_par_neighbor * _elem_vol_frac;
+  //_elem_vol_frac = (_elem_vol_frac * material_par_neighbor) / denom;
+  //_elem_neighbor_vol_frac = (_elem_neighbor_vol_frac * material_par) / denom;
 
   // -----------------------------------------------------------------------------------------------
   // -- Compute contact pressure on the current element --------------------------------------------

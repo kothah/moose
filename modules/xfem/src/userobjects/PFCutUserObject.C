@@ -1,13 +1,22 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
-/* Author: Hardik Kothari
- * Based on LevelSetCutUserObject
- * */
+/****************************************************************/
+/*               DO NOT MODIFY THIS HEADER                      */
+/*       XFEM - ICS XFEM simulation framework                   */
+/*                Prepared by Hardik Kothari,                   */
+/*                  ICS, USI, 6900 Lugano                       */
+/*                                                              */
+/* Construction of UsetObject to cut the FEM mesh with          */
+/* Phase field parameter                                        */
+/*                                                              */
+/****************************************************************/
 
 #include "PFCutUserObject.h"
 #include "SubProblem.h"
@@ -75,7 +84,7 @@ PFCutUserObject::cutElementByGeometry(const Elem * elem,
     Number ls_node_3 = (*_solution)(ls_dof_id_3);
     Number ls_node_4 = (*_solution)(ls_dof_id_4);
 
-    if (ls_node_1 > 0.95 && ls_node_2 > 0.95 && ls_node_3 > 0.95 && ls_node_4 > 0.95)
+    if (ls_node_1 > 0.97 && ls_node_2 > 0.97 && ls_node_3 > 0.97 && ls_node_4 > 0.97)
     {
       UniquePtr<Elem> curr_side0 = elem->side(0);
       UniquePtr<Elem> curr_side1 = elem->side(1);
@@ -167,7 +176,7 @@ PFCutUserObject::cutElementByGeometry(const Elem * elem,
         }
       }
     }
-    // use the information form the above section here to cut the current element
+    // use the information from the above section to cut the current element
 
     for (unsigned int i = 0; i < elem->n_sides(); ++i)
     {

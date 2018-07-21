@@ -24,8 +24,8 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 31
-  ny = 31
+  nx = 231
+  ny = 231
   xmin = 0.0
   xmax = 1.0
   ymin = 0.0
@@ -165,7 +165,7 @@
     scalar_type = VonMisesStress
     execute_on = timestep_end
   [../]
-    [./stress_max]
+  [./stress_max]
     type = RankTwoScalarAux
     rank_two_tensor = stress
     variable = stress_max

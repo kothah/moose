@@ -26,8 +26,8 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 31
-  ny = 31
+  nx = 231
+  ny = 231
   xmin = 0.0
   xmax = 1.
   ymin = 0.0
@@ -73,7 +73,7 @@
 [Functions]
   [./ls_func]
     type = ParsedFunction
-    value= 'y-0.51'
+    value= 'y-0.5123123141'
     #value = 'sqrt((y-2.5)*(y-2.5) + (x-2.5)*(x-2.5)) - 1.5'
   [../]
     [./push]
@@ -97,6 +97,13 @@
   [./b_strain_xx]    order = CONSTANT    family = MONOMIAL  [../]
   [./b_strain_yy]    order = CONSTANT    family = MONOMIAL  [../]
   [./b_strain_xy]    order = CONSTANT    family = MONOMIAL  [../]
+
+  [./a_vmstress]    order = CONSTANT    family = MONOMIAL  [../]
+  [./b_vmstress]    order = CONSTANT    family = MONOMIAL  [../]
+
+  [./stress_max]    order = CONSTANT    family = MONOMIAL  [../]
+  [./stress_mid]    order = CONSTANT    family = MONOMIAL  [../]
+  [./stress_min]    order = CONSTANT    family = MONOMIAL  [../]
 []
 
 [Kernels]
@@ -158,6 +165,40 @@
     rank_two_tensor = B_total_strain
     index_i = 0    index_j = 1
     variable = b_strain_xy
+  [../]
+
+  [./a_vmstress]
+    type = RankTwoScalarAux
+    rank_two_tensor = A_total_strain
+    variable = a_vmstress
+    scalar_type = VonMisesStress
+    execute_on = timestep_end
+  [../]
+  [./b_vmstress]
+    type = RankTwoScalarAux
+    rank_two_tensor = B_total_strain
+    variable = b_vmstress
+    scalar_type = VonMisesStress
+    execute_on = timestep_end
+  [../]
+ 
+  [./stress_max]
+    type = RankTwoScalarAux
+    rank_two_tensor = stress
+    variable = stress_max
+    scalar_type = MaxPrincipal
+  [../]
+  [./stress_mid]
+    type = RankTwoScalarAux
+    rank_two_tensor = stress
+    variable = stress_mid
+    scalar_type = MidPrincipal
+  [../]
+  [./stress_min]
+    type = RankTwoScalarAux
+    rank_two_tensor = stress
+    variable = stress_min
+    scalar_type = MinPrincipal
   [../]
 []
 
