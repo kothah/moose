@@ -7,10 +7,15 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TRANSIENTINTERFACE_H
-#define TRANSIENTINTERFACE_H
+#pragma once
 
 #include "Moose.h"
+
+#define usingTransientInterfaceMembers                                                             \
+  using TransientInterface::_t;                                                                    \
+  using TransientInterface::_t_step;                                                               \
+  using TransientInterface::_dt;                                                                   \
+  using TransientInterface::_dt_old
 
 // Forward declarations
 class FEProblemBase;
@@ -67,4 +72,3 @@ private:
   const std::string _ti_name;
 };
 
-#endif /* TRANSIENTINTERFACE_H */

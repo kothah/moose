@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TIMESTEPPER_H
-#define TIMESTEPPER_H
+#pragma once
 
 #include "MooseObject.h"
 #include "Restartable.h"
@@ -77,7 +76,7 @@ public:
    * If the time step converged
    * @return true if converged, otherwise false
    */
-  virtual bool converged();
+  virtual bool converged() const;
 
   /**
    * Get the current_dt
@@ -150,4 +149,3 @@ private:
   Real & _current_dt;
 };
 
-#endif /* TIMESTEPPER_H */

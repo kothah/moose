@@ -7,15 +7,16 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef INTERACTIONINTEGRAL_H
-#define INTERACTIONINTEGRAL_H
+#pragma once
 
 #include "ElementIntegralPostprocessor.h"
 #include "CrackFrontDefinition.h"
 
 // Forward Declarations
 class InteractionIntegral;
-class RankTwoTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 template <>
 InputParameters validParams<InteractionIntegral>();
@@ -84,4 +85,3 @@ private:
   const SifMethod _sif_mode;
 };
 
-#endif // INTERACTIONINTEGRAL_H

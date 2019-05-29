@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POLYCRYSTALVORONOI_H
-#define POLYCRYSTALVORONOI_H
+#pragma once
 
 #include "PolycrystalUserObjectBase.h"
 
@@ -29,10 +28,11 @@ public:
   virtual Real getVariableValue(unsigned int op_index, const Point & p) const override;
 
   virtual unsigned int getNumGrains() const override { return _grain_num; }
+  virtual std::vector<Point> getGrainCenters() const { return _centerpoints; }
 
 protected:
   /// The number of grains to create
-  const unsigned int _grain_num;
+  unsigned int _grain_num;
 
   const bool _columnar_3D;
 
@@ -43,6 +43,7 @@ protected:
   Point _range;
 
   std::vector<Point> _centerpoints;
+
+  const FileName _file_name;
 };
 
-#endif // POLYCRYSTALVORONOI_H

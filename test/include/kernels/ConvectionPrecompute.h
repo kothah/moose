@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CONVECTIONPRECOMPUTE_H
-#define CONVECTIONPRECOMPUTE_H
+#pragma once
 
 #include "KernelValue.h"
 
@@ -24,11 +23,10 @@ public:
   ConvectionPrecompute(const InputParameters & parameters);
 
 protected:
-  virtual Real precomputeQpResidual();
-  virtual Real precomputeQpJacobian();
+  Real precomputeQpResidual() override;
+  Real precomputeQpJacobian() override;
 
 private:
   RealVectorValue _velocity;
 };
 
-#endif // CONVECTIONPRECOMPUTE_H

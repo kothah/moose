@@ -7,16 +7,19 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef OUTPUTTESTMATERIAL_H
-#define OUTPUTTESTMATERIAL_H
+#pragma once
 
 // MOOSE includes
 #include "Material.h"
 
 // Forward declarations
 class OutputTestMaterial;
-class RankTwoTensor;
-class RankFourTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
+template <typename>
+class RankFourTensorTempl;
+typedef RankFourTensorTempl<Real> RankFourTensor;
 
 template <>
 InputParameters validParams<OutputTestMaterial>();
@@ -53,4 +56,3 @@ protected:
   const VariableValue & _variable;
 };
 
-#endif // OUTPUTTESTMATERIAL_H

@@ -1,11 +1,13 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
-#ifndef COMPUTEINCREMENTALBEAMSTRAIN_H
-#define COMPUTEINCREMENTALBEAMSTRAIN_H
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#pragma once
 
 #include "Material.h"
 #include "RankTwoTensor.h"
@@ -25,8 +27,9 @@ class ComputeIncrementalBeamStrain : public Material
 public:
   ComputeIncrementalBeamStrain(const InputParameters & parameters);
 
-protected:
   virtual void computeProperties() override;
+
+protected:
   virtual void initQpStatefulProperties() override;
 
   /// Computes the displacement and rotation strain increments
@@ -37,6 +40,9 @@ protected:
 
   /// Computes the rotation matrix at time t. For small rotation scenarios, the rotation matrix at time t is same as the intiial rotation matrix
   virtual void computeRotation();
+
+  /// Booleans for validity of params
+  const bool _has_Ix;
 
   /// Number of coupled rotational variables
   unsigned int _nrot;
@@ -64,6 +70,9 @@ protected:
 
   /// Coupled variable for the second moment of area in z direction, i.e., integral of z^2*dA over the cross-section
   const VariableValue & _Iz;
+
+  /// Coupled variable for the second moment of area in x direction, i.e., integral of (y^2 + z^2)*dA over the cross-section
+  const VariableValue & _Ix;
 
   /// Rotational transformation from global coordinate system to initial beam local configuration
   RankTwoTensor _original_local_config;
@@ -158,4 +167,3 @@ protected:
   MaterialProperty<RankTwoTensor> & _initial_rotation;
 };
 
-#endif // COMPUTEINCREMENTALBEAMSTRAIN_H

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TIMESEQUENCESTEPPERFAILTEST_H
-#define TIMESEQUENCESTEPPERFAILTEST_H
+#pragma once
 
 #include "TimeSequenceStepper.h"
 
@@ -26,11 +25,10 @@ class TimeSequenceStepperFailTest : public TimeSequenceStepper
 public:
   TimeSequenceStepperFailTest(const InputParameters & parameters);
 
-  virtual bool converged() override;
+  virtual void step() override;
 
 protected:
   /// stores a copy of the original sequence of time points, is not updated due to failures.
   std::vector<Real> _original_time_sequence;
 };
 
-#endif

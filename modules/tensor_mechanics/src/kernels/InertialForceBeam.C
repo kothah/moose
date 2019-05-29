@@ -1,9 +1,12 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
 #include "InertialForceBeam.h"
 #include "SubProblem.h"
 #include "libmesh/utility.h"
@@ -19,7 +22,7 @@ template <>
 InputParameters
 validParams<InertialForceBeam>()
 {
-  InputParameters params = validParams<Kernel>();
+  InputParameters params = validParams<TimeKernel>();
   params.addClassDescription("Calculates the residual for the interial force/moment and the "
                              "contribution of mass dependent Rayleigh damping and HHT time "
                              "integration scheme.");
@@ -30,13 +33,13 @@ validParams<InertialForceBeam>()
   params.addRequiredCoupledVar(
       "displacements",
       "The displacement variables appropriate for the simulation geometry and coordinate system");
-  params.addRequiredCoupledVar("velocities", "Translational velocity variables");
-  params.addRequiredCoupledVar("accelerations", "Translational acceleration variables");
-  params.addRequiredCoupledVar("rotational_velocities", "Rotational velocity variables");
-  params.addRequiredCoupledVar("rotational_accelerations", "Rotational acceleration variables");
-  params.addRequiredRangeCheckedParam<Real>(
+  params.addCoupledVar("velocities", "Translational velocity variables");
+  params.addCoupledVar("accelerations", "Translational acceleration variables");
+  params.addCoupledVar("rotational_velocities", "Rotational velocity variables");
+  params.addCoupledVar("rotational_accelerations", "Rotational acceleration variables");
+  params.addRangeCheckedParam<Real>(
       "beta", "beta>0.0", "beta parameter for Newmark Time integration");
-  params.addRequiredRangeCheckedParam<Real>(
+  params.addRangeCheckedParam<Real>(
       "gamma", "gamma>0.0", "gamma parameter for Newmark Time integration");
   params.addParam<MaterialPropertyName>("eta",
                                         0.0,
@@ -52,11 +55,13 @@ validParams<InertialForceBeam>()
       "density",
       "density",
       "Name of Material Property  or a constant real number defining the density of the beam.");
-  params.addCoupledVar("area", "Variable containing cross-section area");
-  params.addCoupledVar("Ay", "Variable containing first moment of area about y axis");
-  params.addCoupledVar("Az", "Variable containing first moment of area about z axis");
-  params.addCoupledVar("Iy", "Variable containing second moment of area about y axis");
-  params.addCoupledVar("Iz", "Variable containing second moment of area about z axis");
+  params.addRequiredCoupledVar("area", "Variable containing cross-section area");
+  params.addCoupledVar("Ay", 0.0, "Variable containing first moment of area about y axis");
+  params.addCoupledVar("Az", 0.0, "Variable containing first moment of area about z axis");
+  params.addCoupledVar("Ix",
+                       "Variable containing second moment of area about x axis. Defaults to Iy+Iz");
+  params.addRequiredCoupledVar("Iy", "Variable containing second moment of area about y axis");
+  params.addRequiredCoupledVar("Iz", "Variable containing second moment of area about z axis");
   params.addRequiredRangeCheckedParam<unsigned int>(
       "component",
       "component<6",
@@ -67,7 +72,14 @@ validParams<InertialForceBeam>()
 }
 
 InertialForceBeam::InertialForceBeam(const InputParameters & parameters)
-  : Kernel(parameters),
+  : TimeKernel(parameters),
+    _has_beta(isParamValid("beta")),
+    _has_gamma(isParamValid("gamma")),
+    _has_velocities(isParamValid("velocities")),
+    _has_rot_velocities(isParamValid("rotational_velocities")),
+    _has_accelerations(isParamValid("accelerations")),
+    _has_rot_accelerations(isParamValid("rotational_accelerations")),
+    _has_Ix(isParamValid("Ix")),
     _density(getMaterialProperty<Real>("density")),
     _nrot(coupledComponents("rotations")),
     _ndisp(coupledComponents("displacements")),
@@ -80,10 +92,11 @@ InertialForceBeam::InertialForceBeam(const InputParameters & parameters)
     _area(coupledValue("area")),
     _Ay(coupledValue("Ay")),
     _Az(coupledValue("Az")),
+    _Ix(_has_Ix ? coupledValue("Ix") : _zero),
     _Iy(coupledValue("Iy")),
     _Iz(coupledValue("Iz")),
-    _beta(getParam<Real>("beta")),
-    _gamma(getParam<Real>("gamma")),
+    _beta(_has_beta ? getParam<Real>("beta") : 0.1),
+    _gamma(_has_gamma ? getParam<Real>("gamma") : 0.1),
     _eta(getMaterialProperty<Real>("eta")),
     _alpha(getParam<Real>("alpha")),
     _original_local_config(getMaterialPropertyByName<RankTwoTensor>("initial_rotation")),
@@ -97,15 +110,46 @@ InertialForceBeam::InertialForceBeam(const InputParameters & parameters)
     mooseError("InertialForceBeam: The number of variables supplied in 'displacements' and "
                "'rotations' must match.");
 
-  if ((coupledComponents("velocities") != _ndisp) ||
-      (coupledComponents("accelerations") != _ndisp) ||
-      (coupledComponents("rotational_velocities") != _ndisp) ||
-      (coupledComponents("rotational_accelerations") != _ndisp))
-    mooseError("InertialForceBeam: The number of variables supplied in 'velocities', "
-               "'accelerations', 'rotational_velocities' and 'rotational_accelerations' must match "
-               "the number of displacement variables.");
+  if (_has_beta && _has_gamma && _has_velocities && _has_accelerations && _has_rot_velocities &&
+      _has_rot_accelerations)
+  {
+    if ((coupledComponents("velocities") != _ndisp) ||
+        (coupledComponents("accelerations") != _ndisp) ||
+        (coupledComponents("rotational_velocities") != _ndisp) ||
+        (coupledComponents("rotational_accelerations") != _ndisp))
+      mooseError(
+          "InertialForceBeam: The number of variables supplied in 'velocities', "
+          "'accelerations', 'rotational_velocities' and 'rotational_accelerations' must match "
+          "the number of displacement variables.");
 
-  // fetch coupled variables and gradients (as stateful properties if necessary)
+    // fetch coupled velocities and accelerations
+    for (unsigned int i = 0; i < _ndisp; ++i)
+    {
+      MooseVariable * vel_variable = getVar("velocities", i);
+      _vel_num[i] = vel_variable->number();
+
+      MooseVariable * accel_variable = getVar("accelerations", i);
+      _accel_num[i] = accel_variable->number();
+
+      MooseVariable * rot_vel_variable = getVar("rotational_velocities", i);
+      _rot_vel_num[i] = rot_vel_variable->number();
+
+      MooseVariable * rot_accel_variable = getVar("rotational_accelerations", i);
+      _rot_accel_num[i] = rot_accel_variable->number();
+    }
+  }
+  else if (!_has_beta && !_has_gamma && !_has_velocities && !_has_accelerations &&
+           !_has_rot_velocities && !_has_rot_accelerations)
+  {
+    _du_dot_du = &coupledDotDu("displacements", 0);
+    _du_dotdot_du = &coupledDotDotDu("displacements", 0);
+  }
+  else
+    mooseError("InertialForceBeam: Either all or none of `beta`, `gamma`, `velocities`, "
+               "`accelerations`, `rotational_velocities` and `rotational_accelerations` should be "
+               "provided as input.");
+
+  // fetch coupled displacements and rotations
   for (unsigned int i = 0; i < _ndisp; ++i)
   {
     MooseVariable * disp_variable = getVar("displacements", i);
@@ -113,18 +157,6 @@ InertialForceBeam::InertialForceBeam(const InputParameters & parameters)
 
     MooseVariable * rot_variable = getVar("rotations", i);
     _rot_num[i] = rot_variable->number();
-
-    MooseVariable * vel_variable = getVar("velocities", i);
-    _vel_num[i] = vel_variable->number();
-
-    MooseVariable * accel_variable = getVar("accelerations", i);
-    _accel_num[i] = accel_variable->number();
-
-    MooseVariable * rot_vel_variable = getVar("rotational_velocities", i);
-    _rot_vel_num[i] = rot_vel_variable->number();
-
-    MooseVariable * rot_accel_variable = getVar("rotational_accelerations", i);
-    _rot_accel_num[i] = rot_accel_variable->number();
   }
 }
 
@@ -139,65 +171,112 @@ InertialForceBeam::computeResidual()
   if (_dt != 0.0)
   {
     // fetch the two end nodes for _current_elem
-    std::vector<Node *> node;
+    std::vector<const Node *> node;
     for (unsigned int i = 0; i < 2; ++i)
-      node.push_back(_current_elem->get_node(i));
+      node.push_back(_current_elem->node_ptr(i));
 
     // Fetch the solution for the two end nodes at time t
     NonlinearSystemBase & nonlinear_sys = _fe_problem.getNonlinearSystemBase();
-    const NumericVector<Number> & sol = *nonlinear_sys.currentSolution();
-    const NumericVector<Number> & sol_old = nonlinear_sys.solutionOld();
 
-    AuxiliarySystem & aux = _fe_problem.getAuxiliarySystem();
-    const NumericVector<Number> & aux_sol_old = aux.solutionOld();
-
-    mooseAssert(_beta > 0.0, "InertialForceBeam: Beta parameter should be positive.");
-    mooseAssert(_eta[0] >= 0.0, "InertialForceBeam: Eta parameter should be non-negative.");
-
-    for (unsigned int i = 0; i < _ndisp; ++i)
+    if (_has_beta)
     {
-      // obtain delta displacement
-      unsigned int dof_index_0 = node[0]->dof_number(nonlinear_sys.number(), _disp_num[i], 0);
-      unsigned int dof_index_1 = node[1]->dof_number(nonlinear_sys.number(), _disp_num[i], 0);
-      const Real disp_0 = sol(dof_index_0) - sol_old(dof_index_0);
-      const Real disp_1 = sol(dof_index_1) - sol_old(dof_index_1);
+      const NumericVector<Number> & sol = *nonlinear_sys.currentSolution();
+      const NumericVector<Number> & sol_old = nonlinear_sys.solutionOld();
 
-      dof_index_0 = node[0]->dof_number(nonlinear_sys.number(), _rot_num[i], 0);
-      dof_index_1 = node[1]->dof_number(nonlinear_sys.number(), _rot_num[i], 0);
-      const Real rot_0 = sol(dof_index_0) - sol_old(dof_index_0);
-      const Real rot_1 = sol(dof_index_1) - sol_old(dof_index_1);
+      AuxiliarySystem & aux = _fe_problem.getAuxiliarySystem();
+      const NumericVector<Number> & aux_sol_old = aux.solutionOld();
 
-      // obtain new translational and rotational velocities and accelerations using newmark-beta
-      // time integration
-      _vel_old_0(i) = aux_sol_old(node[0]->dof_number(aux.number(), _vel_num[i], 0));
-      _vel_old_1(i) = aux_sol_old(node[1]->dof_number(aux.number(), _vel_num[i], 0));
-      const Real accel_old_0 = aux_sol_old(node[0]->dof_number(aux.number(), _accel_num[i], 0));
-      const Real accel_old_1 = aux_sol_old(node[1]->dof_number(aux.number(), _accel_num[i], 0));
+      mooseAssert(_beta > 0.0, "InertialForceBeam: Beta parameter should be positive.");
+      mooseAssert(_eta[0] >= 0.0, "InertialForceBeam: Eta parameter should be non-negative.");
 
-      _rot_vel_old_0(i) = aux_sol_old(node[0]->dof_number(aux.number(), _rot_vel_num[i], 0));
-      _rot_vel_old_1(i) = aux_sol_old(node[1]->dof_number(aux.number(), _rot_vel_num[i], 0));
-      const Real rot_accel_old_0 =
-          aux_sol_old(node[0]->dof_number(aux.number(), _rot_accel_num[i], 0));
-      const Real rot_accel_old_1 =
-          aux_sol_old(node[1]->dof_number(aux.number(), _rot_accel_num[i], 0));
+      for (unsigned int i = 0; i < _ndisp; ++i)
+      {
+        // obtain delta displacement
+        unsigned int dof_index_0 = node[0]->dof_number(nonlinear_sys.number(), _disp_num[i], 0);
+        unsigned int dof_index_1 = node[1]->dof_number(nonlinear_sys.number(), _disp_num[i], 0);
+        const Real disp_0 = sol(dof_index_0) - sol_old(dof_index_0);
+        const Real disp_1 = sol(dof_index_1) - sol_old(dof_index_1);
 
-      _accel_0(i) =
-          1. / _beta * (disp_0 / (_dt * _dt) - _vel_old_0(i) / _dt - accel_old_0 * (0.5 - _beta));
-      _accel_1(i) =
-          1. / _beta * (disp_1 / (_dt * _dt) - _vel_old_1(i) / _dt - accel_old_1 * (0.5 - _beta));
-      _rot_accel_0(i) =
-          1. / _beta *
-          (rot_0 / (_dt * _dt) - _rot_vel_old_0(i) / _dt - rot_accel_old_0 * (0.5 - _beta));
-      _rot_accel_1(i) =
-          1. / _beta *
-          (rot_1 / (_dt * _dt) - _rot_vel_old_1(i) / _dt - rot_accel_old_1 * (0.5 - _beta));
+        dof_index_0 = node[0]->dof_number(nonlinear_sys.number(), _rot_num[i], 0);
+        dof_index_1 = node[1]->dof_number(nonlinear_sys.number(), _rot_num[i], 0);
+        const Real rot_0 = sol(dof_index_0) - sol_old(dof_index_0);
+        const Real rot_1 = sol(dof_index_1) - sol_old(dof_index_1);
 
-      _vel_0(i) = _vel_old_0(i) + (_dt * (1 - _gamma)) * accel_old_0 + _gamma * _dt * _accel_0(i);
-      _vel_1(i) = _vel_old_1(i) + (_dt * (1 - _gamma)) * accel_old_1 + _gamma * _dt * _accel_1(i);
-      _rot_vel_0(i) = _rot_vel_old_0(i) + (_dt * (1 - _gamma)) * rot_accel_old_0 +
-                      _gamma * _dt * _rot_accel_0(i);
-      _rot_vel_1(i) = _rot_vel_old_1(i) + (_dt * (1 - _gamma)) * rot_accel_old_1 +
-                      _gamma * _dt * _rot_accel_1(i);
+        // obtain new translational and rotational velocities and accelerations using newmark-beta
+        // time integration
+        _vel_old_0(i) = aux_sol_old(node[0]->dof_number(aux.number(), _vel_num[i], 0));
+        _vel_old_1(i) = aux_sol_old(node[1]->dof_number(aux.number(), _vel_num[i], 0));
+        const Real accel_old_0 = aux_sol_old(node[0]->dof_number(aux.number(), _accel_num[i], 0));
+        const Real accel_old_1 = aux_sol_old(node[1]->dof_number(aux.number(), _accel_num[i], 0));
+
+        _rot_vel_old_0(i) = aux_sol_old(node[0]->dof_number(aux.number(), _rot_vel_num[i], 0));
+        _rot_vel_old_1(i) = aux_sol_old(node[1]->dof_number(aux.number(), _rot_vel_num[i], 0));
+        const Real rot_accel_old_0 =
+            aux_sol_old(node[0]->dof_number(aux.number(), _rot_accel_num[i], 0));
+        const Real rot_accel_old_1 =
+            aux_sol_old(node[1]->dof_number(aux.number(), _rot_accel_num[i], 0));
+
+        _accel_0(i) =
+            1. / _beta * (disp_0 / (_dt * _dt) - _vel_old_0(i) / _dt - accel_old_0 * (0.5 - _beta));
+        _accel_1(i) =
+            1. / _beta * (disp_1 / (_dt * _dt) - _vel_old_1(i) / _dt - accel_old_1 * (0.5 - _beta));
+        _rot_accel_0(i) =
+            1. / _beta *
+            (rot_0 / (_dt * _dt) - _rot_vel_old_0(i) / _dt - rot_accel_old_0 * (0.5 - _beta));
+        _rot_accel_1(i) =
+            1. / _beta *
+            (rot_1 / (_dt * _dt) - _rot_vel_old_1(i) / _dt - rot_accel_old_1 * (0.5 - _beta));
+
+        _vel_0(i) = _vel_old_0(i) + (_dt * (1 - _gamma)) * accel_old_0 + _gamma * _dt * _accel_0(i);
+        _vel_1(i) = _vel_old_1(i) + (_dt * (1 - _gamma)) * accel_old_1 + _gamma * _dt * _accel_1(i);
+        _rot_vel_0(i) = _rot_vel_old_0(i) + (_dt * (1 - _gamma)) * rot_accel_old_0 +
+                        _gamma * _dt * _rot_accel_0(i);
+        _rot_vel_1(i) = _rot_vel_old_1(i) + (_dt * (1 - _gamma)) * rot_accel_old_1 +
+                        _gamma * _dt * _rot_accel_1(i);
+      }
+    }
+    else
+    {
+      if (!nonlinear_sys.solutionUDot())
+        mooseError("InertialForceBeam: Time derivative of solution (`u_dot`) is not stored. Please "
+                   "set uDotRequested() to true in FEProblemBase before requesting `u_dot`.");
+
+      if (!nonlinear_sys.solutionUDotOld())
+        mooseError("InertialForceBeam: Old time derivative of solution (`u_dot_old`) is not "
+                   "stored. Please set uDotOldRequested() to true in FEProblemBase before "
+                   "requesting `u_dot_old`.");
+
+      if (!nonlinear_sys.solutionUDotDot())
+        mooseError("InertialForceBeam: Second time derivative of solution (`u_dotdot`) is not "
+                   "stored. Please set uDotDotRequested() to true in FEProblemBase before "
+                   "requesting `u_dotdot`.");
+
+      const NumericVector<Number> & vel = *nonlinear_sys.solutionUDot();
+      const NumericVector<Number> & vel_old = *nonlinear_sys.solutionUDotOld();
+      const NumericVector<Number> & accel = *nonlinear_sys.solutionUDotDot();
+
+      for (unsigned int i = 0; i < _ndisp; ++i)
+      {
+        // translational velocities and accelerations
+        unsigned int dof_index_0 = node[0]->dof_number(nonlinear_sys.number(), _disp_num[i], 0);
+        unsigned int dof_index_1 = node[1]->dof_number(nonlinear_sys.number(), _disp_num[i], 0);
+        _vel_0(i) = vel(dof_index_0);
+        _vel_1(i) = vel(dof_index_1);
+        _vel_old_0(i) = vel_old(dof_index_0);
+        _vel_old_1(i) = vel_old(dof_index_1);
+        _accel_0(i) = accel(dof_index_0);
+        _accel_1(i) = accel(dof_index_1);
+
+        // rotational velocities and accelerations
+        dof_index_0 = node[0]->dof_number(nonlinear_sys.number(), _rot_num[i], 0);
+        dof_index_1 = node[1]->dof_number(nonlinear_sys.number(), _rot_num[i], 0);
+        _rot_vel_0(i) = vel(dof_index_0);
+        _rot_vel_1(i) = vel(dof_index_1);
+        _rot_vel_old_0(i) = vel_old(dof_index_0);
+        _rot_vel_old_1(i) = vel_old(dof_index_1);
+        _rot_accel_0(i) = accel(dof_index_0);
+        _rot_accel_1(i) = accel(dof_index_1);
+      }
     }
 
     // transform translational and rotational velocities and accelerations to the initial local
@@ -234,6 +313,8 @@ InertialForceBeam::computeResidual()
       if (_component > 2)
       {
         Real I = _Iy[0] + _Iz[0];
+        if (_has_Ix && (i == 0))
+          I = _Ix[0];
         if (i == 1)
           I = _Iz[0];
         else if (i == 2)
@@ -351,28 +432,34 @@ InertialForceBeam::computeJacobian()
 
   mooseAssert(_beta > 0.0, "InertialForceBeam: Beta parameter should be positive.");
 
+  Real factor = 0.0;
+  if (_has_beta)
+    factor = 1.0 / (_beta * _dt * _dt) + _eta[0] * (1.0 + _alpha) * _gamma / _beta / _dt;
+  else
+    factor = (*_du_dotdot_du)[0] + _eta[0] * (1.0 + _alpha) * (*_du_dot_du)[0];
+
   for (unsigned int i = 0; i < _test.size(); ++i)
   {
     for (unsigned int j = 0; j < _phi.size(); ++j)
     {
       if (_component < 3)
-        _local_ke(i, j) =
-            (i == j ? 1.0 / 3.0 : 1.0 / 6.0) * _density[0] * _area[0] * _original_length[0] *
-            (1.0 / (_beta * _dt * _dt) + _eta[0] * (1 + _alpha) * _gamma / _beta / _dt);
+        _local_ke(i, j) = (i == j ? 1.0 / 3.0 : 1.0 / 6.0) * _density[0] * _area[0] *
+                          _original_length[0] * factor;
       else if (_component > 2)
       {
         RankTwoTensor I;
-        I(0, 0) = _Iy[0] + _Iz[0];
+        if (_has_Ix)
+          I(0, 0) = _Ix[0];
+        else
+          I(0, 0) = _Iy[0] + _Iz[0];
         I(1, 1) = _Iz[0];
         I(2, 2) = _Iy[0];
 
         // conversion from local config to global coordinate system
         RankTwoTensor Ig = _original_local_config[0].transpose() * I * _original_local_config[0];
 
-        _local_ke(i, j) =
-            (i == j ? 1.0 / 3.0 : 1.0 / 6.0) * _density[0] * Ig(_component - 3, _component - 3) *
-            _original_length[0] *
-            (1.0 / (_beta * _dt * _dt) + _eta[0] * (1 + _alpha) * _gamma / _beta / _dt);
+        _local_ke(i, j) = (i == j ? 1.0 / 3.0 : 1.0 / 6.0) * _density[0] *
+                          Ig(_component - 3, _component - 3) * _original_length[0] * factor;
       }
     }
   }
@@ -396,6 +483,12 @@ void
 InertialForceBeam::computeOffDiagJacobian(MooseVariableFEBase & jvar)
 {
   mooseAssert(_beta > 0.0, "InertialForceBeam: Beta parameter should be positive.");
+
+  Real factor = 0.0;
+  if (_has_beta)
+    factor = 1.0 / (_beta * _dt * _dt) + _eta[0] * (1.0 + _alpha) * _gamma / _beta / _dt;
+  else
+    factor = (*_du_dotdot_du)[0] + _eta[0] * (1.0 + _alpha) * (*_du_dot_du)[0];
 
   size_t jvar_num = jvar.number();
   if (jvar_num == _var.number())
@@ -447,8 +540,7 @@ InertialForceBeam::computeOffDiagJacobian(MooseVariableFEBase & jvar)
                 _original_local_config[0].transpose() * A * _original_local_config[0];
 
             ke(i, j) += (i == j ? 1.0 / 3.0 : 1.0 / 6.0) * _density[0] *
-                        Ag(_component, coupled_component - 3) * _original_length[0] *
-                        (1.0 / (_beta * _dt * _dt) + _eta[0] * (1 + _alpha) * _gamma / _beta / _dt);
+                        Ag(_component, coupled_component - 3) * _original_length[0] * factor;
           }
           else if (_component > 2 && coupled_component < 3)
           {
@@ -463,13 +555,15 @@ InertialForceBeam::computeOffDiagJacobian(MooseVariableFEBase & jvar)
                 _original_local_config[0].transpose() * A * _original_local_config[0];
 
             ke(i, j) += (i == j ? 1.0 / 3.0 : 1.0 / 6.0) * _density[0] *
-                        Ag(_component - 3, coupled_component) * _original_length[0] *
-                        (1.0 / (_beta * _dt * _dt) + _eta[0] * (1 + _alpha) * _gamma / _beta / _dt);
+                        Ag(_component - 3, coupled_component) * _original_length[0] * factor;
           }
           else if (_component > 2 && coupled_component > 2)
           {
             RankTwoTensor I;
-            I(0, 0) = _Iy[0] + _Iz[0];
+            if (_has_Ix)
+              I(0, 0) = _Ix[0];
+            else
+              I(0, 0) = _Iy[0] + _Iz[0];
             I(1, 1) = _Iz[0];
             I(2, 2) = _Iy[0];
 
@@ -478,8 +572,7 @@ InertialForceBeam::computeOffDiagJacobian(MooseVariableFEBase & jvar)
                 _original_local_config[0].transpose() * I * _original_local_config[0];
 
             ke(i, j) += (i == j ? 1.0 / 3.0 : 1.0 / 6.0) * _density[0] *
-                        Ig(_component - 3, coupled_component - 3) * _original_length[0] *
-                        (1.0 / (_beta * _dt * _dt) + _eta[0] * (1 + _alpha) * _gamma / _beta / _dt);
+                        Ig(_component - 3, coupled_component - 3) * _original_length[0] * factor;
           }
         }
       }

@@ -268,7 +268,6 @@
   [./stress]
     #Computes the stress, using linear elasticity
     type = ComputeLinearElasticStress
-    store_stress_old = true
     block = 0
   [../]
   [./density]
@@ -353,5 +352,5 @@
 [Outputs]
   exodus = true
   csv = true
-  print_perf_log = true
+  perf_graph = true
 []

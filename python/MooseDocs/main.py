@@ -14,8 +14,10 @@ MOOSE run_tests.
 """
 import argparse
 import logging
+import os
+from mooseutils import mooseutils
 
-from commands import build, devel, check, update, profiler
+from commands import build, check, verify
 from common import log
 
 def command_line_options():
@@ -36,12 +38,20 @@ def command_line_options():
                         help="Set the python logging level (default: %(default)s).")
 
     build.command_line_options(subparser, parent)
-    devel.command_line_options(subparser, parent)
     check.command_line_options(subparser, parent)
-    update.command_line_options(subparser, parent)
-    profiler.command_line_options(subparser, parent)
-
+    verify.command_line_options(subparser, parent)
     return parser.parse_args()
+
+def init_large_media():
+    """
+    Be sure large_media is checked out.
+    """
+    get_large_media = os.path.join(os.getenv('MOOSE_DIR'), 'scripts', 'get_large_media.sh')
+    large_media_git = os.path.join(os.getenv('MOOSE_DIR'), 'large_media', '.git')
+    if os.path.exists(get_large_media) and not os.path.exists(large_media_git):
+        print 'Checking out large_media...'
+        mooseutils.shellCommand(get_large_media, os.getenv('MOOSE_DIR'))
+        print 'Done.'
 
 def run():
     """
@@ -49,25 +59,22 @@ def run():
     """
 
     options = command_line_options()
+    init_large_media()
     log.init_logging(getattr(logging, options.level))
 
     if options.command == 'build':
-        build.main(options)
-    elif options.command == 'devel':
-        devel.main(options)
+        errno = build.main(options)
     elif options.command == 'check':
-        check.main(options)
-    elif options.command == 'update':
-        update.main(options)
-    elif options.command == 'profile':
-        profiler.main(options)
+        errno = check.main(options)
+    elif options.command == 'verify':
+        errno = verify.main(options)
 
     critical = log.MooseDocsFormatter.COUNTS['CRITICAL'].value
     errors = log.MooseDocsFormatter.COUNTS['ERROR'].value
     warnings = log.MooseDocsFormatter.COUNTS['WARNING'].value
 
     print 'CRITICAL:{} ERROR:{} WARNING:{}'.format(critical, errors, warnings)
-    if critical or errors:
+    if critical or errors or (errno != 0):
         return 1
     return 0
 

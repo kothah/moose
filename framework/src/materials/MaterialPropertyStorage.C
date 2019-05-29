@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "MaterialPropertyStorage.h"
+#include "MaterialProperty.h"
 #include "Material.h"
 #include "MaterialData.h"
 #include "MooseMesh.h"
@@ -87,8 +88,8 @@ MaterialPropertyStorage::releaseProperties()
 void
 MaterialPropertyStorage::prolongStatefulProps(
     const std::vector<std::vector<QpMap>> & refinement_map,
-    QBase & qrule,
-    QBase & qrule_face,
+    const QBase & qrule,
+    const QBase & qrule_face,
     MaterialPropertyStorage & parent_material_props,
     MaterialData & child_material_data,
     const Elem & elem,
@@ -131,7 +132,7 @@ MaterialPropertyStorage::prolongStatefulProps(
     if (input_child == -1 && input_child_side != -1 && !elem.is_child_on_side(child, parent_side))
       continue;
 
-    const Elem * child_elem = elem.child(child);
+    const Elem * child_elem = elem.child_ptr(child);
 
     mooseAssert(child < refinement_map.size(), "Refinement_map vector not initialized");
     const std::vector<QpMap> & child_map = refinement_map[child];
@@ -163,8 +164,8 @@ void
 MaterialPropertyStorage::restrictStatefulProps(
     const std::vector<std::pair<unsigned int, QpMap>> & coarsening_map,
     const std::vector<const Elem *> & coarsened_element_children,
-    QBase & qrule,
-    QBase & qrule_face,
+    const QBase & qrule,
+    const QBase & qrule_face,
     MaterialData & material_data,
     const Elem & elem,
     int input_side)
@@ -264,7 +265,7 @@ MaterialPropertyStorage::initStatefulProps(MaterialData & material_data,
 }
 
 void
-MaterialPropertyStorage::shift()
+MaterialPropertyStorage::shift(const FEProblemBase & fe_problem)
 {
   /**
    * Shift properties back in time and reuse older data for current (save reallocations etc.)
@@ -277,6 +278,17 @@ MaterialPropertyStorage::shift()
 
   // Intentional fall through for case above and for handling just using old properties
   std::swap(_props_elem_old, _props_elem);
+  if (fe_problem.usingADMatProps())
+  {
+    for (auto && elem_pair : (*_props_elem))
+      for (auto && side_pair : elem_pair.second)
+        for (auto && prop_value_ptr : side_pair.second)
+          prop_value_ptr->markAD(true);
+    for (auto && elem_pair : (*_props_elem_old))
+      for (auto && side_pair : elem_pair.second)
+        for (auto && prop_value_ptr : side_pair.second)
+          prop_value_ptr->markAD(false);
+  }
 }
 
 void

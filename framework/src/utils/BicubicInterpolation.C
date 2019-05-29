@@ -24,10 +24,10 @@ BicubicInterpolation::BicubicInterpolation(const std::vector<Real> & x1,
   auto n = _x2.size();
 
   _bicubic_coeffs.resize(m - 1);
-  for (auto i = beginIndex(_bicubic_coeffs); i < _bicubic_coeffs.size(); ++i)
+  for (MooseIndex(_bicubic_coeffs) i = 0; i < _bicubic_coeffs.size(); ++i)
   {
     _bicubic_coeffs[i].resize(n - 1);
-    for (auto j = beginIndex(_bicubic_coeffs[i]); j < _bicubic_coeffs[i].size(); ++j)
+    for (MooseIndex(_bicubic_coeffs) j = 0; j < _bicubic_coeffs[i].size(); ++j)
     {
       _bicubic_coeffs[i][j].resize(4);
       for (unsigned int k = 0; k < 4; ++k)
@@ -93,7 +93,7 @@ BicubicInterpolation::sampleDerivative(Real x1, Real x2, unsigned int deriv_var)
 
     Real d = _x2[x2u] - _x2[x2l];
 
-    if (!MooseUtils::absoluteFuzzyEqual(d, 0.0))
+    if (!MooseUtils::absoluteFuzzyEqual(d, Real(0.0)))
       sample_deriv /= d;
 
     return sample_deriv;
@@ -123,7 +123,7 @@ BicubicInterpolation::sample2ndDerivative(Real x1, Real x2, unsigned int deriv_v
 
     Real d = _x1[x1u] - _x1[x1l];
 
-    if (!MooseUtils::absoluteFuzzyEqual(d, 0.0))
+    if (!MooseUtils::absoluteFuzzyEqual(d, Real(0.0)))
       sample_deriv /= (d * d);
 
     return sample_deriv;
@@ -141,7 +141,7 @@ BicubicInterpolation::sample2ndDerivative(Real x1, Real x2, unsigned int deriv_v
 
     Real d = _x2[x2u] - _x2[x2l];
 
-    if (!MooseUtils::absoluteFuzzyEqual(d, 0.0))
+    if (!MooseUtils::absoluteFuzzyEqual(d, Real(0.0)))
       sample_deriv /= (d * d);
 
     return sample_deriv;
@@ -178,12 +178,12 @@ BicubicInterpolation::sampleValueAndDerivatives(Real x1, Real x2, Real & y, Real
 
   Real d1 = _x1[x1u] - _x1[x1l];
 
-  if (!MooseUtils::absoluteFuzzyEqual(d1, 0.0))
+  if (!MooseUtils::absoluteFuzzyEqual(d1, Real(0.0)))
     dy1 /= d1;
 
   Real d2 = _x2[x2u] - _x2[x2l];
 
-  if (!MooseUtils::absoluteFuzzyEqual(d2, 0.0))
+  if (!MooseUtils::absoluteFuzzyEqual(d2, Real(0.0)))
     dy2 /= d2;
 }
 
@@ -196,8 +196,8 @@ BicubicInterpolation::precomputeCoefficients()
   tableDerivatives(dy_dx1, dy_dx2, d2y_dx1x2);
 
   // Now solve for the coefficients at each point in the grid
-  for (auto i = beginIndex(_bicubic_coeffs); i < _bicubic_coeffs.size(); ++i)
-    for (auto j = beginIndex(_bicubic_coeffs); j < _bicubic_coeffs[i].size(); ++j)
+  for (MooseIndex(_bicubic_coeffs) i = 0; i < _bicubic_coeffs.size(); ++i)
+    for (MooseIndex(_bicubic_coeffs) j = 0; j < _bicubic_coeffs[i].size(); ++j)
     {
       // Distance between corner points in each direction
       const Real d1 = _x1[i + 1] - _x1[i];
@@ -255,7 +255,7 @@ BicubicInterpolation::tableDerivatives(std::vector<std::vector<Real>> & dy_dx1,
   dy_dx2.resize(m);
   d2y_dx1x2.resize(m);
 
-  for (auto i = beginIndex(_x1); i < m; ++i)
+  for (MooseIndex(_x1) i = 0; i < m; ++i)
   {
     dy_dx1[i].resize(n);
     dy_dx2[i].resize(n);
@@ -263,8 +263,8 @@ BicubicInterpolation::tableDerivatives(std::vector<std::vector<Real>> & dy_dx1,
   }
 
   // Central difference calculations of derivatives
-  for (auto i = beginIndex(_y); i < m; ++i)
-    for (auto j = beginIndex(_y[i]); j < n; ++j)
+  for (MooseIndex(_y) i = 0; i < m; ++i)
+    for (MooseIndex(_y) j = 0; j < n; ++j)
     {
       // Derivative wrt x1
       if (i == 0)
@@ -339,7 +339,7 @@ BicubicInterpolation::findInterval(
   Real d = x[khi] - x[klo];
   xs = xi - x[klo];
 
-  if (!MooseUtils::absoluteFuzzyEqual(d, 0.0))
+  if (!MooseUtils::absoluteFuzzyEqual(d, Real(0.0)))
     xs /= d;
 }
 
@@ -351,7 +351,7 @@ BicubicInterpolation::errorCheck()
   if (_y.size() != m)
     mooseError("y row dimension does not match the size of x1 in BicubicInterpolation");
   else
-    for (auto i = beginIndex(_y); i < _y.size(); ++i)
+    for (MooseIndex(_y) i = 0; i < _y.size(); ++i)
       if (_y[i].size() != n)
         mooseError("y column dimension does not match the size of x2 in BicubicInterpolation");
 }

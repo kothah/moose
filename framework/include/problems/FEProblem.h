@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef FEPROBLEM_H
-#define FEPROBLEM_H
+#pragma once
 
 #include "FEProblemBase.h"
 
@@ -27,8 +26,6 @@ class FEProblem : public FEProblemBase
 public:
   FEProblem(const InputParameters & parameters);
 
-  virtual ~FEProblem();
-
   virtual bool getUseNonlinear() const { return _use_nonlinear; }
   virtual void setUseNonlinear(bool use_nonlinear) { _use_nonlinear = use_nonlinear; }
 
@@ -43,4 +40,3 @@ protected:
   std::shared_ptr<NonlinearSystem> _nl_sys;
 };
 
-#endif /* FEPROBLEM_H */

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef RECOMPUTERADIALRETURNHYPERBOLICVISCOPLASTICITY_H
-#define RECOMPUTERADIALRETURNHYPERBOLICVISCOPLASTICITY_H
+#pragma once
 
 #include "RadialReturnStressUpdate.h"
 
@@ -79,7 +78,3 @@ protected:
   const MaterialProperty<RankTwoTensor> & _plastic_strain_old;
 };
 
-template <>
-InputParameters validParams<HyperbolicViscoplasticityStressUpdate>();
-
-#endif // RECOMPUTERADIALRETURNHYPERBOLICVISCOPLASTICITY_H

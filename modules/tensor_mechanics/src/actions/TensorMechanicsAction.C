@@ -53,13 +53,16 @@ validParams<TensorMechanicsAction>()
                                   "Add scalar quantity output for stress and/or strain (will be "
                                   "appended to the list in `generate_output`)");
   params.addParamNamesToGroup("additional_generate_output", "Output");
+  params.addParam<std::string>(
+      "strain_base_name",
+      "The base name used for the strain. If not provided, it will be set equal to base_name");
 
   return params;
 }
 
 TensorMechanicsAction::TensorMechanicsAction(const InputParameters & params)
   : TensorMechanicsActionBase(params),
-    _displacements(getParam<std::vector<NonlinearVariableName>>("displacements")),
+    _displacements(getParam<std::vector<VariableName>>("displacements")),
     _ndisp(_displacements.size()),
     _coupled_displacements(_ndisp),
     _save_in(getParam<std::vector<AuxVariableName>>("save_in")),
@@ -106,7 +109,7 @@ TensorMechanicsAction::TensorMechanicsAction(const InputParameters & params)
     _use_displaced_mesh = use_displaced_mesh_param;
   }
 
-  // convert vector of NonlinearVariableName to vector of VariableName
+  // convert vector of VariableName to vector of VariableName
   for (unsigned int i = 0; i < _ndisp; ++i)
     _coupled_displacements[i] = _displacements[i];
 
@@ -146,6 +149,14 @@ TensorMechanicsAction::TensorMechanicsAction(const InputParameters & params)
 void
 TensorMechanicsAction::act()
 {
+  std::string ad_prepend = "";
+  std::string ad_append = "";
+  if (_use_ad)
+  {
+    ad_prepend = "AD";
+    ad_append = "<RESIDUAL>";
+  }
+
   //
   // Consistency check for the coordinate system
   //
@@ -168,6 +179,8 @@ TensorMechanicsAction::act()
   {
     if (_planar_formulation == PlanarFormulation::GeneralizedPlaneStrain)
     {
+      if (_use_ad)
+        paramError("use_ad", "AD not setup for use with PlaneStrain");
       // Set the action parameters
       const std::string type = "GeneralizedPlaneStrainAction";
       auto action_params = _action_factory.getValidParams(type);
@@ -242,6 +255,9 @@ TensorMechanicsAction::act()
     else if (_planar_formulation == PlanarFormulation::PlaneStrain ||
              _planar_formulation == PlanarFormulation::GeneralizedPlaneStrain)
     {
+      if (_use_ad)
+        paramError("use_ad", "AD not setup for use with PlaneStrain");
+
       std::map<StrainAndIncrement, std::string> type_map = {
           {StrainAndIncrement::SmallTotal, "ComputePlaneSmallStrain"},
           {StrainAndIncrement::SmallIncremental, "ComputePlaneIncrementalStrain"},
@@ -258,18 +274,30 @@ TensorMechanicsAction::act()
       mooseError("Unsupported planar formulation");
 
     // set material parameters
-    auto params = _factory.getValidParams(type);
+    auto params = _factory.getValidParams(ad_prepend + type + ad_append);
     params.applyParameters(parameters(),
                            {"displacements", "use_displaced_mesh", "scalar_out_of_plane_strain"});
+
+    if (isParamValid("strain_base_name"))
+      params.set<std::string>("base_name") = getParam<std::string>("strain_base_name");
 
     params.set<std::vector<VariableName>>("displacements") = _coupled_displacements;
     params.set<bool>("use_displaced_mesh") = false;
 
     if (isParamValid("scalar_out_of_plane_strain"))
       params.set<std::vector<VariableName>>("scalar_out_of_plane_strain") = {
-          getParam<NonlinearVariableName>("scalar_out_of_plane_strain")};
+          getParam<VariableName>("scalar_out_of_plane_strain")};
 
-    _problem->addMaterial(type, name() + "_strain", params);
+    if (_use_ad)
+    {
+      _problem->addADResidualMaterial(
+          ad_prepend + type + "<RESIDUAL>", name() + "_strain" + "_residual", params);
+      _problem->addADJacobianMaterial(
+          ad_prepend + type + "<JACOBIAN>", name() + "_strain" + "_jacobian", params);
+      _problem->haveADObjects(true);
+    }
+    else
+      _problem->addMaterial(type, name() + "_strain", params);
   }
 
   //
@@ -278,7 +306,7 @@ TensorMechanicsAction::act()
   else if (_current_task == "add_kernel")
   {
     auto tensor_kernel_type = getKernelType();
-    auto params = getKernelParameters(tensor_kernel_type);
+    auto params = getKernelParameters(ad_prepend + tensor_kernel_type + ad_append);
 
     for (unsigned int i = 0; i < _ndisp; ++i)
     {
@@ -300,7 +328,16 @@ TensorMechanicsAction::act()
       if (_diag_save_in.size() == _ndisp)
         params.set<std::vector<AuxVariableName>>("diag_save_in") = {_diag_save_in[i]};
 
-      _problem->addKernel(tensor_kernel_type, kernel_name, params);
+      if (_use_ad)
+      {
+        _problem->addKernel(
+            ad_prepend + tensor_kernel_type + "<RESIDUAL>", kernel_name + "_residual", params);
+        _problem->addKernel(
+            ad_prepend + tensor_kernel_type + "<JACOBIAN>", kernel_name + "_jacobian", params);
+        _problem->haveADObjects(true);
+      }
+      else
+        _problem->addKernel(tensor_kernel_type, kernel_name, params);
     }
   }
 }

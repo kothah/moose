@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef USEROBJECT_H
-#define USEROBJECT_H
+#pragma once
 
 // MOOSE includes
 #include "DistributionInterface.h"
@@ -19,6 +18,7 @@
 #include "Restartable.h"
 #include "ScalarCoupleable.h"
 #include "SetupInterface.h"
+#include "PerfGraphInterface.h"
 
 #include "libmesh/parallel.h"
 
@@ -40,11 +40,12 @@ class UserObject : public MooseObject,
                    public DistributionInterface,
                    public Restartable,
                    public MeshChangedInterface,
-                   public ScalarCoupleable
+                   public ScalarCoupleable,
+                   public PerfGraphInterface
 {
 public:
   UserObject(const InputParameters & params);
-  virtual ~UserObject();
+  virtual ~UserObject() = default;
 
   /**
    * Execute method.
@@ -61,18 +62,6 @@ public:
    * you want to do MPI communication!
    */
   virtual void finalize() = 0;
-
-  /**
-   * Load user data object from a stream
-   * @param stream Stream to load from
-   */
-  virtual void load(std::ifstream & stream);
-
-  /**
-   * Store user data object to a stream
-   * @param stream Stream to store to
-   */
-  virtual void store(std::ofstream & stream);
 
   /**
    * Returns a reference to the subproblem that
@@ -136,6 +125,14 @@ public:
     _communicator.broadcast(proxy, rank);
   }
 
+  void setPrimaryThreadCopy(UserObject * primary)
+  {
+    if (!_primary_thread_copy && primary != this)
+      _primary_thread_copy = primary;
+  }
+
+  UserObject * primaryThreadCopy() { return _primary_thread_copy; }
+
 protected:
   /// Reference to the Subproblem for this user object
   SubProblem & _subproblem;
@@ -151,6 +148,8 @@ protected:
   const Moose::CoordinateSystemType & _coord_sys;
 
   const bool _duplicate_initial_execution;
+
+private:
+  UserObject * _primary_thread_copy = nullptr;
 };
 
-#endif /* USEROBJECT_H */

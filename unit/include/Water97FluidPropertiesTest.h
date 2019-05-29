@@ -7,33 +7,30 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef WATER97FLUIDPROPERTIESTEST_H
-#define WATER97FLUIDPROPERTIESTEST_H
+#pragma once
 
 #include "MooseObjectUnitTest.h"
 #include "Water97FluidProperties.h"
-#include "SinglePhaseFluidPropertiesPTUtils.h"
+#include "SinglePhaseFluidProperties.h"
 
 class Water97FluidPropertiesTest : public MooseObjectUnitTest
 {
 public:
-  Water97FluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp")
-  {
-    registerObjects(_factory);
-    buildObjects();
-  }
+  Water97FluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp") { buildObjects(); }
 
 protected:
-  void registerObjects(Factory & factory) { registerUserObject(Water97FluidProperties); }
-
   void buildObjects()
   {
     InputParameters uo_pars = _factory.getValidParams("Water97FluidProperties");
     _fe_problem->addUserObject("Water97FluidProperties", "fp", uo_pars);
     _fp = &_fe_problem->getUserObject<Water97FluidProperties>("fp");
+
+    InputParameters ad_uo_pars = _factory.getValidParams("Water97FluidProperties");
+    _fe_problem->addUserObject("Water97FluidProperties", "ad_fp", ad_uo_pars);
+    _ad_fp = &_fe_problem->getUserObject<SinglePhaseFluidProperties>("ad_fp");
   }
 
   const Water97FluidProperties * _fp;
+  const SinglePhaseFluidProperties * _ad_fp;
 };
 
-#endif // WATER97FLUIDPROPERTIESTEST_H

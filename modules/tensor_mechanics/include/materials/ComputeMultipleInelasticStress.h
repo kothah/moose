@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEMULTIPLEINELASTICSTRESS_H
-#define COMPUTEMULTIPLEINELASTICSTRESS_H
+#pragma once
 
 #include "ComputeFiniteStrainElasticStress.h"
 
@@ -40,9 +39,10 @@ class ComputeMultipleInelasticStress : public ComputeFiniteStrainElasticStress
 public:
   ComputeMultipleInelasticStress(const InputParameters & parameters);
 
+  virtual void initialSetup() override;
+
 protected:
   virtual void initQpStatefulProperties() override;
-  virtual void initialSetup() override;
 
   virtual void computeQpStress() override;
 
@@ -125,8 +125,7 @@ protected:
   /// after updateQpState, rotate the stress, elastic_strain, inelastic_strain and Jacobian_mult using _rotation_increment
   const bool _perform_finite_strain_rotations;
 
-  ///@{ Rank-4 and Rank-2 elasticity and elastic strain tensors
-  const MaterialProperty<RankFourTensor> & _elasticity_tensor;
+  ///@{ Strain tensors
   const MaterialProperty<RankTwoTensor> & _elastic_strain_old;
   const MaterialProperty<RankTwoTensor> & _strain_increment;
   ///@}
@@ -178,4 +177,3 @@ protected:
   bool _is_elasticity_tensor_guaranteed_isotropic;
 };
 
-#endif // COMPUTEMULTIPLEINELASTICSTRESS_H

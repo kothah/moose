@@ -7,11 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef DISTRIBUTIONINTERFACE_H
-#define DISTRIBUTIONINTERFACE_H
+#pragma once
 
-#include "ParallelUniqueId.h"
 #include "InputParameters.h"
+#include "ParallelUniqueId.h"
 #include "FEProblemBase.h"
 
 // Forward declarations
@@ -38,19 +37,29 @@ public:
    */
   DistributionInterface(const MooseObject * moose_object);
 
+  ///@{
   /**
    * Get a distribution with a given name
    * @param name The name of the parameter key of the distribution to retrieve
    * @return The distribution with name associated with the parameter 'name'
    */
-  Distribution & getDistribution(const std::string & name);
+  const Distribution & getDistribution(const std::string & name) const;
 
+  template <typename T>
+  const T & getDistribution(const std::string & name) const;
+  ///@}
+
+  ///@{
   /**
    * Get a distribution with a given name
    * @param name The name of the distribution to retrieve
    * @return The distribution with name 'name'
    */
-  Distribution & getDistributionByName(const DistributionName & name);
+  const Distribution & getDistributionByName(const DistributionName & name) const;
+
+  template <typename T>
+  const T & getDistributionByName(const std::string & name) const;
+  ///@}
 
 private:
   /// Parameters of the object with this interface
@@ -58,6 +67,47 @@ private:
 
   /// Reference to FEProblemBase instance
   FEProblemBase & _dni_feproblem;
+
+  /// Pointer to the MooseObject
+  const MooseObject * _dni_moose_object_ptr;
 };
 
-#endif /* DISTRIBUTIONINTERFACE_H */
+template <typename T>
+const T &
+DistributionInterface::getDistribution(const std::string & name) const
+{
+  try
+  {
+    const T & dist = dynamic_cast<const T &>(getDistribution(name));
+    return dist;
+  }
+  catch (std::bad_cast & exception)
+  {
+    DistributionName dist_name = _dni_params.get<DistributionName>(name);
+    mooseError("The '",
+               _dni_moose_object_ptr->name(),
+               "' object failed to retrieve '",
+               dist_name,
+               "' distribution with the desired type.");
+  }
+}
+
+template <typename T>
+const T &
+DistributionInterface::getDistributionByName(const std::string & name) const
+{
+  try
+  {
+    const T & dist = dynamic_cast<const T &>(getDistribution(name));
+    return dist;
+  }
+  catch (std::bad_cast & exception)
+  {
+    mooseError("The '",
+               _dni_moose_object_ptr->name(),
+               "' object failed to retrieve '",
+               name,
+               "' distribution with the desired type.");
+  }
+}
+

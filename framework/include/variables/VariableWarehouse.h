@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef VARIABLEWAREHOUSE_H
-#define VARIABLEWAREHOUSE_H
+#pragma once
 
 #include "MooseTypes.h"
 #include "HashMap.h"
@@ -16,6 +15,13 @@
 #include <vector>
 #include <map>
 #include <set>
+
+namespace libMesh
+{
+template <typename>
+class VectorValue;
+typedef VectorValue<Real> RealVectorValue;
+}
 
 class MooseVariableBase;
 class MooseVariableFEBase;
@@ -160,4 +166,3 @@ template <>
 MooseVariableFE<RealVectorValue> *
 VariableWarehouse::getFieldVariable<RealVectorValue>(unsigned int var_number);
 
-#endif // VARIABLEWAREHOUSE_H

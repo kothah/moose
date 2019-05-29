@@ -62,7 +62,7 @@ class RunPBS(QueueManager):
                 output_file = job_data.json_data.get(job_data.job_dir, {}).get(job_data.plugin, {}).get('QSUB_OUTPUT', "")
                 if os.path.exists(output_file):
                     with open(output_file, 'r') as f:
-                        output_string = util.readOutput(f, None, self.options)
+                        output_string = util.readOutput(f, None)
                     job_data.jobs.getJobs()[0].setOutput(output_string)
 
                 # Add a caveat to each job, explaining that one of the jobs caused a TestHarness exception
@@ -91,6 +91,18 @@ class RunPBS(QueueManager):
 
         # PBS Project group
         template['pbs_project'] = '#PBS -P %s' % (self.options.queue_project)
+
+        # PBS Queue
+        if self.options.queue_queue:
+            template['pbs_queue'] = '#PBS -q %s' % (self.options.queue_queue)
+        else:
+            template['pbs_queue'] = ''
+
+        # Apply source command
+        if self.options.queue_source_command and os.path.exists(self.options.queue_source_command):
+            template['pre_command'] = 'source %s || exit 1' % (os.path.abspath(self.options.queue_source_command))
+        else:
+            template['pre_command'] = ''
 
         # Redirect stdout to this location
         template['output'] = os.path.join(job.getTestDir(), 'qsub.output')
@@ -140,4 +152,4 @@ class RunPBS(QueueManager):
                                     'NCPUS' : template['mpi_procs'],
                                     'WALLTIME' : template['walltime'],
                                     'QSUB_OUTPUT' : template['output']})
-            tester.setStatus(tester.no_status, 'LAUNCHING')
+            tester.setStatus(tester.queued, 'LAUNCHING')

@@ -7,10 +7,18 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ELASTICITYTENSORTOOLS_H
-#define ELASTICITYTENSORTOOLS_H
+#pragma once
 
-class RankFourTensor;
+template <typename>
+class RankFourTensorTempl;
+typedef RankFourTensorTempl<Real> RankFourTensor;
+namespace libMesh
+{
+template <typename>
+class VectorValue;
+typedef VectorValue<Real> RealGradient;
+}
+using libMesh::RealGradient;
 
 namespace ElasticityTensorTools
 {
@@ -58,7 +66,12 @@ momentJacobianWC(const RankFourTensor & r4t, unsigned int i, unsigned int k, Rea
  * Get the shear modulus for an isotropic elasticity tensor
  * param elasticity_tensor the tensor (must be isotropic, but not checked for efficiency)
  */
-Real getIsotropicShearModulus(const RankFourTensor & elasticity_tensor);
+template <class T>
+auto
+getIsotropicShearModulus(const T & elasticity_tensor) -> decltype(elasticity_tensor(0, 1, 0, 1))
+{
+  return elasticity_tensor(0, 1, 0, 1);
+}
 
 /**
  * Get the bulk modulus for an isotropic elasticity tensor
@@ -79,4 +92,3 @@ Real getIsotropicYoungsModulus(const RankFourTensor & elasticity_tensor);
 Real getIsotropicPoissonsRatio(const RankFourTensor & elasticity_tensor);
 }
 
-#endif // ELASTICITYTENSORTOOLS_H

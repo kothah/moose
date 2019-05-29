@@ -50,7 +50,7 @@ InternalSideIndicator::InternalSideIndicator(const InputParameters & parameters)
     ScalarCoupleable(this),
     NeighborMooseVariableInterface(
         this, false, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_STANDARD),
-    _field_var(_sys.getVariable(_tid, name())),
+    _field_var(_subproblem.getStandardVariable(_tid, name())),
 
     _current_elem(_assembly.elem()),
     _neighbor_elem(_assembly.neighbor()),
@@ -72,7 +72,7 @@ InternalSideIndicator::InternalSideIndicator(const InputParameters & parameters)
     _u(_var.sln()),
     _grad_u(_var.gradSln()),
 
-    _normals(_field_var.normals()),
+    _normals(_assembly.normals()),
 
     _u_neighbor(_var.slnNeighbor()),
     _grad_u_neighbor(_var.gradSlnNeighbor())

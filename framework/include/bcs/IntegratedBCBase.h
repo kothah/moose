@@ -1,19 +1,13 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef INTEGRATEDBCBASE_H
-#define INTEGRATEDBCBASE_H
+#pragma once
 
 #include "BoundaryCondition.h"
 #include "RandomInterface.h"
@@ -69,20 +63,20 @@ public:
 
 protected:
   /// current element
-  const Elem *& _current_elem;
+  const Elem * const & _current_elem;
   /// Volume of the current element
   const Real & _current_elem_volume;
   /// current side of the current element
-  unsigned int & _current_side;
+  const unsigned int & _current_side;
   /// current side element
-  const Elem *& _current_side_elem;
+  const Elem * const & _current_side_elem;
   /// Volume of the current side
   const Real & _current_side_volume;
 
   /// quadrature point index
   unsigned int _qp;
   /// active quadrature rule
-  QBase *& _qrule;
+  const QBase * const & _qrule;
   /// active quadrature points
   const MooseArray<Point> & _q_point;
   /// transformed Jacobian weights
@@ -91,12 +85,6 @@ protected:
   const MooseArray<Real> & _coord;
   /// i-th, j-th index for enumerating test and shape functions
   unsigned int _i, _j;
-
-  /// Holds residual entries as their accumulated by this Kernel
-  DenseVector<Number> _local_re;
-
-  /// Holds residual entries as they are accumulated by this Kernel
-  DenseMatrix<Number> _local_ke;
 
   /// The aux variables to save the residual contributions to
   bool _has_save_in;
@@ -108,7 +96,6 @@ protected:
   std::vector<MooseVariableFEBase *> _diag_save_in;
   std::vector<AuxVariableName> _diag_save_in_strings;
 
-  virtual Real computeQpResidual() = 0;
   virtual Real computeQpJacobian() { return 0; }
   /**
    * This is the virtual that derived classes should override for computing an off-diagonal jacobian
@@ -117,4 +104,3 @@ protected:
   virtual Real computeQpOffDiagJacobian(unsigned int /*jvar*/) { return 0; }
 };
 
-#endif /* INTEGRATEDBCBASE_H */

@@ -28,6 +28,8 @@ ImplicitMidpoint::ImplicitMidpoint(const InputParameters & parameters)
     _stage(1),
     _residual_stage1(_nl.addVector("residual_stage1", false, GHOSTED))
 {
+  mooseInfo("ImplicitMidpoint and other multistage TimeIntegrators are known not to work with "
+            "Materials/AuxKernels that accumulate 'state' and should be used with caution.");
 }
 
 void
@@ -36,11 +38,21 @@ ImplicitMidpoint::computeTimeDerivatives()
   // We are multiplying by the method coefficients in postResidual(), so
   // the time derivatives are of the same form at every stage although
   // the current solution varies depending on the stage.
-  _u_dot = *_solution;
-  _u_dot -= _solution_old;
-  _u_dot *= 1. / _dt;
-  _u_dot.close();
+  if (!_sys.solutionUDot())
+    mooseError("ImplicitMidpoint: Time derivative of solution (`u_dot`) is not stored. Please set "
+               "uDotRequested() to true in FEProblemBase befor requesting `u_dot`.");
+
+  NumericVector<Number> & u_dot = *_sys.solutionUDot();
+  u_dot = *_solution;
+  computeTimeDerivativeHelper(u_dot, _solution_old);
+  u_dot.close();
   _du_dot_du = 1. / _dt;
+}
+
+void
+ImplicitMidpoint::computeADTimeDerivatives(DualReal & ad_u_dot, const dof_id_type & dof) const
+{
+  computeTimeDerivativeHelper(ad_u_dot, _solution_old(dof));
 }
 
 void
@@ -62,6 +74,10 @@ ImplicitMidpoint::solve()
   _fe_problem.getNonlinearSystemBase().system().solve();
   _n_nonlinear_iterations += getNumNonlinearIterationsLastSolve();
   _n_linear_iterations += getNumLinearIterationsLastSolve();
+
+  // Abort time step immediately on stage failure - see TimeIntegrator doc page
+  if (!_fe_problem.converged())
+    return;
 
   // Compute second stage
   _fe_problem.initPetscOutput();

@@ -7,27 +7,9 @@
   xmax = 1
 []
 
-[Adaptivity]
-  active = ''
-  max_h_level = 1
-  [./Markers]
-    [./error_frac]
-      indicator = ind
-      type = ErrorFractionMarker
-      refine = 0.1
-      coarsen = 0.1
-    [../]
-  [../]
-  [./Indicators]
-    [./ind]
-      type = GradientJumpIndicator
-      variable = temp
-    [../]
-  [../]
-[]
-
 [GlobalParams]
   PorousFlowDictator = dictator
+  gravity = '0 0 0'
 []
 
 [Variables]
@@ -83,16 +65,14 @@
     type = PorousFlowAdvectiveFlux
     fluid_component = 0
     variable = pp
-    gravity = '0 0 0'
   [../]
   [./energy_dot]
     type = PorousFlowEnergyTimeDerivative
     variable = temp
   [../]
-  [./convection]
+  [./heat_advection]
     type = PorousFlowHeatAdvection
     variable = temp
-    gravity = '0 0 0'
   [../]
 []
 
@@ -126,16 +106,10 @@
 [Materials]
   [./temperature]
     type = PorousFlowTemperature
-    at_nodes = true
-    temperature = temp
-  [../]
-  [./temperature_nodal]
-    type = PorousFlowTemperature
     temperature = temp
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
-    at_nodes = true
     porosity = 0.2
   [../]
   [./rock_heat]
@@ -147,12 +121,6 @@
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid
     phase = 0
-    at_nodes = true
-  [../]
-  [./simple_fluid_qp]
-    type = PorousFlowSingleComponentFluid
-    fp = simple_fluid
-    phase = 0
   [../]
   [./permeability]
     type = PorousFlowPermeabilityConst
@@ -160,21 +128,13 @@
   [../]
   [./relperm]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 2
     phase = 0
   [../]
   [./massfrac]
     type = PorousFlowMassFraction
-    at_nodes = true
   [../]
   [./PS]
-    type = PorousFlow1PhaseP
-    at_nodes = true
-    porepressure = pp
-    capillary_pressure = pc
-  [../]
-  [./PS_qp]
     type = PorousFlow1PhaseP
     porepressure = pp
     capillary_pressure = pc
@@ -197,8 +157,21 @@
   end_time = 0.6
 []
 
+[VectorPostprocessors]
+  [./T]
+    type = LineValueSampler
+    start_point = '0 0 0'
+    end_point = '1 0 0'
+    num_points = 51
+    sort_by = x
+    variable = temp
+  [../]
+[]
+
 [Outputs]
-  file_base = heat_advection_1d
-  exodus = true
-  interval = 10
+  [./csv]
+    type = CSV
+    sync_times = '0.1 0.6'
+    sync_only = true
+  [../]
 []

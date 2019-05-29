@@ -238,7 +238,6 @@
 
   [./stress]
     type = ComputeLinearElasticStress
-    store_stress_old = true
     block = 0
   [../]
 
@@ -298,5 +297,5 @@
 
 [Outputs]
   exodus = true
-  print_perf_log = true
+  perf_graph = true
 []

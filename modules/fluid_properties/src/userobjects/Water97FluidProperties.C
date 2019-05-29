@@ -18,13 +18,13 @@ template <>
 InputParameters
 validParams<Water97FluidProperties>()
 {
-  InputParameters params = validParams<SinglePhaseFluidPropertiesPT>();
+  InputParameters params = validParams<SinglePhaseFluidProperties>();
   params.addClassDescription("Fluid properties for water and steam (H2O) using IAPWS-IF97");
   return params;
 }
 
 Water97FluidProperties::Water97FluidProperties(const InputParameters & parameters)
-  : SinglePhaseFluidPropertiesPT(parameters),
+  : SinglePhaseFluidProperties(parameters),
     _Mh2o(18.015e-3),
     _Rw(461.526),
     _p_critical(22.064e6),
@@ -80,7 +80,7 @@ Water97FluidProperties::triplePointTemperature() const
 }
 
 Real
-Water97FluidProperties::rho(Real pressure, Real temperature) const
+Water97FluidProperties::rho_from_p_T(Real pressure, Real temperature) const
 {
   Real density, pi, tau;
 
@@ -118,7 +118,7 @@ Water97FluidProperties::rho(Real pressure, Real temperature) const
 }
 
 void
-Water97FluidProperties::rho_dpT(
+Water97FluidProperties::rho_from_p_T(
     Real pressure, Real temperature, Real & rho, Real & drho_dp, Real & drho_dT) const
 {
   Real pi, tau, ddensity_dp, ddensity_dT;
@@ -179,13 +179,13 @@ Water97FluidProperties::rho_dpT(
       mooseError(name(), ": inRegion() has given an incorrect region");
   }
 
-  rho = this->rho(pressure, temperature);
+  rho = this->rho_from_p_T(pressure, temperature);
   drho_dp = ddensity_dp;
   drho_dT = ddensity_dT;
 }
 
 Real
-Water97FluidProperties::e(Real pressure, Real temperature) const
+Water97FluidProperties::e_from_p_T(Real pressure, Real temperature) const
 {
   Real internal_energy, pi, tau;
 
@@ -232,7 +232,7 @@ Water97FluidProperties::e(Real pressure, Real temperature) const
 }
 
 void
-Water97FluidProperties::e_dpT(
+Water97FluidProperties::e_from_p_T(
     Real pressure, Real temperature, Real & e, Real & de_dp, Real & de_dT) const
 {
   Real pi, tau, dinternal_energy_dp, dinternal_energy_dT;
@@ -302,27 +302,13 @@ Water97FluidProperties::e_dpT(
       mooseError(name(), ": inRegion has given an incorrect region");
   }
 
-  e = this->e(pressure, temperature);
+  e = this->e_from_p_T(pressure, temperature);
   de_dp = dinternal_energy_dp;
   de_dT = dinternal_energy_dT;
 }
 
-void
-Water97FluidProperties::rho_e_dpT(Real pressure,
-                                  Real temperature,
-                                  Real & rho,
-                                  Real & drho_dp,
-                                  Real & drho_dT,
-                                  Real & e,
-                                  Real & de_dp,
-                                  Real & de_dT) const
-{
-  rho_dpT(pressure, temperature, rho, drho_dp, drho_dT);
-  e_dpT(pressure, temperature, e, de_dp, de_dT);
-}
-
 Real
-Water97FluidProperties::c(Real pressure, Real temperature) const
+Water97FluidProperties::c_from_p_T(Real pressure, Real temperature) const
 {
   Real speed2, pi, tau, delta;
 
@@ -380,7 +366,7 @@ Water97FluidProperties::c(Real pressure, Real temperature) const
 }
 
 Real
-Water97FluidProperties::cp(Real pressure, Real temperature) const
+Water97FluidProperties::cp_from_p_T(Real pressure, Real temperature) const
 {
   Real specific_heat, pi, tau, delta;
 
@@ -429,7 +415,7 @@ Water97FluidProperties::cp(Real pressure, Real temperature) const
 }
 
 Real
-Water97FluidProperties::cv(Real pressure, Real temperature) const
+Water97FluidProperties::cv_from_p_T(Real pressure, Real temperature) const
 {
   Real specific_heat, pi, tau, delta;
 
@@ -481,20 +467,20 @@ Water97FluidProperties::cv(Real pressure, Real temperature) const
 }
 
 Real
-Water97FluidProperties::mu(Real pressure, Real temperature) const
+Water97FluidProperties::mu_from_p_T(Real pressure, Real temperature) const
 {
-  Real rho = this->rho(pressure, temperature);
+  Real rho = this->rho_from_p_T(pressure, temperature);
   return this->mu_from_rho_T(rho, temperature);
 }
 
 void
-Water97FluidProperties::mu_dpT(
+Water97FluidProperties::mu_from_p_T(
     Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const
 {
   Real rho, drho_dp, drho_dT;
-  this->rho_dpT(pressure, temperature, rho, drho_dp, drho_dT);
+  this->rho_from_p_T(pressure, temperature, rho, drho_dp, drho_dT);
   Real dmu_drho;
-  this->mu_drhoT_from_rho_T(rho, temperature, drho_dT, mu, dmu_drho, dmu_dT);
+  this->mu_from_rho_T(rho, temperature, drho_dT, mu, dmu_drho, dmu_dT);
   dmu_dp = dmu_drho * drho_dp;
 }
 
@@ -525,12 +511,12 @@ Water97FluidProperties::mu_from_rho_T(Real density, Real temperature) const
 }
 
 void
-Water97FluidProperties::mu_drhoT_from_rho_T(Real density,
-                                            Real temperature,
-                                            Real ddensity_dT,
-                                            Real & mu,
-                                            Real & dmu_drho,
-                                            Real & dmu_dT) const
+Water97FluidProperties::mu_from_rho_T(Real density,
+                                      Real temperature,
+                                      Real ddensity_dT,
+                                      Real & mu,
+                                      Real & dmu_drho,
+                                      Real & dmu_dT) const
 {
   Real mu_star = 1.0e-6;
   Real rhobar = density / _rho_critical;
@@ -573,40 +559,42 @@ Water97FluidProperties::mu_drhoT_from_rho_T(Real density,
 }
 
 void
-Water97FluidProperties::rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const
+Water97FluidProperties::rho_mu_from_p_T(Real pressure,
+                                        Real temperature,
+                                        Real & rho,
+                                        Real & mu) const
 {
-  rho = this->rho(pressure, temperature);
+  rho = this->rho_from_p_T(pressure, temperature);
   mu = this->mu_from_rho_T(rho, temperature);
 }
 
 void
-Water97FluidProperties::rho_mu_dpT(Real pressure,
-                                   Real temperature,
-                                   Real & rho,
-                                   Real & drho_dp,
-                                   Real & drho_dT,
-                                   Real & mu,
-                                   Real & dmu_dp,
-                                   Real & dmu_dT) const
+Water97FluidProperties::rho_mu_from_p_T(Real pressure,
+                                        Real temperature,
+                                        Real & rho,
+                                        Real & drho_dp,
+                                        Real & drho_dT,
+                                        Real & mu,
+                                        Real & dmu_dp,
+                                        Real & dmu_dT) const
 {
-  this->rho_dpT(pressure, temperature, rho, drho_dp, drho_dT);
+  this->rho_from_p_T(pressure, temperature, rho, drho_dp, drho_dT);
   Real dmu_drho;
-  this->mu_drhoT_from_rho_T(rho, temperature, drho_dT, mu, dmu_drho, dmu_dT);
+  this->mu_from_rho_T(rho, temperature, drho_dT, mu, dmu_drho, dmu_dT);
   dmu_dp = dmu_drho * drho_dp;
 }
 
 Real
-Water97FluidProperties::k(Real pressure, Real temperature) const
+Water97FluidProperties::k_from_p_T(Real pressure, Real temperature) const
 {
-  Real rho = this->rho(pressure, temperature);
+  Real rho = this->rho_from_p_T(pressure, temperature);
   return this->k_from_rho_T(rho, temperature);
 }
 
 void
-Water97FluidProperties::k_dpT(
-    Real /*pressure*/, Real /*temperature*/, Real & /*k*/, Real & /*dk_dp*/, Real & /*dk_dT*/) const
+Water97FluidProperties::k_from_p_T(Real, Real, Real &, Real &, Real &) const
 {
-  mooseError(name(), "k_dpT() is not implemented");
+  mooseError(name(), ": k_from_p_T() is not implemented.");
 }
 
 Real
@@ -645,7 +633,7 @@ Water97FluidProperties::k_from_rho_T(Real density, Real temperature) const
 }
 
 Real
-Water97FluidProperties::s(Real pressure, Real temperature) const
+Water97FluidProperties::s_from_p_T(Real pressure, Real temperature) const
 {
   Real entropy, pi, tau, density3, delta;
 
@@ -685,8 +673,14 @@ Water97FluidProperties::s(Real pressure, Real temperature) const
   return entropy;
 }
 
+void
+Water97FluidProperties::s_from_p_T(Real p, Real T, Real & s, Real & ds_dp, Real & ds_dT) const
+{
+  SinglePhaseFluidProperties::s_from_p_T(p, T, s, ds_dp, ds_dT);
+}
+
 Real
-Water97FluidProperties::h(Real pressure, Real temperature) const
+Water97FluidProperties::h_from_p_T(Real pressure, Real temperature) const
 {
   Real enthalpy, pi, tau, delta;
 
@@ -730,7 +724,7 @@ Water97FluidProperties::h(Real pressure, Real temperature) const
 }
 
 void
-Water97FluidProperties::h_dpT(
+Water97FluidProperties::h_from_p_T(
     Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const
 {
   Real enthalpy, pi, tau, delta, denthalpy_dp, denthalpy_dT;
@@ -810,12 +804,12 @@ Water97FluidProperties::vaporPressure(Real temperature) const
 }
 
 void
-Water97FluidProperties::vaporPressure_dT(Real temperature, Real & psat, Real & dpsat_dT) const
+Water97FluidProperties::vaporPressure(Real temperature, Real & psat, Real & dpsat_dT) const
 {
   // Check whether the input temperature is within the region of validity of this equation.
   // Valid for 273.15 K <= t <= 647.096 K
   if (temperature < 273.15 || temperature > _T_critical)
-    throw MooseException(name() + ": vaporPressure_dT(): Temperature is outside range 273.15 K <= "
+    throw MooseException(name() + ": vaporPressure(): Temperature is outside range 273.15 K <= "
                                   "T <= 647.096 K");
 
   Real theta, dtheta_dT, theta2, a, b, c, da_dtheta, db_dtheta, dc_dtheta;
@@ -844,24 +838,43 @@ Water97FluidProperties::vaporPressure_dT(Real temperature, Real & psat, Real & d
   dpsat_dT = dpsat * dtheta_dT * 1.0e6;
 }
 
-Real
-Water97FluidProperties::vaporTemperature(Real pressure) const
+FPDualReal
+Water97FluidProperties::vaporTemperature_ad(const FPDualReal & pressure) const
 {
   // Check whether the input pressure is within the region of validity of this equation.
   // Valid for 611.213 Pa <= p <= 22.064 MPa
-  if (pressure < 611.23 || pressure > _p_critical)
+  if (pressure.value() < 611.23 || pressure.value() > _p_critical)
     throw MooseException(name() + ": vaporTemperature(): Pressure is outside range 611.213 Pa <= "
                                   "p <= 22.064 MPa");
 
-  Real beta, beta2, e, f, g, d;
-  beta = std::pow(pressure / 1.e6, 0.25);
-  beta2 = beta * beta;
-  e = beta2 + _n4[2] * beta + _n4[5];
-  f = _n4[0] * beta2 + _n4[3] * beta + _n4[6];
-  g = _n4[1] * beta2 + _n4[4] * beta + _n4[7];
-  d = 2.0 * g / (-f - std::sqrt(f * f - 4.0 * e * g));
+  const FPDualReal beta = std::pow(pressure / 1.e6, 0.25);
+  const FPDualReal beta2 = beta * beta;
+  const FPDualReal e = beta2 + _n4[2] * beta + _n4[5];
+  const FPDualReal f = _n4[0] * beta2 + _n4[3] * beta + _n4[6];
+  const FPDualReal g = _n4[1] * beta2 + _n4[4] * beta + _n4[7];
+  const FPDualReal d = 2.0 * g / (-f - std::sqrt(f * f - 4.0 * e * g));
 
   return (_n4[9] + d - std::sqrt((_n4[9] + d) * (_n4[9] + d) - 4.0 * (_n4[8] + _n4[9] * d))) / 2.0;
+}
+
+Real
+Water97FluidProperties::vaporTemperature(Real pressure) const
+{
+  const FPDualReal p = pressure;
+
+  return vaporTemperature_ad(p).value();
+}
+
+void
+Water97FluidProperties::vaporTemperature(Real pressure, Real & Tsat, Real & dTsat_dp) const
+{
+  FPDualReal p = pressure;
+  p.derivatives()[0] = 1.0;
+
+  const FPDualReal T = vaporTemperature_ad(p);
+
+  Tsat = T.value();
+  dTsat_dp = T.derivatives()[0];
 }
 
 Real
@@ -1565,11 +1578,13 @@ Water97FluidProperties::inRegionPH(Real pressure, Real enthalpy) const
 
   if (pressure >= p273 && pressure <= p623)
   {
-    if (enthalpy >= h(pressure, 273.15) && enthalpy <= h(pressure, vaporTemperature(pressure)))
+    if (enthalpy >= h_from_p_T(pressure, 273.15) &&
+        enthalpy <= h_from_p_T(pressure, vaporTemperature(pressure)))
       region = 1;
-    else if (enthalpy > h(pressure, vaporTemperature(pressure)) && enthalpy <= h(pressure, 1073.15))
+    else if (enthalpy > h_from_p_T(pressure, vaporTemperature(pressure)) &&
+             enthalpy <= h_from_p_T(pressure, 1073.15))
       region = 2;
-    else if (enthalpy > h(pressure, 1073.15) && enthalpy <= h(pressure, 2273.15))
+    else if (enthalpy > h_from_p_T(pressure, 1073.15) && enthalpy <= h_from_p_T(pressure, 2273.15))
       region = 5;
     else
       throw MooseException("Enthalpy " + Moose::stringify(enthalpy) + " is out of range in " +
@@ -1577,13 +1592,15 @@ Water97FluidProperties::inRegionPH(Real pressure, Real enthalpy) const
   }
   else if (pressure > p623 && pressure <= 50.0e6)
   {
-    if (enthalpy >= h(pressure, 273.15) && enthalpy <= h(pressure, 623.15))
+    if (enthalpy >= h_from_p_T(pressure, 273.15) && enthalpy <= h_from_p_T(pressure, 623.15))
       region = 1;
-    else if (enthalpy > h(pressure, 623.15) && enthalpy <= h(pressure, b23T(pressure)))
+    else if (enthalpy > h_from_p_T(pressure, 623.15) &&
+             enthalpy <= h_from_p_T(pressure, b23T(pressure)))
       region = 3;
-    else if (enthalpy > h(pressure, b23T(pressure)) && enthalpy <= h(pressure, 1073.15))
+    else if (enthalpy > h_from_p_T(pressure, b23T(pressure)) &&
+             enthalpy <= h_from_p_T(pressure, 1073.15))
       region = 2;
-    else if (enthalpy > h(pressure, 1073.15) && enthalpy <= h(pressure, 2273.15))
+    else if (enthalpy > h_from_p_T(pressure, 1073.15) && enthalpy <= h_from_p_T(pressure, 2273.15))
       region = 5;
     else
       throw MooseException("Enthalpy " + Moose::stringify(enthalpy) + " is out of range in " +
@@ -1591,11 +1608,13 @@ Water97FluidProperties::inRegionPH(Real pressure, Real enthalpy) const
   }
   else if (pressure > 50.0e6 && pressure <= 100.0e6)
   {
-    if (enthalpy >= h(pressure, 273.15) && enthalpy <= h(pressure, 623.15))
+    if (enthalpy >= h_from_p_T(pressure, 273.15) && enthalpy <= h_from_p_T(pressure, 623.15))
       region = 1;
-    else if (enthalpy > h(pressure, 623.15) && enthalpy <= h(pressure, b23T(pressure)))
+    else if (enthalpy > h_from_p_T(pressure, 623.15) &&
+             enthalpy <= h_from_p_T(pressure, b23T(pressure)))
       region = 3;
-    else if (enthalpy > h(pressure, b23T(pressure)) && enthalpy <= h(pressure, 1073.15))
+    else if (enthalpy > h_from_p_T(pressure, b23T(pressure)) &&
+             enthalpy <= h_from_p_T(pressure, 1073.15))
       region = 2;
     else
       throw MooseException("Enthalpy " + Moose::stringify(enthalpy) + " is out of range in " +
@@ -1655,12 +1674,38 @@ Water97FluidProperties::b2bc(Real pressure) const
 }
 
 Real
-Water97FluidProperties::temperature_from_ph(Real pressure, Real enthalpy) const
+Water97FluidProperties::T_from_p_h(Real pressure, Real enthalpy) const
 {
-  Real temperature = 0.0;
+  const FPDualReal p = pressure;
+  const FPDualReal h = enthalpy;
+
+  return T_from_p_h_ad(p, h).value();
+}
+
+void
+Water97FluidProperties::T_from_p_h(
+    Real pressure, Real enthalpy, Real & temperature, Real & dT_dp, Real & dT_dh) const
+{
+  FPDualReal p = pressure;
+  p.derivatives()[0] = 1.0;
+  FPDualReal h = enthalpy;
+  h.derivatives()[1] = 1.0;
+
+  const FPDualReal T = T_from_p_h_ad(p, h);
+
+  temperature = T.value();
+  dT_dp = T.derivatives()[0];
+  dT_dh = T.derivatives()[1];
+}
+
+FPDualReal
+Water97FluidProperties::T_from_p_h_ad(const FPDualReal & pressure,
+                                      const FPDualReal & enthalpy) const
+{
+  FPDualReal temperature = 0.0;
 
   // Determine which region the point is in
-  unsigned int region = inRegionPH(pressure, enthalpy);
+  const unsigned int region = inRegionPH(pressure.value(), enthalpy.value());
 
   switch (region)
   {
@@ -1671,7 +1716,7 @@ Water97FluidProperties::temperature_from_ph(Real pressure, Real enthalpy) const
     case 2:
     {
       // First, determine which subregion the point is in:
-      unsigned int subregion = subregion2ph(pressure, enthalpy);
+      const unsigned int subregion = subregion2ph(pressure.value(), enthalpy.value());
 
       if (subregion == 1)
         temperature = temperature_from_ph2a(pressure, enthalpy);
@@ -1685,7 +1730,7 @@ Water97FluidProperties::temperature_from_ph(Real pressure, Real enthalpy) const
     case 3:
     {
       // First, determine which subregion the point is in:
-      unsigned int subregion = subregion3ph(pressure, enthalpy);
+      const unsigned int subregion = subregion3ph(pressure.value(), enthalpy.value());
 
       if (subregion == 1)
         temperature = temperature_from_ph3a(pressure, enthalpy);
@@ -1705,54 +1750,72 @@ Water97FluidProperties::temperature_from_ph(Real pressure, Real enthalpy) const
   return temperature;
 }
 
-Real
-Water97FluidProperties::temperature_from_ph1(Real pressure, Real enthalpy) const
+FPDualReal
+Water97FluidProperties::temperature_from_ph1(const FPDualReal & pressure,
+                                             const FPDualReal & enthalpy) const
 {
-  Real pi = pressure / 1.0e6;
-  Real eta = enthalpy / 2500.0e3;
-  Real sum = 0.0;
+  const FPDualReal pi = pressure / 1.0e6;
+  const FPDualReal eta = enthalpy / 2500.0e3;
+  FPDualReal sum = 0.0;
 
   for (std::size_t i = 0; i < _nph1.size(); ++i)
-    sum += _nph1[i] * MathUtils::pow(pi, _Iph1[i]) * MathUtils::pow(eta + 1.0, _Jph1[i]);
+    sum += _nph1[i] * std::pow(pi, _Iph1[i]) * std::pow(eta + 1.0, _Jph1[i]);
 
   return sum;
 }
 
-Real
-Water97FluidProperties::temperature_from_ph2a(Real pressure, Real enthalpy) const
+FPDualReal
+Water97FluidProperties::temperature_from_ph2a(const FPDualReal & pressure,
+                                              const FPDualReal & enthalpy) const
 {
-  Real pi = pressure / 1.0e6;
-  Real eta = enthalpy / 2000.0e3;
-  Real sum = 0.0;
+  const FPDualReal pi = pressure / 1.0e6;
+  const FPDualReal eta = enthalpy / 2000.0e3;
+  FPDualReal sum = 0.0;
+
+  // Factor out the negative in std::pow(eta - 2.1, _Jph2a[i]) to avoid fpe in dbg (see #13163)
+  const Real sgn = MathUtils::sign(eta.value() - 2.1);
 
   for (std::size_t i = 0; i < _nph2a.size(); ++i)
-    sum += _nph2a[i] * MathUtils::pow(pi, _Iph2a[i]) * MathUtils::pow(eta - 2.1, _Jph2a[i]);
+    sum += _nph2a[i] * std::pow(pi, _Iph2a[i]) * std::pow(std::abs(eta - 2.1), _Jph2a[i]) *
+           std::pow(sgn, _Jph2a[i]);
 
   return sum;
 }
 
-Real
-Water97FluidProperties::temperature_from_ph2b(Real pressure, Real enthalpy) const
+FPDualReal
+Water97FluidProperties::temperature_from_ph2b(const FPDualReal & pressure,
+                                              const FPDualReal & enthalpy) const
 {
-  Real pi = pressure / 1.0e6;
-  Real eta = enthalpy / 2000.0e3;
-  Real sum = 0.0;
+  const FPDualReal pi = pressure / 1.0e6;
+  const FPDualReal eta = enthalpy / 2000.0e3;
+  FPDualReal sum = 0.0;
+
+  // Factor out the negatives in std::pow(pi - 2.0, _Iph2b[i])* std::pow(eta - 2.6, _Jph2b[i])
+  // to avoid fpe in dbg (see #13163)
+  const Real sgn0 = MathUtils::sign(pi.value() - 2.0);
+  const Real sgn1 = MathUtils::sign(eta.value() - 2.6);
 
   for (std::size_t i = 0; i < _nph2b.size(); ++i)
-    sum += _nph2b[i] * MathUtils::pow(pi - 2.0, _Iph2b[i]) * MathUtils::pow(eta - 2.6, _Jph2b[i]);
+    sum += _nph2b[i] * std::pow(std::abs(pi - 2.0), _Iph2b[i]) * std::pow(sgn0, _Iph2b[i]) *
+           std::pow(std::abs(eta - 2.6), _Jph2b[i]) * std::pow(sgn1, _Jph2b[i]);
 
   return sum;
 }
 
-Real
-Water97FluidProperties::temperature_from_ph2c(Real pressure, Real enthalpy) const
+FPDualReal
+Water97FluidProperties::temperature_from_ph2c(const FPDualReal & pressure,
+                                              const FPDualReal & enthalpy) const
 {
-  Real pi = pressure / 1.0e6;
-  Real eta = enthalpy / 2000.0e3;
-  Real sum = 0.0;
+  const FPDualReal pi = pressure / 1.0e6;
+  const FPDualReal eta = enthalpy / 2000.0e3;
+  FPDualReal sum = 0.0;
+
+  // Factor out the negative in std::pow(eta - 1.8, _Jph2c[i]) to avoid fpe in dbg (see #13163)
+  const Real sgn = MathUtils::sign(eta.value() - 1.8);
 
   for (std::size_t i = 0; i < _nph2c.size(); ++i)
-    sum += _nph2c[i] * MathUtils::pow(pi + 25.0, _Iph2c[i]) * MathUtils::pow(eta - 1.8, _Jph2c[i]);
+    sum += _nph2c[i] * std::pow(pi + 25.0, _Iph2c[i]) * std::pow(std::abs(eta - 1.8), _Jph2c[i]) *
+           std::pow(sgn, _Jph2c[i]);
 
   return sum;
 }
@@ -1772,30 +1835,30 @@ Water97FluidProperties::b3ab(Real pressure) const
   return eta * 1.0e3;
 }
 
-Real
-Water97FluidProperties::temperature_from_ph3a(Real pressure, Real enthalpy) const
+FPDualReal
+Water97FluidProperties::temperature_from_ph3a(const FPDualReal & pressure,
+                                              const FPDualReal & enthalpy) const
 {
-  Real pi = pressure / 100.0e6;
-  Real eta = enthalpy / 2300.0e3;
-  Real sum = 0.0;
+  const FPDualReal pi = pressure / 100.0e6;
+  const FPDualReal eta = enthalpy / 2300.0e3;
+  FPDualReal sum = 0.0;
 
   for (std::size_t i = 0; i < _nph3a.size(); ++i)
-    sum +=
-        _nph3a[i] * MathUtils::pow(pi + 0.24, _Iph3a[i]) * MathUtils::pow(eta - 0.615, _Jph3a[i]);
+    sum += _nph3a[i] * std::pow(pi + 0.24, _Iph3a[i]) * std::pow(eta - 0.615, _Jph3a[i]);
 
   return sum * 760.0;
 }
 
-Real
-Water97FluidProperties::temperature_from_ph3b(Real pressure, Real enthalpy) const
+FPDualReal
+Water97FluidProperties::temperature_from_ph3b(const FPDualReal & pressure,
+                                              const FPDualReal & enthalpy) const
 {
-  Real pi = pressure / 100.0e6;
-  Real eta = enthalpy / 2800.0e3;
-  Real sum = 0.0;
+  const FPDualReal pi = pressure / 100.0e6;
+  const FPDualReal eta = enthalpy / 2800.0e3;
+  FPDualReal sum = 0.0;
 
   for (std::size_t i = 0; i < _nph3b.size(); ++i)
-    sum +=
-        _nph3b[i] * MathUtils::pow(pi + 0.298, _Iph3b[i]) * MathUtils::pow(eta - 0.72, _Jph3b[i]);
+    sum += _nph3b[i] * std::pow(pi + 0.298, _Iph3b[i]) * std::pow(eta - 0.72, _Jph3b[i]);
 
   return sum * 860.0;
 }

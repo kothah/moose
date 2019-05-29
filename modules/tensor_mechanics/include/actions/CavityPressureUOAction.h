@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CAVITYPRESSUREUOACTION_H
-#define CAVITYPRESSUREUOACTION_H
+#pragma once
 
 #include "Action.h"
 #include "MooseTypes.h"
@@ -24,11 +23,10 @@ public:
   const std::vector<PostprocessorName> _material_input;
   const Real _R;
   const PostprocessorName _temperature;
-  const PostprocessorName _volume;
+  const std::vector<PostprocessorName> _volume;
   const Real _startup_time;
 };
 
 template <>
 InputParameters validParams<CavityPressureUOAction>();
 
-#endif

@@ -66,9 +66,9 @@
 [Modules]
   [./FluidProperties]
     [./idealgas]
-      type = IdealGasFluidPropertiesPT
+      type = IdealGasFluidProperties
       molar_mass = 1.4
-      viscosity = 1.2
+      mu = 1.2
       cv = 1.3
     [../]
   [../]
@@ -77,11 +77,6 @@
 [Materials]
   [./temperature]
     type = PorousFlowTemperature
-    at_nodes = true
-    temperature = temp
-  [../]
-  [./temperature_qp]
-    type = PorousFlowTemperature
     temperature = temp
   [../]
   [./ppss]
@@ -89,23 +84,10 @@
     porepressure = pressure
     capillary_pressure = pc
   [../]
-  [./ppss_nodal]
-    type = PorousFlow1PhaseP
-    at_nodes = true
-    porepressure = pressure
-    capillary_pressure = pc
-  [../]
   [./massfrac]
     type = PorousFlowMassFraction
-    at_nodes = true
   [../]
   [./dens0]
-    type = PorousFlowSingleComponentFluid
-    fp = idealgas
-    at_nodes = true
-    phase = 0
-  [../]
-  [./dens0_qp]
     type = PorousFlowSingleComponentFluid
     fp = idealgas
     phase = 0
@@ -116,7 +98,6 @@
   [../]
   [./relperm]
     type = PorousFlowRelativePermeabilityCorey # irrelevant in this fully-saturated situation
-    at_nodes = true
     n = 2
     phase = 0
   [../]
@@ -185,15 +166,14 @@
   [./andy]
     type = SMP
     full = true
-    petsc_options = '-snes_converged_reason'
-    petsc_options_iname = '-ksp_type -pc_type -sub_pc_type -snes_max_it -sub_pc_factor_shift_type -pc_asm_overlap -snes_atol -snes_rtol'
-    petsc_options_value = 'gmres asm lu 100 NONZERO 2 1E-15 1E-10'
   [../]
 []
 
 [Executioner]
   type = Steady
   solve_type = Newton
+  nl_rel_tol = 1E-10
+  nl_abs_tol = 1E-15
 []
 
 [Outputs]

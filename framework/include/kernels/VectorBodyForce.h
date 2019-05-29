@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef VECTORBODYFORCE_H
-#define VECTORBODYFORCE_H
+#pragma once
 
 #include "VectorKernel.h"
 
@@ -35,7 +34,10 @@ protected:
   /// Scale factor
   const Real & _scale;
 
-  /// Optional function value
+  /// Optional vectorValue function
+  Function * _function;
+
+  /// Optional component function value
   Function & _function_x;
   Function & _function_y;
   Function & _function_z;
@@ -44,4 +46,3 @@ protected:
   const PostprocessorValue & _postprocessor;
 };
 
-#endif

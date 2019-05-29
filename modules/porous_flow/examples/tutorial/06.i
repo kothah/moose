@@ -107,14 +107,9 @@
 []
 
 [Materials]
-  [./porosity_qp]
-    type = PorousFlowPorosity
-    porosity_zero = 0.1
-  [../]
   [./porosity]
     type = PorousFlowPorosity
     porosity_zero = 0.1
-    at_nodes = true
   [../]
   [./permeability_aquifer]
     type = PorousFlowPermeabilityConst
@@ -150,10 +145,9 @@
   solve_type = Newton
   end_time = 1E6
   dt = 1E5
-  nl_abs_tol = 1E-7
+  nl_rel_tol = 1E-14
 []
 
 [Outputs]
   exodus = true
 []
-

@@ -34,7 +34,8 @@
 #endif
 namespace Metis
 {
-extern "C" {
+extern "C"
+{
 #include "libmesh/ignore_warnings.h"
 #include "metis.h"
 #include "libmesh/restore_warnings.h"
@@ -118,15 +119,29 @@ DistributedGeneratedMesh::DistributedGeneratedMesh(const InputParameters & param
     _zmax(getParam<Real>("zmax")),
     _bias_x(getParam<Real>("bias_x")),
     _bias_y(getParam<Real>("bias_y")),
-    _bias_z(getParam<Real>("bias_z"))
+    _bias_z(getParam<Real>("bias_z")),
+    _dims_may_have_changed(false)
 {
   // All generated meshes are regular orthogonal meshes
   _regular_orthogonal_mesh = true;
 }
 
+void
+DistributedGeneratedMesh::prepared(bool state)
+{
+  MooseMesh::prepared(state);
+
+  // Fall back on scanning the mesh for coordinates instead of using input parameters for queries
+  if (!state)
+    _dims_may_have_changed = true;
+}
+
 Real
 DistributedGeneratedMesh::getMinInDimension(unsigned int component) const
 {
+  if (_dims_may_have_changed)
+    return MooseMesh::getMinInDimension(component);
+
   switch (component)
   {
     case 0:
@@ -143,6 +158,9 @@ DistributedGeneratedMesh::getMinInDimension(unsigned int component) const
 Real
 DistributedGeneratedMesh::getMaxInDimension(unsigned int component) const
 {
+  if (_dims_may_have_changed)
+    return MooseMesh::getMaxInDimension(component);
+
   switch (component)
   {
     case 0:
@@ -1237,7 +1255,9 @@ build_cube(UnstructuredMesh & mesh,
   // Add the ghosts to the mesh
   for (auto & ghost_id : ghost_elems)
   {
-    dof_id_type i, j, k;
+    dof_id_type i = 0;
+    dof_id_type j = 0;
+    dof_id_type k = 0;
 
     get_indices<T>(nx, ny, ghost_id, i, j, k);
 
@@ -1267,7 +1287,7 @@ build_cube(UnstructuredMesh & mesh,
   // Set RemoteElem neighbors
   for (auto & elem_ptr : mesh.element_ptr_range())
     for (unsigned int s = 0; s < elem_ptr->n_sides(); s++)
-      if (!elem_ptr->neighbor(s) && !boundary_info.n_boundary_ids(elem_ptr, s))
+      if (!elem_ptr->neighbor_ptr(s) && !boundary_info.n_boundary_ids(elem_ptr, s))
         elem_ptr->set_neighbor(s, const_cast<RemoteElem *>(remote_elem));
 
   if (verbose)
@@ -1301,7 +1321,14 @@ build_cube(UnstructuredMesh & mesh,
   if (verbose)
     Moose::out << "Getting ready to prepare for use" << std::endl;
 
-  mesh.prepare_for_use(true, true); // No need to renumber or find neighbors - done did it.
+  // No need to renumber or find neighbors - done did it.
+  // Avoid deprecation message/error by _also_ setting
+  // allow_renumbering(false). This is a bit silly, but we want to
+  // catch cases where people are purely using the old "skip"
+  // interface and not the new flag setting one.
+  mesh.allow_renumbering(false);
+  mesh.prepare_for_use(/*skip_renumber (ignored!) = */ false,
+                       /*skip_find_neighbors = */ true);
 
   if (verbose)
     for (auto & elem_ptr : mesh.element_ptr_range())

@@ -1,8 +1,10 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "lex.h"
+#include "braceexpr.h"
 
 namespace hit
 {
@@ -102,9 +104,13 @@ Lexer::rewind()
 {
   if (!peek()) // don't do anything if we are at EOF
     return;
+
   auto tmp = lastToken();
+  if (tmp >= _start)
+    return;
+
   // subtract newlines that may have been ignored
-  _line_count -= lineCount(_input.substr(tmp, _start));
+  _line_count -= lineCount(_input.substr(tmp, _start - tmp));
   _pos = tmp;
   if (_pos < _start)
     _start = _pos;
@@ -323,7 +329,7 @@ lexEq(Lexer * l)
   return lexString;
 }
 
-void
+size_t
 consumeUnquotedString(Lexer * l)
 {
   while (true)
@@ -334,6 +340,16 @@ consumeUnquotedString(Lexer * l)
       break;
   }
   l->backup();
+  return l->pos() - l->start();
+}
+
+void
+consumeBraceExpression(Lexer * l)
+{
+  BraceNode n;
+  auto offset = parseBraceNode(l->input(), l->start(), n);
+  for (auto i = l->start(); i < offset; i++)
+    l->next();
 }
 
 _LexFunc
@@ -342,10 +358,27 @@ lexString(Lexer * l)
   l->acceptRun(allspace);
   l->ignore();
 
+  char n = l->next();
+  char nn = l->peek();
+  l->backup();
+  if (n == '$' && nn == '{')
+  {
+    try
+    {
+      consumeBraceExpression(l);
+      l->emit(TokType::String);
+      return lexHit;
+    }
+    catch (Error & err)
+    {
+      return l->error(err.what());
+    }
+  }
+
   if (!charIn(l->peek(), "'\""))
   {
-    consumeUnquotedString(l);
-    l->emit(TokType::String);
+    if (consumeUnquotedString(l))
+      l->emit(TokType::String);
     return lexHit;
   }
 
@@ -354,6 +387,8 @@ lexString(Lexer * l)
     quote = "\"";
   else if (l->peek() == '\'')
     quote = "'";
+  else
+    return l->error("the parser is horribly broken");
 
   // this is a loop in order to enable consecutive string literals to be parsed
   while (l->accept(quote))
@@ -397,16 +432,16 @@ lexNumber(Lexer * l)
   if (n == 0)
   {
     // fall back to string
-    consumeUnquotedString(l);
-    l->emit(TokType::String);
+    if (consumeUnquotedString(l))
+      l->emit(TokType::String);
     return lexHit;
   }
 
   if (!charIn(l->peek(), allspace + "[") && l->peek() != '\0')
   {
     // fall back to string
-    consumeUnquotedString(l);
-    l->emit(TokType::String);
+    if (consumeUnquotedString(l))
+      l->emit(TokType::String);
     return lexHit;
   }
 
@@ -436,7 +471,7 @@ lexHit(Lexer * l)
     l->emit(TokType::EOF);
     return NULL;
   }
-  return l->error("invalid character '" + std::string(1, c) + "'");
+  return l->error("invalid character '" + std::string(1, c) + "' - did you leave a field value blank after a previous '='?");
 }
 
 } // namespace hit

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEEIGENSTRAINFROMINITIALSTRESS_H
-#define COMPUTEEIGENSTRAINFROMINITIALSTRESS_H
+#pragma once
 
 #include "ComputeEigenstrainBase.h"
 #include "RankFourTensor.h"
@@ -20,6 +19,8 @@ InputParameters validParams<ComputeEigenstrainFromInitialStress>();
 
 /**
  * ComputeEigenstrain computes an Eigenstrain that results from an initial stress
+ * The initial stress is defined in terms of Functions, which may be
+ * multiplied by optional AuxVariables
  */
 class ComputeEigenstrainFromInitialStress : public ComputeEigenstrainBase
 {
@@ -38,8 +39,13 @@ protected:
   ///Stores the total eigenstrain in the previous step
   const MaterialProperty<RankTwoTensor> & _eigenstrain_old;
 
+  /// Whether the user has supplied AuxVariables representing the initial stress
+  const bool _ini_aux_provided;
+
   /// initial stress components
   std::vector<Function *> _initial_stress_fcn;
+
+  /// AuxVariables defining the initial stress
+  std::vector<const VariableValue *> _ini_aux;
 };
 
-#endif // COMPUTEEIGENSTRAINFROMINITIALSTRESS_H

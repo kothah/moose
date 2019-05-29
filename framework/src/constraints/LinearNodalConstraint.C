@@ -18,6 +18,8 @@ InputParameters
 validParams<LinearNodalConstraint>()
 {
   InputParameters params = validParams<NodalConstraint>();
+  params.addClassDescription(
+      "Constrains slave node to move as a linear combination of master nodes.");
   params.addRequiredParam<std::vector<unsigned int>>("master", "The master node IDs.");
   params.addParam<std::vector<unsigned int>>("slave_node_ids", "The list of slave node ids");
   params.addParam<BoundaryName>(
@@ -82,13 +84,12 @@ Real
 LinearNodalConstraint::computeQpResidual(Moose::ConstraintType type)
 {
   /**
-  * Slave residual is u_slave - weights[1]*u_master[1]-weights[2]*u_master[2] ...
-  *-u_master[n]*weights[n]
-  * However, computeQPresidual is calculated for only a combination of one master and one slave node
-  *at a time.
-  * To get around this, the residual is split up such that the final slave residual resembles the
-  *above expression.
-  **/
+   * Slave residual is u_slave - weights[1]*u_master[1]-weights[2]*u_master[2] ...
+   *-u_master[n]*weights[n]
+   * However, computeQPresidual is calculated for only a combination of one master and one slave
+   *node at a time. To get around this, the residual is split up such that the final slave residual
+   *resembles the above expression.
+   **/
 
   unsigned int master_size = _master_node_ids.size();
 
@@ -117,6 +118,9 @@ LinearNodalConstraint::computeQpJacobian(Moose::ConstraintJacobianType type)
       return _penalty / master_size;
     case Moose::SlaveMaster:
       return -_penalty * _weights[_j];
+    default:
+      mooseError("Unsupported type");
+      break;
   }
   return 0.;
 }

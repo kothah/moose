@@ -1,6 +1,5 @@
 [GlobalParams]
   order = SECOND
-  volumetric_locking_correction = true
   displacements = 'disp_x disp_y disp_z'
 []
 
@@ -337,7 +336,7 @@
 [Outputs]
   file_base = brick3_mu_0_2_pen_out
   print_linear_residuals = true
-  print_perf_log = true
+  perf_graph = true
   [./exodus]
     type = Exodus
     elemental_as_nodal = true

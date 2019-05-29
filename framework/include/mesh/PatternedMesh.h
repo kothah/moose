@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PATTERNEDMESH_H
-#define PATTERNEDMESH_H
+#pragma once
 
 #include "MooseMesh.h"
 
@@ -38,7 +37,7 @@ class PatternedMesh : public MooseMesh
 public:
   PatternedMesh(const InputParameters & parameters);
   PatternedMesh(const PatternedMesh & other_mesh);
-  virtual ~PatternedMesh();
+  virtual ~PatternedMesh() = default;
 
   virtual std::unique_ptr<MooseMesh> safeClone() const override;
 
@@ -65,4 +64,3 @@ protected:
   const Real _z_width;
 };
 
-#endif /* PATTERNEDMESH_H */

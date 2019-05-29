@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CONSOLE_H
-#define CONSOLE_H
+#pragma once
 
 // MOOSE includes
 #include "TableOutput.h"
@@ -42,6 +41,8 @@ public:
    */
   virtual void initialSetup() override;
 
+  virtual void timestepSetup() override;
+
   /**
    * Customizes the order of output for the various components as well as adds additional
    * output such as timestep information and nonlinear/linear residual information
@@ -70,6 +71,13 @@ public:
    * Performs console related printing when the mesh is changed
    */
   void meshChanged() override;
+
+  /**
+   * A helper function for outputting norms in color
+   * @param old_norm The old residual norm to compare against
+   * @param norm The current residual norm
+   */
+  static std::string outputNorm(const Real & old_norm, const Real & norm);
 
   /**
    * Return system information flags
@@ -117,16 +125,11 @@ protected:
   virtual void outputSystemInformation() override;
 
   /**
-   * A helper function for outputting norms in color
-   * @param old_norm The old residual norm to compare against
-   * @param norm The current residual norm
+   * Prints the time step information for the screen output. The Boolean controls whether the dt is
+   * output. It doesn't really make sense to output this quantity the first time since it's a delta
+   * quantity indicating the step size from the previous step.
    */
-  std::string outputNorm(const Real & old_norm, const Real & norm);
-
-  /**
-   * Prints the time step information for the screen output
-   */
-  void writeTimestepInformation();
+  void writeTimestepInformation(bool output_dt);
 
   /**
    * Write message to screen and/or file
@@ -233,4 +236,3 @@ private:
   bool _allow_changing_sysinfo_flag;
 };
 
-#endif /* CONSOLE_H */

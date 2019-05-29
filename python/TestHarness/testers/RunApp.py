@@ -43,6 +43,7 @@ class RunApp(Tester):
         params.addParam('allow_unused',   True, "Whether or not unused parameters are allowed in the input file.  Can be globally overridden by setting 'allow_unused = False' in the testroot file.");
         params.addParam('allow_override', True, "Whether or not overriding a parameter/block in the input file generates an error.  Can be globally overridden by setting 'allow_override = False' in the testroot file.");
         params.addParam('allow_deprecated', True, "Whether or not deprecated warnings are allowed.  Setting to False will cause deprecation warnings to be treated as test failures.  We do NOT recommend you globally set this permanently to False!  Deprecations are a part of the normal development flow and _SHOULD_ be allowed!")
+        params.addParam('no_error_deprecated', False, "Don't pass --error-deprecated on the command line even when running the TestHarness with --error-deprecated")
 
         # Valgrind
         params.addParam('valgrind', 'NORMAL', "Set to (NONE, NORMAL, HEAVY) to determine which configurations where valgrind will run.")
@@ -79,6 +80,12 @@ class RunApp(Tester):
             self.addCaveats('EXECUTABLE PATTERN')
             self.setStatus(self.skip)
             return False
+
+        if self.specs.isValid('min_threads') or self.specs.isValid('max_threads'):
+            if 'NONE' in options._checks['threading'] and self.getThreads(options) > 1:
+                self.addCaveats('threading_model=None')
+                self.setStatus(self.skip)
+                return False
 
         return True
 
@@ -142,16 +149,15 @@ class RunApp(Tester):
         if '--error-override' not in cli_args and not specs["allow_override"]:
             cli_args.append('--error-override')
 
-        if '--error-deprecated' not in cli_args and (not specs["allow_deprecated"] or options.error_deprecated):
+        if '--error-deprecated' not in cli_args and not specs["no_error_deprecated"] and (not specs["allow_deprecated"] or options.error_deprecated):
             cli_args.append('--error-deprecated')
 
         if self.getCheckInput():
             cli_args.append('--check-input')
 
-        timing_string = ' '
         if options.timing and specs["timing"]:
             cli_args.append('--timing')
-            cli_args.append('Outputs/print_perf_log=true')
+            cli_args.append('Outputs/perf_graph=true')
 
         if options.colored == False:
             cli_args.append('--color off')
@@ -173,12 +179,14 @@ class RunApp(Tester):
         if specs['redirect_output'] and ncpus > 1:
             cli_args.append('--keep-cout --redirect-output ' + self.name())
 
-        if self.force_mpi or options.parallel or ncpus > 1 or nthreads > 1:
-            command = self.mpi_command + ' -n ' + str(ncpus) + ' ' + specs['executable'] + ' --n-threads=' + str(nthreads) + ' ' + specs['input_switch'] + ' ' + specs['input'] + ' ' +  ' '.join(cli_args)
-        elif options.valgrind_mode.upper() == specs['valgrind'].upper() or options.valgrind_mode.upper() == 'HEAVY' and specs['valgrind'].upper() == 'NORMAL':
-            command = 'valgrind --suppressions=' + os.path.join(specs['moose_dir'], 'python', 'TestHarness', 'suppressions', 'errors.supp') + ' --leak-check=full --tool=memcheck --dsymutil=yes --track-origins=yes --demangle=yes -v ' + specs['executable'] + ' ' + specs['input_switch'] + ' ' + specs['input'] + ' ' + ' '.join(cli_args)
-        else:
-            command = specs['executable'] + timing_string + specs['input_switch'] + ' ' + specs['input'] + ' ' + ' '.join(cli_args)
+        command = specs['executable'] + ' ' + specs['input_switch'] + ' ' + specs['input'] + ' ' + ' '.join(cli_args)
+        if options.valgrind_mode.upper() == specs['valgrind'].upper() or options.valgrind_mode.upper() == 'HEAVY' and specs['valgrind'].upper() == 'NORMAL':
+            command = 'valgrind --suppressions=' + os.path.join(specs['moose_dir'], 'python', 'TestHarness', 'suppressions', 'errors.supp') + ' --leak-check=full --tool=memcheck --dsymutil=yes --track-origins=yes --demangle=yes -v ' + command
+        elif nthreads > 1:
+            command = command + ' --n-threads=' + str(nthreads)
+
+        if self.force_mpi or options.parallel or ncpus > 1:
+            command = self.mpi_command + ' -n ' + str(ncpus) + ' ' + command
 
         return command
 
@@ -222,7 +230,7 @@ class RunApp(Tester):
         if reason != '':
             self.setStatus(self.fail, reason)
 
-        return reason
+        return output
 
     def processResults(self, moose_dir, options, output):
         """
@@ -238,6 +246,4 @@ class RunApp(Tester):
         # TODO: because RunParallel is now setting every successful status message,
                 refactor testFileOutput and processResults.
         """
-        self.testFileOutput(moose_dir, options, output)
-
-        return output
+        return self.testFileOutput(moose_dir, options, output)

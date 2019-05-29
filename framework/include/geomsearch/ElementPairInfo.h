@@ -7,13 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ELEMENTPAIRINFO_H
-#define ELEMENTPAIRINFO_H
+#pragma once
 
 // MOOSE includes
 #include "Moose.h"
 
-#include "libmesh/vector_value.h"
 #include "libmesh/point.h"
 
 // libMesh forward declarations
@@ -65,4 +63,3 @@ public:
   Real _elem2_physical_volfrac;
 };
 
-#endif // ELEMENTPAIRLOCATOR_H

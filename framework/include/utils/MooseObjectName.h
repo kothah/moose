@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEOBJECTNAME_H
-#define MOOSEOBJECTNAME_H
+#pragma once
 
 // STL includes
 #include <string>
@@ -49,6 +48,12 @@ public:
   MooseObjectName(const std::string & tag,
                   const std::string & name,
                   const std::string & separator = std::string("/"));
+
+  /**
+   * This class requires a virtual (but default) desctructor since it
+   * has virtual functions.
+   */
+  virtual ~MooseObjectName() = default;
 
   /**
    * Build an object given a raw parameter name (e.g., from an input file parameter)
@@ -106,4 +111,3 @@ protected:
   virtual void check();
 };
 
-#endif // MOOSEOBJECTNAME_H

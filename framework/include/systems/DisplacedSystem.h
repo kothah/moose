@@ -7,16 +7,19 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef DISPLACEDSYSTEM_H
-#define DISPLACEDSYSTEM_H
+#pragma once
 
 #include "SystemBase.h"
 
-#include "libmesh/transient_system.h"
-#include "libmesh/explicit_system.h"
-
 // Forward declarations
 class DisplacedProblem;
+namespace libMesh
+{
+class ExplicitSystem;
+template <typename>
+class TransientSystem;
+typedef TransientSystem<ExplicitSystem> TransientExplicitSystem;
+}
 
 class DisplacedSystem : public SystemBase
 {
@@ -33,6 +36,14 @@ public:
   {
     return _undisplaced_system.getVector(tag_id);
   }
+  virtual const NumericVector<Number> & getVector(TagID tag_id) const override
+  {
+    return _undisplaced_system.getVector(tag_id);
+  }
+
+  virtual TagID residualVectorTag() override { return _undisplaced_system.residualVectorTag(); }
+
+  virtual TagID systemMatrixTag() override { return _undisplaced_system.systemMatrixTag(); }
 
   virtual TagID timeVectorTag() override { return _undisplaced_system.timeVectorTag(); }
 
@@ -75,18 +86,55 @@ public:
     return _undisplaced_system.serializedSolution();
   }
 
-  virtual const NumericVector<Number> *& currentSolution() override
+  const NumericVector<Number> * const & currentSolution() const override
   {
     return _undisplaced_system.currentSolution();
   }
 
-  virtual NumericVector<Number> & solution() override { return _undisplaced_system.solution(); }
+  NumericVector<Number> & solution() override { return _undisplaced_system.solution(); }
+  NumericVector<Number> & solutionOld() override;
+  NumericVector<Number> & solutionOlder() override;
+  NumericVector<Number> * solutionPreviousNewton() override { return NULL; }
 
-  virtual NumericVector<Number> & solutionUDot() override
+  const NumericVector<Number> & solution() const override { return _undisplaced_system.solution(); }
+  const NumericVector<Number> & solutionOld() const override;
+  const NumericVector<Number> & solutionOlder() const override;
+  const NumericVector<Number> * solutionPreviousNewton() const override { return NULL; }
+
+  NumericVector<Number> * solutionUDot() override { return _undisplaced_system.solutionUDot(); }
+  NumericVector<Number> * solutionUDotDot() override
+  {
+    return _undisplaced_system.solutionUDotDot();
+  }
+  NumericVector<Number> * solutionUDotOld() override
+  {
+    return _undisplaced_system.solutionUDotOld();
+  }
+  NumericVector<Number> * solutionUDotDotOld() override
+  {
+    return _undisplaced_system.solutionUDotDotOld();
+  }
+  const NumericVector<Number> * solutionUDot() const override
   {
     return _undisplaced_system.solutionUDot();
   }
+  const NumericVector<Number> * solutionUDotDot() const override
+  {
+    return _undisplaced_system.solutionUDotDot();
+  }
+  const NumericVector<Number> * solutionUDotOld() const override
+  {
+    return _undisplaced_system.solutionUDotOld();
+  }
+  const NumericVector<Number> * solutionUDotDotOld() const override
+  {
+    return _undisplaced_system.solutionUDotDotOld();
+  }
+
   virtual Number & duDotDu() override { return _undisplaced_system.duDotDu(); }
+  virtual Number & duDotDotDu() override { return _undisplaced_system.duDotDotDu(); }
+  virtual const Number & duDotDu() const override { return _undisplaced_system.duDotDu(); }
+  virtual const Number & duDotDotDu() const override { return _undisplaced_system.duDotDotDu(); }
 
   /**
    * Return the residual copy from the NonlinearSystem
@@ -142,29 +190,35 @@ public:
     _undisplaced_system.zeroVariables(vars_to_be_zeroed);
   }
 
-  virtual bool hasVector(TagID tag_id) override { return _undisplaced_system.hasVector(tag_id); }
+  virtual bool hasVector(TagID tag_id) const override
+  {
+    return _undisplaced_system.hasVector(tag_id);
+  }
 
-  virtual bool hasMatrix(TagID tag_id) override { return _undisplaced_system.hasMatrix(tag_id); }
+  virtual bool hasMatrix(TagID tag_id) const override
+  {
+    return _undisplaced_system.hasMatrix(tag_id);
+  }
 
   virtual SparseMatrix<Number> & getMatrix(TagID tag) override
   {
     return _undisplaced_system.getMatrix(tag);
   }
-
-  virtual NumericVector<Number> & solutionOld() override { return *_sys.old_local_solution; }
-
-  virtual NumericVector<Number> & solutionOlder() override { return *_sys.older_local_solution; }
-
-  virtual NumericVector<Number> * solutionPreviousNewton() override { return NULL; }
+  virtual const SparseMatrix<Number> & getMatrix(TagID tag) const override
+  {
+    return _undisplaced_system.getMatrix(tag);
+  }
 
   virtual TransientExplicitSystem & sys() { return _sys; }
 
-  virtual System & system() override { return _sys; }
-  virtual const System & system() const override { return _sys; }
+  virtual System & system() override;
+  virtual const System & system() const override;
+
+  using SystemBase::addTimeIntegrator;
+  void addTimeIntegrator(std::shared_ptr<TimeIntegrator> ti) override;
 
 protected:
   SystemBase & _undisplaced_system;
   TransientExplicitSystem & _sys;
 };
 
-#endif /* DISPLACEDSYSTEM_H */

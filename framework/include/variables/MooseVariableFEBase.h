@@ -7,13 +7,18 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEVARIABLEFEBASE_H
-#define MOOSEVARIABLEFEBASE_H
+#pragma once
 
 #include "MooseVariableBase.h"
 
-#include "libmesh/dense_vector.h"
-#include "libmesh/numeric_vector.h"
+namespace libMesh
+{
+template <typename>
+class DenseVector;
+template <typename>
+class NumericVector;
+class Point;
+}
 
 class Assembly;
 
@@ -23,7 +28,8 @@ public:
   MooseVariableFEBase(unsigned int var_num,
                       const FEType & fe_type,
                       SystemBase & sys,
-                      Moose::VarKindType var_kind);
+                      Moose::VarKindType var_kind,
+                      THREAD_ID tid);
 
   /**
    * Clear out the dof indices.  We do this in case this variable is not going to be prepared at
@@ -31,9 +37,21 @@ public:
    */
   virtual void clearDofIndices() = 0;
 
+  /**
+   * Prepare the elemental degrees of freedom
+   */
   virtual void prepare() = 0;
 
+  /**
+   * Prepare the neighbor element degrees of freedom
+   */
   virtual void prepareNeighbor() = 0;
+
+  /**
+   * Prepare a lower dimensional element's degrees of freedom
+   */
+  virtual void prepareLowerD() = 0;
+
   virtual void prepareAux() = 0;
 
   virtual void reinitNode() = 0;
@@ -48,15 +66,19 @@ public:
    * @return true if it nodal, otherwise false
    */
   virtual bool isNodal() const = 0;
-  virtual dof_id_type & nodalDofIndex() = 0;
-  virtual dof_id_type & nodalDofIndexNeighbor() = 0;
+
+  /**
+   * @returns true if this is a vector-valued element, false otherwise.
+   */
+  virtual bool isVector() const = 0;
+
+  virtual const dof_id_type & nodalDofIndex() const = 0;
+  virtual const dof_id_type & nodalDofIndexNeighbor() const = 0;
 
   /**
    * Current element this variable is evaluated at
    */
-  virtual const Elem *& currentElem() const = 0;
-
-  virtual const MooseArray<Point> & normals() const = 0;
+  virtual const Elem * const & currentElem() const = 0;
 
   /**
    * The subdomains the variable is active on
@@ -69,12 +91,10 @@ public:
    */
   virtual bool activeOnSubdomain(SubdomainID subdomain) const = 0;
 
-  virtual const DenseVector<Number> & solutionDoFs() = 0;
-  virtual const DenseVector<Number> & solutionDoFsOld() = 0;
-  virtual const DenseVector<Number> & solutionDoFsOlder() = 0;
-  virtual const DenseVector<Number> & solutionDoFsNeighbor() = 0;
-  virtual const DenseVector<Number> & solutionDoFsOldNeighbor() = 0;
-  virtual const DenseVector<Number> & solutionDoFsOlderNeighbor() = 0;
+  /**
+   * Prepare the initial condition
+   */
+  virtual void prepareIC() = 0;
 
   /**
    * Compute values at interior quadrature points
@@ -93,6 +113,10 @@ public:
    */
   virtual void computeNeighborValues() = 0;
   /**
+   * compute values at quadrature points on the lower dimensional element
+   */
+  virtual void computeLowerDValues() = 0;
+  /**
    * Compute nodal values of this variable in the neighbor
    */
   virtual void computeNodalNeighborValues() = 0;
@@ -101,13 +125,9 @@ public:
    */
   virtual void computeNodalValues() = 0;
   /**
-   * Set the nodal value for this variable to keep everything up to date
-   */
-  virtual void setNodalValue(Number value, unsigned int idx = 0) = 0;
-  /**
    * Set values for this variable to keep everything up to date
    */
-  virtual void setNodalValue(const DenseVector<Number> & value) = 0;
+  virtual void setDofValues(const DenseVector<Number> & value) = 0;
   /**
    * Get the value of this variable at given node
    */
@@ -142,16 +162,24 @@ public:
    */
   virtual Number getElementalValueOlder(const Elem * elem, unsigned int idx = 0) const = 0;
 
-  virtual void getDofIndices(const Elem * elem, std::vector<dof_id_type> & dof_indices) = 0;
+  virtual void getDofIndices(const Elem * elem, std::vector<dof_id_type> & dof_indices) const = 0;
   /**
    * Get neighbor DOF indices for currently selected element
    * @return the neighbor degree of freedom indices
    */
-  virtual std::vector<dof_id_type> & dofIndicesNeighbor() = 0;
+  virtual const std::vector<dof_id_type> & dofIndicesNeighbor() const = 0;
+
+  /**
+   * Get dof indices for the current lower dimensional element (this is meaningful when performing
+   * mortar FEM)
+   * @return the lower dimensional element's dofs
+   */
+  virtual const std::vector<dof_id_type> & dofIndicesLower() const = 0;
 
   virtual unsigned int numberOfDofsNeighbor() = 0;
 
   virtual void insert(NumericVector<Number> & residual) = 0;
+  virtual void add(NumericVector<Number> & residual) = 0;
 
   /**
    * Deprecated method. Use dofValues
@@ -198,6 +226,30 @@ public:
    */
   virtual const MooseArray<Number> & dofValuesDotNeighbor() = 0;
   /**
+   * Returns second time derivative of degrees of freedom
+   */
+  virtual const MooseArray<Number> & dofValuesDotDot() = 0;
+  /**
+   * Returns second time derivative of neighboring degrees of freedom
+   */
+  virtual const MooseArray<Number> & dofValuesDotDotNeighbor() = 0;
+  /**
+   * Returns old time derivative of degrees of freedom
+   */
+  virtual const MooseArray<Number> & dofValuesDotOld() = 0;
+  /**
+   * Returns old time derivative of neighboring degrees of freedom
+   */
+  virtual const MooseArray<Number> & dofValuesDotOldNeighbor() = 0;
+  /**
+   * Returns old second time derivative of degrees of freedom
+   */
+  virtual const MooseArray<Number> & dofValuesDotDotOld() = 0;
+  /**
+   * Returns old second time derivative of neighboring degrees of freedom
+   */
+  virtual const MooseArray<Number> & dofValuesDotDotOldNeighbor() = 0;
+  /**
    * Returns derivative of time derivative of degrees of freedom
    */
   virtual const MooseArray<Number> & dofValuesDuDotDu() = 0;
@@ -205,23 +257,34 @@ public:
    * Returns derivative of time derivative of neighboring degrees of freedom
    */
   virtual const MooseArray<Number> & dofValuesDuDotDuNeighbor() = 0;
+  /**
+   * Returns derivative of second time derivative of degrees of freedom
+   */
+  virtual const MooseArray<Number> & dofValuesDuDotDotDu() = 0;
+  /**
+   * Returns derivative of second time derivative of neighboring degrees of freedom
+   */
+  virtual const MooseArray<Number> & dofValuesDuDotDotDuNeighbor() = 0;
 
   /**
    * Return phi size
    */
-  virtual size_t phiSize() = 0;
+  virtual size_t phiSize() const = 0;
   /**
    * Return phiFace size
    */
-  virtual size_t phiFaceSize() = 0;
+  virtual size_t phiFaceSize() const = 0;
   /**
    * Return phiNeighbor size
    */
-  virtual size_t phiNeighborSize() = 0;
+  virtual size_t phiNeighborSize() const = 0;
   /**
    * Return phiFaceNeighbor size
    */
-  virtual size_t phiFaceNeighborSize() = 0;
+  virtual size_t phiFaceNeighborSize() const = 0;
+  /**
+   * Return the number of shape functions on the lower dimensional element for this variable
+   */
+  virtual size_t phiLowerSize() const = 0;
 };
 
-#endif /* MOOSEVARIABLEFEBASE_H */

@@ -7,12 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef BACKUP_H
-#define BACKUP_H
+#pragma once
 
 // C++ includes
 #include <sstream>
 #include <vector>
+#include <memory>
 
 /**
  * Helper class to hold streams for Backup and Restore operations.
@@ -22,13 +22,16 @@ class Backup
 public:
   Backup();
 
-  ~Backup();
-
+  /**
+   * Stream for holding binary blob data for the simulation.
+   */
   std::stringstream _system_data;
 
-  std::vector<std::stringstream *> _restartable_data;
+  /**
+   * Vector of streams for holding individual thread data for the simulation.
+   */
+  std::vector<std::unique_ptr<std::stringstream>> _restartable_data;
 };
 
 // Specializations for dataLoad and dataStore appear in DataIO.C
 
-#endif /* BACKUP_H */

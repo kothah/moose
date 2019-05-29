@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ADDVARIABLEACTION_H
-#define ADDVARIABLEACTION_H
+#pragma once
 
 // MOOSE includes
 #include "Action.h"
@@ -53,7 +52,7 @@ protected:
    *
    * @param var_name The name of the variable.
    */
-  void addVariable(std::string & var_name);
+  void addVariable(const std::string & var_name);
 
   /**
    * Create the action to generate the InitialCondition object
@@ -79,4 +78,3 @@ protected:
   static const Real _abs_zero_tol;
 };
 
-#endif // ADDVARIABLEACTION_H

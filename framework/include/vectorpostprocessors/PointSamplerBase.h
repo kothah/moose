@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POINTSAMPLERBASE_H
-#define POINTSAMPLERBASE_H
+#pragma once
 
 // MOOSE includes
 #include "GeneralVectorPostprocessor.h"
@@ -35,6 +34,9 @@ public:
   virtual void initialize();
   virtual void execute();
   virtual void finalize();
+
+  void setPointsVector(const std::vector<Point> & points);
+  void transferPointsVector(std::vector<Point> && points);
 
 protected:
   /**
@@ -65,6 +67,8 @@ protected:
   unsigned int _qp;
 
   std::unique_ptr<PointLocatorBase> _pl;
+
+  /// Postprocessor multiplying the variables
+  const Real & _pp_value;
 };
 
-#endif

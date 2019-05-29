@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef SOLIDMODEL_H
-#define SOLIDMODEL_H
+#pragma once
 
 #include "DerivativeMaterialInterface.h"
 #include "SymmTensor.h"
@@ -53,7 +52,7 @@ public:
     CR_UNKNOWN
   };
 
-  QBase * qrule() { return _qrule; }
+  const QBase * qrule() { return _qrule; }
   const Point & q_point(unsigned i) const { return _q_point[i]; }
   Real JxW(unsigned i) const { return _JxW[i]; }
 
@@ -153,7 +152,6 @@ protected:
 
   const bool _compute_JIntegral;
   const bool _compute_InteractionIntegral;
-  bool _store_stress_older;
 
   // These are used in calculation of the J integral
   MaterialProperty<Real> * _SED;
@@ -273,5 +271,3 @@ private:
 
   SymmElasticityTensor * _local_elasticity_tensor;
 };
-
-#endif

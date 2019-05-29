@@ -7,10 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef HASHING_H
-#define HASHING_H
+#pragma once
 
 #include "MooseTypes.h"
+
+#include "libmesh/point.h"
 
 /**
  * This namespace provides efficient algorithms for quickly hashing different types for checking
@@ -91,4 +92,3 @@ hashCombine(Real time, const libMesh::Point & point)
 }
 }
 
-#endif // HASHING_H

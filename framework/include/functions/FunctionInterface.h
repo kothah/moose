@@ -7,10 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef FUNCTIONINTERFACE_H
-#define FUNCTIONINTERFACE_H
+#pragma once
 
 #include "MooseTypes.h"
+
+#define usingFunctionInterfaceMembers                                                              \
+  using FunctionInterface::getFunction;                                                            \
+  using FunctionInterface::getFunctionByName
 
 // Forward declarations
 class Function;
@@ -68,4 +71,3 @@ private:
   THREAD_ID _fni_tid;
 };
 
-#endif // FUNCTIONINTERFACE_H

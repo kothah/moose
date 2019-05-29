@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWPERMEABILITYBASE_H
-#define POROUSFLOWPERMEABILITYBASE_H
+#pragma once
 
 #include "PorousFlowMaterialVectorBase.h"
 
-// Forward Declarations
 class PorousFlowPermeabilityBase;
 
 template <>
@@ -27,7 +25,7 @@ public:
   PorousFlowPermeabilityBase(const InputParameters & parameters);
 
 protected:
-  /// quadpoint permeability
+  /// Quadpoint permeability
   MaterialProperty<RealTensorValue> & _permeability_qp;
 
   /// d(quadpoint permeability)/d(PorousFlow variable)
@@ -37,4 +35,3 @@ protected:
   MaterialProperty<std::vector<std::vector<RealTensorValue>>> & _dpermeability_qp_dgradvar;
 };
 
-#endif // POROUSFLOWPERMEABILITYBASE_H

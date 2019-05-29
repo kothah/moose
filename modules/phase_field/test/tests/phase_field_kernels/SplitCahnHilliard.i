@@ -8,15 +8,12 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 30
-  ny = 30
-  nz = 0
+  nx = 10
+  ny = 10
   xmin = 0
-  xmax = 250
+  xmax = 60
   ymin = 0
-  ymax = 250
-  zmin = 0
-  zmax = 0
+  ymax = 60
   elem_type = QUAD4
 []
 
@@ -26,11 +23,11 @@
     family = LAGRANGE
     [./InitialCondition]
       type = SmoothCircleIC
-      x1 = 125.0
-      y1 = 125.0
-      radius = 60.0
+      x1 = 0
+      y1 = 0
+      radius = 30.0
       invalue = 1.0
-      outvalue = 0.1
+      outvalue = -0.5
       int_width = 30.0
     [../]
   [../]
@@ -64,16 +61,15 @@
   [./pfmobility]
     type = GenericConstantMaterial
     prop_names  = 'M kappa_c'
-    prop_values = '1e-3 0.1'
+    prop_values = '100 40'
   [../]
 
   [./free_energy]
+    # equivalent to `MathFreeEnergy`
     type = DerivativeParsedMaterial
     f_name = F
     args = 'c'
-    constant_names       = 'barr_height  cv_eq'
-    constant_expressions = '0.1          1.0e-2'
-    function = 16*barr_height*(c-cv_eq)^2*(1-cv_eq-c)^2
+    function = '0.25*(1+c)^2*(1-c)^2'
     derivative_order = 2
   [../]
 []
@@ -98,9 +94,9 @@
   l_tol = 1.0e-4
   nl_rel_tol = 1.0e-10
   start_time = 0.0
-  num_steps = 6
+  num_steps = 2
 
-  dt = 10
+  dt = 1
 []
 
 [Outputs]

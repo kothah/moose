@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWDARCYVELOCITYCOMPONENTLOWERDIMENSIONAL_H
-#define POROUSFLOWDARCYVELOCITYCOMPONENTLOWERDIMENSIONAL_H
+#pragma once
 
 #include "PorousFlowDarcyVelocityComponent.h"
 
-// Forward Declarations
 class PorousFlowDarcyVelocityComponentLowerDimensional;
 
 template <>
@@ -37,7 +35,7 @@ public:
 protected:
   virtual Real computeValue() override;
 
+  /// Fracture aperture (width)
   const VariableValue & _aperture;
 };
 
-#endif // POROUSFLOWDARCYVELOCITYCOMPONENTLOWERDIMENSIONAL_H

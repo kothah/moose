@@ -108,12 +108,6 @@
     execute_on = timestep_end
     block = 0
   [../]
-  [./rotout]
-    type = CrystalPlasticityRotationOutAux
-    variable = rotout
-    execute_on = timestep_end
-    block = 0
-  [../]
   [./gss1]
     type = MaterialStdVectorAux
     variable = gss1
@@ -232,7 +226,7 @@
   #Preconditioned JFNK (default)
   solve_type = 'PJFNK'
 
-  petsc_options_iname = 'pc_type'
+  petsc_options_iname = '-pc_type'
   petsc_options_value = 'lu'
 
   nl_rel_tol = 1e-10

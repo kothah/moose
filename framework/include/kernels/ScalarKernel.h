@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef SCALARKERNEL_H
-#define SCALARKERNEL_H
+#pragma once
 
 #include "MooseObject.h"
 #include "ScalarCoupleable.h"
@@ -80,10 +79,8 @@ protected:
 
   /// Value(s) of the scalar variable
   VariableValue & _u;
+
   /// Old value(s) of the scalar variable
   VariableValue & _u_old;
-  VariableValue & _u_dot;
-  VariableValue & _du_dot_du;
 };
 
-#endif /* SCALARKERNEL_H */

@@ -88,7 +88,7 @@ app_unity_srcfiles := $(foreach srcsubdir,$(unity_srcsubdirs),$(call unity_uniqu
 unity_srcfiles += $(app_unity_srcfiles)
 
 # Pick up all of the additional files in the src directory since we're not unity building those
-app_non_unity_srcfiles := $(filter-out %main.C, $(shell find $(non_unity_srcsubdirs) -maxdepth 1 \( -type f -o -type l \) -regex "[^\#~]*\.C"))
+app_non_unity_srcfiles := $(shell find $(non_unity_srcsubdirs) -maxdepth 1 \( -type f -o -type l \) -regex "[^\#~]*\.C" $(find_excludes))
 
 # Override srcfiles
 srcfiles    := $(app_unity_srcfiles) $(app_non_unity_srcfiles)
@@ -158,10 +158,6 @@ ifneq ($(wildcard $(APPLICATION_DIR)/test/include/*),)
   depend_dirs += $(APPLICATION_DIR)/test/include
 endif
 
-# header files
-include_dirs	:= $(shell find $(depend_dirs) -type d)
-include_files	:= $(shell find $(depend_dirs) -regex "[^\#~]*\.[hf]")
-
 # clang static analyzer files
 app_analyzer := $(patsubst %.C, %.plist.$(obj-suffix), $(srcfiles))
 
@@ -178,18 +174,29 @@ else
   app_test_LIB     := $(APPLICATION_DIR)/test/lib/lib$(APPLICATION_NAME)_test-$(METHOD).la
 endif
 
-# all_header_directory
+#
+# header symlinks
+#
+ifeq ($(MOOSE_HEADER_SYMLINKS),true)
+
+include_files	:= $(shell find $(depend_dirs) -regex "[^\#~]*\.[hf]")
 all_header_dir := $(APPLICATION_DIR)/build/header_symlinks
 
 # header file links
-
 link_names := $(foreach i, $(include_files), $(all_header_dir)/$(notdir $(i)))
-
 
 $(eval $(call all_header_dir_rule, $(all_header_dir)))
 $(call symlink_rules, $(all_header_dir), $(include_files))
 
 header_symlinks:: $(all_header_dir) $(link_names)
+app_INCLUDE = -I$(all_header_dir)
+
+else # No Header Symlinks
+
+include_dirs	:= $(shell find $(depend_dirs) -type d)
+app_INCLUDE = $(foreach i, $(include_dirs), -I$(i))
+
+endif
 
 # application
 app_EXEC    := $(APPLICATION_DIR)/$(APPLICATION_NAME)-$(METHOD)
@@ -232,7 +239,7 @@ endif
 app_LIBS       := $(app_LIB) $(app_LIBS)
 app_LIBS_other := $(filter-out $(app_LIB),$(app_LIBS))
 app_HEADERS    := $(app_HEADER) $(app_HEADERS)
-app_INCLUDES   += -I$(all_header_dir) $(ADDITIONAL_INCLUDES)
+app_INCLUDES   += $(app_INCLUDE) $(ADDITIONAL_INCLUDES)
 app_DIRS       += $(APPLICATION_DIR)
 
 # WARNING: the += operator does NOT work here!
@@ -256,13 +263,22 @@ LIBRARY_SUFFIX :=
 # Instantiate a new suffix rule for the module loader
 $(eval $(call CXX_RULE_TEMPLATE,_with$(app_LIB_SUFFIX)))
 
-ifeq ($(BUILD_EXEC),yes)
-  all:: $(app_EXEC)
+# If this is a matching module then build the exec, otherwise fall back and use the variable
+ifneq (,$(MODULE_NAME))
+  ifeq ($(MODULE_NAME),$(APPLICATION_NAME))
+    all:: $(app_EXEC)
+  else
+    all:: $(app_LIB)
+  endif
 else
-  all:: $(app_LIB)
-endif
+  ifeq ($(BUILD_EXEC),yes)
+    all:: $(app_EXEC)
+  else
+    all:: $(app_LIB)
+  endif
 
-BUILD_EXEC :=
+  BUILD_EXEC :=
+endif
 
 app_GIT_DIR := $(shell cd "$(APPLICATION_DIR)" && which git &> /dev/null && git rev-parse --show-toplevel)
 # Use wildcard in case the files don't exist
@@ -342,10 +358,17 @@ ifeq ($(libmesh_static),yes)
   endif
 endif
 
+# Codesign command (OS X Only)
+codesign :=
+ifneq (,$(findstring darwin,$(libmesh_HOST)))
+	get_task_allow_entitlement := $(FRAMEWORK_DIR)/build_support/get_task_allow.plist
+	codesign := codesign -s - --entitlements $(get_task_allow_entitlement) $(app_EXEC)
+endif
 $(app_EXEC): $(app_LIBS) $(mesh_library) $(main_object) $(app_test_LIB) $(depend_test_libs) $(ADDITIONAL_DEPEND_LIBS)
 	@echo "Linking Executable "$@"..."
 	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(main_object) $(applibs) $(libmesh_LIBS) $(libmesh_LDFLAGS) $(depend_test_libs_flags) $(EXTERNAL_FLAGS) $(ADDITIONAL_LIBS)
+	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(main_object) $(applibs) $(ADDITIONAL_LIBS) $(libmesh_LIBS) $(libmesh_LDFLAGS) $(depend_test_libs_flags) $(EXTERNAL_FLAGS)
+	@$(codesign)
 
 # Clang static analyzer
 sa:: $(app_analyzer)

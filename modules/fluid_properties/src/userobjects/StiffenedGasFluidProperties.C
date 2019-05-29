@@ -23,6 +23,10 @@ validParams<StiffenedGasFluidProperties>()
   params.addParam<Real>("q_prime", 0, "Parameter");
   params.addParam<Real>("mu", 1.e-3, "Dynamic viscosity, Pa.s");
   params.addParam<Real>("k", 0.6, "Thermal conductivity, W/(m-K)");
+  params.addParam<Real>("M", 0, "Molar mass, kg/mol");
+  params.addParam<Real>("T_c", 0, "Critical temperature, K");
+  params.addParam<Real>("rho_c", 0, "Critical density, kg/m3");
+  params.addParam<Real>("e_c", 0, "Internal energy at the critical point, J/kg");
   params.addClassDescription("Fluid properties for a stiffened gas");
   return params;
 }
@@ -35,7 +39,11 @@ StiffenedGasFluidProperties::StiffenedGasFluidProperties(const InputParameters &
     _q_prime(getParam<Real>("q_prime")),
     _p_inf(getParam<Real>("p_inf")),
     _mu(getParam<Real>("mu")),
-    _k(getParam<Real>("k"))
+    _k(getParam<Real>("k")),
+    _molar_mass(getParam<Real>("M")),
+    _T_c(getParam<Real>("T_c")),
+    _rho_c(getParam<Real>("rho_c")),
+    _e_c(getParam<Real>("e_c"))
 {
   if (_cv == 0.0)
     mooseError(name(), ": cv cannot be zero.");
@@ -93,6 +101,15 @@ StiffenedGasFluidProperties::c_from_v_e(Real v, Real e, Real & c, Real & dc_dv, 
 }
 
 Real StiffenedGasFluidProperties::cp_from_v_e(Real, Real) const { return _cp; }
+
+void
+StiffenedGasFluidProperties::cp_from_v_e(
+    Real v, Real e, Real & cp, Real & dcp_dv, Real & dcp_de) const
+{
+  cp = cp_from_v_e(v, e);
+  dcp_dv = 0.0;
+  dcp_de = 0.0;
+}
 
 Real StiffenedGasFluidProperties::cv_from_v_e(Real, Real) const { return _cv; }
 
@@ -160,6 +177,31 @@ StiffenedGasFluidProperties::s_from_h_p(Real h, Real p, Real & s, Real & ds_dh, 
   s = _q_prime - (_gamma - 1) * _cv * std::log(aux);
   ds_dh = -(_gamma - 1) * _cv / aux * daux_dh;
   ds_dp = -(_gamma - 1) * _cv / aux * daux_dp;
+}
+
+Real
+StiffenedGasFluidProperties::s_from_p_T(Real p, Real T) const
+{
+  Real n = std::pow(T, _gamma) / std::pow(p + _p_inf, _gamma - 1.0);
+  if (n <= 0.0)
+    throw MooseException(name() + ": Negative argument in the ln() function.");
+  return _cv * std::log(n) + _q_prime;
+}
+
+void
+StiffenedGasFluidProperties::s_from_p_T(Real p, Real T, Real & s, Real & ds_dp, Real & ds_dT) const
+{
+  const Real n = std::pow(T, _gamma) / std::pow(p + _p_inf, _gamma - 1.0);
+  if (n <= 0.0)
+    throw MooseException(name() + ": Negative argument in the ln() function.");
+
+  s = _cv * std::log(n) + _q_prime;
+
+  const Real dn_dT = _gamma * std::pow(T, _gamma - 1.0) / std::pow(p + _p_inf, _gamma - 1.0);
+  const Real dn_dp = std::pow(T, _gamma) * (1.0 - _gamma) * std::pow(p + _p_inf, -_gamma);
+
+  ds_dp = _cv / n * dn_dp;
+  ds_dT = _cv / n * dn_dT;
 }
 
 Real
@@ -243,6 +285,80 @@ StiffenedGasFluidProperties::e_from_p_rho(
 }
 
 Real
+StiffenedGasFluidProperties::e_from_T_v(Real T, Real v) const
+{
+  return _cv * T + _q + _p_inf * v;
+}
+
+void
+StiffenedGasFluidProperties::e_from_T_v(Real T, Real v, Real & e, Real & de_dT, Real & de_dv) const
+{
+  e = _cv * T + _q + _p_inf * v;
+  de_dT = _cv;
+  de_dv = _p_inf;
+}
+
+Real
+StiffenedGasFluidProperties::p_from_T_v(Real T, Real v) const
+{
+  Real e = e_from_T_v(T, v);
+  return p_from_v_e(v, e);
+}
+
+void
+StiffenedGasFluidProperties::p_from_T_v(Real T, Real v, Real & p, Real & dp_dT, Real & dp_dv) const
+{
+  Real e, de_dT_v, de_dv_T, dp_dv_e, dp_de_v;
+  e_from_T_v(T, v, e, de_dT_v, de_dv_T);
+  p_from_v_e(v, e, p, dp_dv_e, dp_de_v);
+  dp_dT = dp_de_v * de_dT_v;
+  dp_dv = dp_dv_e + dp_de_v * de_dv_T;
+}
+
+Real
+StiffenedGasFluidProperties::h_from_T_v(Real T, Real /*v*/) const
+{
+  return _gamma * _cv * T + _q;
+}
+
+void
+StiffenedGasFluidProperties::h_from_T_v(
+    Real T, Real /*v*/, Real & h, Real & dh_dT, Real & dh_dv) const
+{
+  h = _gamma * _cv * T + _q;
+  dh_dT = _gamma * _cv;
+  dh_dv = 0.0;
+}
+
+Real
+StiffenedGasFluidProperties::s_from_T_v(Real T, Real v) const
+{
+  Real e = e_from_T_v(T, v);
+  return s_from_v_e(v, e);
+}
+
+void
+StiffenedGasFluidProperties::s_from_T_v(Real T, Real v, Real & s, Real & ds_dT, Real & ds_dv) const
+{
+  Real e, de_dT_v, de_dv_T, ds_dv_e, ds_de_v;
+  e_from_T_v(T, v, e, de_dT_v, de_dv_T);
+  s_from_v_e(v, e, s, ds_dv_e, ds_de_v);
+  ds_dT = ds_de_v * de_dT_v;
+  ds_dv = ds_dv_e + ds_de_v * de_dv_T;
+}
+
+Real StiffenedGasFluidProperties::cv_from_T_v(Real /*T*/, Real /*v*/) const { return _cv; }
+
+Real StiffenedGasFluidProperties::e_spndl_from_v(Real /*v*/) const { return _e_c; }
+
+void
+StiffenedGasFluidProperties::v_e_spndl_from_T(Real /*T*/, Real & v, Real & e) const
+{
+  v = 1. / _rho_c;
+  e = _e_c;
+}
+
+Real
 StiffenedGasFluidProperties::h_from_p_T(Real /*p*/, Real T) const
 {
   return _gamma * _cv * T + _q;
@@ -306,10 +422,94 @@ StiffenedGasFluidProperties::g_from_v_e(Real v, Real e) const
          _cv * T * std::log(std::pow(T, _gamma) / std::pow(p + _p_inf, _gamma - 1.0)) + _q;
 }
 
-Real StiffenedGasFluidProperties::gamma_from_v_e(Real /*v*/, Real /*e*/) const { return _gamma; }
-
 Real
 StiffenedGasFluidProperties::c2_from_p_rho(Real pressure, Real rho) const
 {
   return _gamma * (pressure + _p_inf) / rho;
+}
+
+Real
+StiffenedGasFluidProperties::molarMass() const
+{
+  return _molar_mass;
+}
+
+Real
+StiffenedGasFluidProperties::criticalTemperature() const
+{
+  return _T_c;
+}
+
+Real
+StiffenedGasFluidProperties::criticalDensity() const
+{
+  return _rho_c;
+}
+
+Real
+StiffenedGasFluidProperties::criticalInternalEnergy() const
+{
+  return _e_c;
+}
+
+Real StiffenedGasFluidProperties::cv_from_p_T(Real /* pressure */, Real /* temperature */) const
+{
+  return _cv;
+}
+
+void
+StiffenedGasFluidProperties::cv_from_p_T(
+    Real pressure, Real temperature, Real & cv, Real & dcv_dp, Real & dcv_dT) const
+{
+  cv = cv_from_p_T(pressure, temperature);
+  dcv_dp = 0.0;
+  dcv_dT = 0.0;
+}
+
+Real StiffenedGasFluidProperties::cp_from_p_T(Real /* pressure */, Real /* temperature */) const
+{
+  return _cp;
+}
+
+void
+StiffenedGasFluidProperties::cp_from_p_T(
+    Real pressure, Real temperature, Real & cp, Real & dcp_dp, Real & dcp_dT) const
+{
+  cp = cp_from_p_T(pressure, temperature);
+  dcp_dp = 0.0;
+  dcp_dT = 0.0;
+}
+
+Real StiffenedGasFluidProperties::mu_from_p_T(Real /* pressure */, Real /* temperature */) const
+{
+  return _mu;
+}
+
+void
+StiffenedGasFluidProperties::mu_from_p_T(
+    Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const
+{
+  mu = this->mu_from_p_T(pressure, temperature);
+  dmu_dp = 0.0;
+  dmu_dT = 0.0;
+}
+
+Real StiffenedGasFluidProperties::k_from_p_T(Real /* pressure */, Real /* temperature */) const
+{
+  return _k;
+}
+
+void
+StiffenedGasFluidProperties::k_from_p_T(
+    Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const
+{
+  k = this->k_from_p_T(pressure, temperature);
+  dk_dp = 0.0;
+  dk_dT = 0.0;
+}
+
+Real StiffenedGasFluidProperties::pp_sat_from_p_T(Real /*p*/, Real /*T*/) const
+{
+  mooseError(
+      name(), ": ", __PRETTY_FUNCTION__, " not implemented. Use a real fluid property class!");
 }

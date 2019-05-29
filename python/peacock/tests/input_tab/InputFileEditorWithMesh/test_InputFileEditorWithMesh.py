@@ -14,7 +14,6 @@ from peacock.Input.ExecutableInfo import ExecutableInfo
 from peacock.utils import Testing
 import argparse, os
 from mock import patch
-import vtk
 
 class BaseTests(Testing.PeacockTester):
     def setUp(self):
@@ -27,6 +26,9 @@ class BaseTests(Testing.PeacockTester):
         self.highlight_nodes = "meshrender_highlight_nodes.png"
         self.highlight_dup = "meshrender_highlight_dup.png"
         self.basic_mesh = "meshrender_basic.png"
+        self.mesh_toggle = "meshrender_toggle.png"
+        self.mesh_toggle_disable = "meshrender_toggle_disable.png"
+
         Testing.remove_file(self.highlight_all)
         Testing.remove_file(self.highlight_right)
         Testing.remove_file(self.highlight_left)
@@ -34,6 +36,8 @@ class BaseTests(Testing.PeacockTester):
         Testing.remove_file(self.highlight_nodes)
         Testing.remove_file(self.highlight_dup)
         Testing.remove_file(self.basic_mesh)
+        Testing.remove_file(self.mesh_toggle)
+        Testing.remove_file(self.mesh_toggle_disable)
         Testing.clean_files()
         self.num_time_steps = None
         self.time_step_changed_count = 0
@@ -282,12 +286,64 @@ class Tests(BaseTests):
         bh = w.BlockHighlighterPlugin
         bh.SidesetSelector.Options.setCurrentText("bottom")
 
-        camera = vtk.vtkCamera()
-        camera.SetViewUp(-0.7786, 0.2277, 0.5847)
-        camera.SetPosition(-2, -2, -1)
-        w.MeshViewerPlugin.onCameraChanged(camera)
+        w.MeshViewerPlugin.onCameraChanged((-0.7786, 0.2277, 0.5847), (-2, -2, -1), (0, 0, 0))
         w.vtkwin.onWrite(self.highlight_dup)
         self.assertFalse(Testing.gold_diff(self.highlight_dup))
+
+    def testMeshToggle(self):
+        main_win, w = self.newWidget()
+        w.setInputFile(self.input_file)
+        tree = w.InputFileEditorPlugin.tree
+        b = tree.getBlockInfo("/Mesh")
+        self.assertNotEqual(b, None)
+        self.assertTrue(b.included)
+        w.blockChanged(b)
+
+        w.vtkwin.onWrite(self.mesh_toggle)
+        self.assertFalse(Testing.gold_diff(self.mesh_toggle))
+
+        b.included = False
+        self.assertFalse(b.included)
+        w.blockChanged(b)
+        w.vtkwin.onWrite(self.mesh_toggle_disable)
+        self.assertFalse(Testing.gold_diff(self.mesh_toggle_disable))
+
+        b.included = True
+        self.assertTrue(b.included)
+        w.blockChanged(b)
+        w.vtkwin.onWrite(self.mesh_toggle)
+        self.assertFalse(Testing.gold_diff(self.mesh_toggle))
+
+    def testMeshCameraWithChangedInputFiles(self):
+        """
+        Previously we always wrote out the temporary mesh file to the same
+        filename. This caused problems with changing input files when the camera
+        had changed on one of them. The camera wouldn't reset so the new mesh
+        could potentially be in a weird position.
+        """
+        main_win, w = self.newWidget()
+        sdiffusion = "simple_diffusion.i"
+        w.setInputFile(sdiffusion)
+        w.MeshViewerPlugin.onCameraChanged((-0.7786, 0.2277, 0.5847), (-2, -2, -1), (0, 0, 0))
+        sdiffusion_image = "meshrender_camera_moved.png"
+        Testing.set_window_size(w.vtkwin)
+        w.vtkwin.onWrite(sdiffusion_image)
+        self.assertFalse(Testing.gold_diff(sdiffusion_image, .98))
+
+        other = "spherical_average.i"
+        w.setInputFile(other)
+        other_image = "meshrender_3d.png"
+        w.MeshViewerPlugin.onCameraChanged((0.2, 0.5, 0.8), (-30, 10, -20), (0, 5, 0))
+        w.vtkwin.onWrite(other_image)
+        self.assertFalse(Testing.gold_diff(other_image, .98))
+
+        w.setInputFile(sdiffusion)
+        w.vtkwin.onWrite(sdiffusion_image)
+        self.assertFalse(Testing.gold_diff(sdiffusion_image, .98))
+
+        w.setInputFile(other)
+        w.vtkwin.onWrite(other_image)
+        self.assertFalse(Testing.gold_diff(other_image, .98))
 
 if __name__ == '__main__':
     Testing.run_tests()

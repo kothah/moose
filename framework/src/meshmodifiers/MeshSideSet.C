@@ -11,6 +11,7 @@
 #include "MooseMesh.h"
 
 #include "libmesh/mesh_modification.h"
+#include "libmesh/elem.h"
 
 registerMooseObject("MooseApp", MeshSideSet);
 
@@ -39,13 +40,13 @@ void
 MeshSideSet::modify()
 {
   // this modifier is not designed for working with distributed mesh
-  _mesh_ptr->errorIfDistributedMesh("BreakBoundaryOnSubdomain");
+  _mesh_ptr->errorIfDistributedMesh("MeshSideSet");
 
   // Reference the the libMesh::MeshBase
   auto & mesh = _mesh_ptr->getMesh();
   auto & boundary_info = mesh.get_boundary_info();
 
-  // get IDs of all boundaries to be broken
+  // get IDs of all boundaries with which a new block is created
   std::set<BoundaryID> mesh_boundary_ids;
   if (isParamValid("boundaries"))
   {

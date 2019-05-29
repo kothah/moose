@@ -65,7 +65,7 @@
   [./TensorMechanics]
     [./Master]
       [./all]
-        strain = Finite
+        strain = SMALL
         incremental = true
         add_variables = true
         eigenstrain_names = eigenstrain
@@ -173,12 +173,6 @@
   type = Transient
   solve_type = 'PJFNK'
 
-  petsc_options = '-snes_ksp_ew'
-  petsc_options_iname = '-ksp_gmres_restart'
-  petsc_options_value = '101'
-
-  line_search = 'none'
-
   l_max_its = 50
   nl_max_its = 50
   nl_rel_tol = 1e-12
@@ -193,7 +187,7 @@
 []
 
 [Outputs]
- exodus = true
+  exodus = true
 []
 
 [Postprocessors]

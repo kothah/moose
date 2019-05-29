@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ACTIONWAREHOUSE_H
-#define ACTIONWAREHOUSE_H
+#pragma once
 
 #include <string>
 #include <set>
@@ -99,6 +98,7 @@ public:
 
   /**
    * Retrieve a constant list of \p Action pointers associated with the passed in task.
+   * Empty list will be returned if no actions are associated with the task.
    */
   const std::list<Action *> & getActionListByName(const std::string & task) const;
 
@@ -109,13 +109,12 @@ public:
   template <class T>
   const T & getAction(const std::string & name)
   {
-    T * p = NULL;
-    for (auto i = beginIndex(_all_ptrs); i < _all_ptrs.size(); ++i)
+    typename std::shared_ptr<T> p;
+    for (auto act_ptr : _all_ptrs)
     {
-      auto act = _all_ptrs[i].get();
-      if (act->name() == name)
+      if (act_ptr->name() == name)
       {
-        p = dynamic_cast<T *>(act);
+        p = std::dynamic_pointer_cast<T>(act_ptr);
         if (p)
           break;
       }
@@ -133,19 +132,46 @@ public:
   {
     // we need to create the map first to ensure that all actions in the map are unique
     // and the actions are sorted by their names
-    std::map<std::string, const T *> actions;
-    for (auto i = beginIndex(_all_ptrs); i < _all_ptrs.size(); ++i)
+    typename std::map<std::string, const std::shared_ptr<T>> actions;
+    for (auto act_ptr : _all_ptrs)
     {
-      auto act = _all_ptrs[i].get();
-      T * p = dynamic_cast<T *>(act);
+      auto p = std::dynamic_pointer_cast<T>(act_ptr);
       if (p)
-        actions.insert(std::pair<std::string, const T *>(act->name(), p));
+        actions.insert(std::make_pair(act_ptr->name(), p));
     }
     // construct the vector from the map entries
     std::vector<const T *> action_vector;
     for (auto & pair : actions)
-      action_vector.push_back(pair.second);
+      action_vector.push_back(pair.second.get());
     return action_vector;
+  }
+
+  /**
+   * Retrieve the action on a specific task with its type.
+   * Error will be thrown if more than one actions are found.
+   * @param task The task name.
+   * @return The action pointer. Null means that such an action does not exist.
+   */
+  template <class T>
+  const T * getActionByTask(const std::string & task)
+  {
+    const auto it = _action_blocks.find(task);
+    if (it == _action_blocks.end())
+      return nullptr;
+
+    T * p = nullptr;
+    for (const auto & action : it->second)
+    {
+      T * tp = dynamic_cast<T *>(action);
+      if (tp)
+      {
+        if (p)
+          mooseError("More than one actions have been detected in getActionByTask");
+        else
+          p = tp;
+      }
+    }
+    return p;
   }
 
   void setFinalTask(const std::string & task);
@@ -185,7 +211,10 @@ public:
   // this context.  Since full support for unique_ptr is not quite
   // available yet, we've implemented it as a std::shared_ptr.
   std::shared_ptr<MooseMesh> & mesh() { return _mesh; }
+  const std::shared_ptr<MooseMesh> & getMesh() const { return _mesh; }
+
   std::shared_ptr<MooseMesh> & displacedMesh() { return _displaced_mesh; }
+  const std::shared_ptr<MooseMesh> & getDisplacedMesh() const { return _displaced_mesh; }
 
   std::shared_ptr<FEProblemBase> & problemBase() { return _problem; }
   std::shared_ptr<FEProblem> problem();
@@ -254,6 +283,6 @@ private:
   std::string _final_task;
 
   ActionIterator _act_iter;
-};
 
-#endif // ACTIONWAREHOUSE_H
+  const std::list<Action *> _empty_action_list;
+};

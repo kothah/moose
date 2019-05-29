@@ -8,7 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "PorousFlowWaterNCGTest.h"
-#include "Utils.h"
+#include "FluidPropertiesTestUtils.h"
 
 /**
  * Verify that the correct name is supplied
@@ -190,11 +190,12 @@ TEST_F(PorousFlowWaterNCGTest, gasProperties)
   Real gas_viscosity = fsp[1].viscosity;
   Real gas_enthalpy = fsp[1].enthalpy;
 
-  Real density = _ncg_fp->rho(Z * p, T) + _water_fp->rho(_water_fp->vaporPressure(T), T);
-  Real viscosity =
-      Z * _ncg_fp->mu(Z * p, T) + (1.0 - Z) * _water_fp->mu(_water_fp->vaporPressure(T), T);
-  Real enthalpy =
-      Z * _ncg_fp->h(Z * p, T) + (1.0 - Z) * _water_fp->h(_water_fp->vaporPressure(T), T);
+  Real density =
+      _ncg_fp->rho_from_p_T(Z * p, T) + _water_fp->rho_from_p_T(_water_fp->vaporPressure(T), T);
+  Real viscosity = Z * _ncg_fp->mu_from_p_T(Z * p, T) +
+                   (1.0 - Z) * _water_fp->mu_from_p_T(_water_fp->vaporPressure(T), T);
+  Real enthalpy = Z * _ncg_fp->h_from_p_T(Z * p, T) +
+                  (1.0 - Z) * _water_fp->h_from_p_T(_water_fp->vaporPressure(T), T);
 
   ABS_TEST(gas_density, density, 1.0e-8);
   ABS_TEST(gas_viscosity, viscosity, 1.0e-8);
@@ -341,8 +342,8 @@ TEST_F(PorousFlowWaterNCGTest, liquidProperties)
   _fp->liquidProperties(p, T, fsp);
   Real liquid_density = fsp[0].density;
   Real liquid_viscosity = fsp[0].viscosity;
-  Real density = _water_fp->rho(p, T);
-  Real viscosity = _water_fp->mu(p, T);
+  Real density = _water_fp->rho_from_p_T(p, T);
+  Real viscosity = _water_fp->mu_from_p_T(p, T);
 
   ABS_TEST(liquid_density, density, 1.0e-12);
   ABS_TEST(liquid_viscosity, viscosity, 1.0e-12);
@@ -542,8 +543,10 @@ TEST_F(PorousFlowWaterNCGTest, totalMassFraction)
   const Real p = 1.0e6;
   const Real T = 350.0;
   const Real s = 0.2;
+  const Real Xnacl = 0.1;
+  const unsigned qp = 0;
 
-  Real Z = _fp->totalMassFraction(p, T, s);
+  Real Z = _fp->totalMassFraction(p, T, Xnacl, s, qp);
 
   // Test that the saturation calculated in this fluid state using Z is equal to s
   FluidStatePhaseEnum phase_state;

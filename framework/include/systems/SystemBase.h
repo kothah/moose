@@ -7,20 +7,18 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef SYSTEMBASE_H
-#define SYSTEMBASE_H
+#pragma once
 
 #include <vector>
 
 #include "DataIO.h"
 #include "MooseTypes.h"
 #include "VariableWarehouse.h"
+#include "InputParameters.h"
 
 // libMesh
 #include "libmesh/exodusII_io.h"
 #include "libmesh/parallel_object.h"
-#include "libmesh/dof_map.h"
-#include "libmesh/equation_systems.h"
 #include "libmesh/numeric_vector.h"
 #include "libmesh/sparse_matrix.h"
 
@@ -35,11 +33,14 @@ typedef MooseVariableFE<VectorValue<Real>> VectorMooseVariable;
 class MooseMesh;
 class SubProblem;
 class SystemBase;
+class TimeIntegrator;
 
 // libMesh forward declarations
 namespace libMesh
 {
 class System;
+class DofMap;
+class FEType;
 }
 
 /**
@@ -100,12 +101,19 @@ public:
    */
   virtual unsigned int number() const;
   virtual MooseMesh & mesh() { return _mesh; }
+  virtual const MooseMesh & mesh() const { return _mesh; }
   virtual SubProblem & subproblem() { return _subproblem; }
+  virtual const SubProblem & subproblem() const { return _subproblem; }
 
   /**
-   * Gets the dof map
+   * Gets writeable reference to the dof map
    */
   virtual DofMap & dofMap();
+
+  /**
+   * Gets const reference to the dof map
+   */
+  virtual const DofMap & dofMap() const;
 
   /**
    * Get the reference to the libMesh system
@@ -146,15 +154,32 @@ public:
    * The solution vector that is currently being operated on.
    * This is typically a ghosted vector that comes in from the Nonlinear solver.
    */
-  virtual const NumericVector<Number> *& currentSolution() = 0;
+  virtual const NumericVector<Number> * const & currentSolution() const = 0;
 
   virtual NumericVector<Number> & solution() = 0;
   virtual NumericVector<Number> & solutionOld() = 0;
   virtual NumericVector<Number> & solutionOlder() = 0;
   virtual NumericVector<Number> * solutionPreviousNewton() = 0;
+  virtual const NumericVector<Number> & solution() const = 0;
+  virtual const NumericVector<Number> & solutionOld() const = 0;
+  virtual const NumericVector<Number> & solutionOlder() const = 0;
+  virtual const NumericVector<Number> * solutionPreviousNewton() const = 0;
 
   virtual Number & duDotDu() { return _du_dot_du; }
-  virtual NumericVector<Number> & solutionUDot() { return *_dummy_vec; }
+  virtual Number & duDotDotDu() { return _du_dotdot_du; }
+  virtual const Number & duDotDu() const { return _du_dot_du; }
+  virtual const Number & duDotDotDu() const { return _du_dotdot_du; }
+
+  // non-const getters
+  virtual NumericVector<Number> * solutionUDot() = 0;
+  virtual NumericVector<Number> * solutionUDotOld() = 0;
+  virtual NumericVector<Number> * solutionUDotDot() = 0;
+  virtual NumericVector<Number> * solutionUDotDotOld() = 0;
+  // const getters
+  virtual const NumericVector<Number> * solutionUDot() const = 0;
+  virtual const NumericVector<Number> * solutionUDotOld() const = 0;
+  virtual const NumericVector<Number> * solutionUDotDot() const = 0;
+  virtual const NumericVector<Number> * solutionUDotDotOld() const = 0;
 
   virtual void saveOldSolutions();
   virtual void restoreOldSolutions();
@@ -167,7 +192,7 @@ public:
   /**
    * Check if the tagged vector exists in the system.
    */
-  virtual bool hasVector(TagID tag_id);
+  virtual bool hasVector(TagID tag_id) const;
 
   /**
    * Ideally, we should not need this API.
@@ -208,6 +233,11 @@ public:
   virtual NumericVector<Number> & getVector(TagID tag);
 
   /**
+   * Get a raw NumericVector
+   */
+  virtual const NumericVector<Number> & getVector(TagID tag) const;
+
+  /**
    * Associate a vector for a given tag
    */
   virtual void associateVectorToTag(NumericVector<Number> & vec, TagID tag);
@@ -225,12 +255,17 @@ public:
   /**
    * Check if the tagged matrix exists in the system.
    */
-  virtual bool hasMatrix(TagID tag);
+  virtual bool hasMatrix(TagID tag) const;
 
   /**
    * Get a raw SparseMatrix
    */
   virtual SparseMatrix<Number> & getMatrix(TagID tag);
+
+  /**
+   * Get a raw SparseMatrix
+   */
+  virtual const SparseMatrix<Number> & getMatrix(TagID tag) const;
 
   /**
    *  Make all exsiting matrices ative
@@ -245,7 +280,7 @@ public:
   /**
    *  If or not a matrix tag is active
    */
-  virtual bool matrixTagActive(TagID tag);
+  virtual bool matrixTagActive(TagID tag) const;
 
   /**
    *  deactive a matrix for tag
@@ -400,6 +435,30 @@ public:
   virtual unsigned int nVariables() const;
 
   /**
+   * Gets the maximum number of dofs used by any one variable on any one element
+   *
+   * @return The max
+   */
+  size_t getMaxVarNDofsPerElem() const { return _max_var_n_dofs_per_elem; }
+
+  /**
+   * Gets the maximum number of dofs used by any one variable on any one node
+   *
+   * @return The max
+   */
+  size_t getMaxVarNDofsPerNode() const { return _max_var_n_dofs_per_node; }
+
+  /**
+   * assign the maximum element dofs
+   */
+  void assignMaxVarNDofsPerElem(const size_t & max_dofs) { _max_var_n_dofs_per_elem = max_dofs; }
+
+  /**
+   * assign the maximum node dofs
+   */
+  void assignMaxVarNDofsPerNode(const size_t & max_dofs) { _max_var_n_dofs_per_node = max_dofs; }
+
+  /**
    * Adds this variable to the list of variables to be zeroed during each residual evaluation.
    * @param var_name The name of the variable to be zeroed.
    */
@@ -461,6 +520,12 @@ public:
   virtual void prepareNeighbor(THREAD_ID tid);
 
   /**
+   * Prepare the system for use for lower dimensional elements
+   * @param tid ID of the thread
+   */
+  virtual void prepareLowerD(THREAD_ID tid);
+
+  /**
    * Reinit an element assembly info
    * @param elem Which element we are reinitializing for
    * @param tid ID of the thread
@@ -487,6 +552,11 @@ public:
    * Compute the values of the variables at all the current points.
    */
   virtual void reinitNeighbor(const Elem * elem, THREAD_ID tid);
+
+  /**
+   * Compute the values of the variables on the lower dimensional element
+   */
+  virtual void reinitLowerD(THREAD_ID tid);
 
   /**
    * Reinit nodal assembly info
@@ -554,7 +624,7 @@ public:
   /**
    * Remove a vector from the system with the given name.
    */
-  virtual void removeVector(const std::string & name) { system().remove_vector(name); }
+  virtual void removeVector(const std::string & name);
 
   /**
    * Adds a solution length vector to the system.
@@ -624,7 +694,7 @@ public:
     mooseError("Removing a matrix is not supported for this type of system!");
   }
 
-  virtual const std::string & name() const { return system().name(); }
+  virtual const std::string & name() const;
 
   /**
    * Adds a scalar variable
@@ -637,9 +707,9 @@ public:
                                  Real scale_factor,
                                  const std::set<SubdomainID> * const active_subdomains = NULL);
 
-  const std::vector<VariableName> & getVariableNames() const { return _vars[0].names(); };
+  const std::vector<VariableName> & getVariableNames() const { return _vars[0].names(); }
 
-  virtual void computeVariables(const NumericVector<Number> & /*soln*/){};
+  virtual void computeVariables(const NumericVector<Number> & /*soln*/) {}
 
   void copyVars(ExodusII_IO & io);
 
@@ -647,6 +717,19 @@ public:
    * Copy current solution into old and older
    */
   virtual void copySolutionsBackwards();
+
+  virtual void addTimeIntegrator(const std::string & /*type*/,
+                                 const std::string & /*name*/,
+                                 InputParameters /*parameters*/)
+  {
+  }
+
+  virtual void addTimeIntegrator(std::shared_ptr<TimeIntegrator> /*ti*/) {}
+
+  TimeIntegrator * getTimeIntegrator() { return _time_integrator.get(); }
+  const TimeIntegrator * getTimeIntegrator() const { return _time_integrator.get(); }
+
+  std::shared_ptr<TimeIntegrator> getSharedTimeIntegrator() { return _time_integrator; }
 
 protected:
   SubProblem & _subproblem;
@@ -667,6 +750,7 @@ protected:
   std::vector<std::string> _vars_to_be_zeroed_on_jacobian;
 
   Real _du_dot_du;
+  Real _du_dotdot_du;
 
   /// Tagged vectors (pointer)
   std::vector<NumericVector<Number> *> _tagged_vectors;
@@ -675,20 +759,30 @@ protected:
   /// Active flags for tagged matrices
   std::vector<bool> _matrix_tag_active_flags;
 
-  NumericVector<Number> * _dummy_vec; // to satisfy the interface
-
   // Used for saving old solutions so that they wont be accidentally changed
   NumericVector<Real> * _saved_old;
   NumericVector<Real> * _saved_older;
+
+  // Used for saving old u_dot and u_dotdot so that they wont be accidentally changed
+  NumericVector<Real> * _saved_dot_old;
+  NumericVector<Real> * _saved_dotdot_old;
 
   /// default kind of variables in this system
   Moose::VarKindType _var_kind;
 
   std::vector<VarCopyInfo> _var_to_copy;
+
+  /// Maximum number of dofs for any one variable on any one element
+  size_t _max_var_n_dofs_per_elem;
+
+  /// Maximum number of dofs for any one variable on any one node
+  size_t _max_var_n_dofs_per_node;
+
+  /// Time integrator
+  std::shared_ptr<TimeIntegrator> _time_integrator;
 };
 
 #define PARALLEL_TRY
 
 #define PARALLEL_CATCH _fe_problem.checkExceptionAndStopSolve();
 
-#endif /* SYSTEMBASE_H */

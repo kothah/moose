@@ -82,32 +82,15 @@
   [./temperature]
     type = PorousFlowTemperature
   [../]
-  [./temperature_nodal]
-    type = PorousFlowTemperature
-    at_nodes = true
-  [../]
-  [./ppss_qp]
-    type = PorousFlow1PhaseP
-    porepressure = pp
-    capillary_pressure = pc
-  [../]
   [./ppss]
     type = PorousFlow1PhaseP
-    at_nodes = true
     porepressure = pp
     capillary_pressure = pc
   [../]
   [./massfrac]
     type = PorousFlowMassFraction
-    at_nodes = true
   [../]
   [./simple_fluid]
-    type = PorousFlowSingleComponentFluid
-    fp = simple_fluid
-    phase = 0
-    at_nodes = true
-  [../]
-  [./simple_fluid_qp]
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid
     phase = 0
@@ -118,7 +101,6 @@
   [../]
   [./relperm]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 1
     phase = 0
   [../]
@@ -138,18 +120,9 @@
 []
 
 [Preconditioning]
-  active = andy
   [./andy]
     type = SMP
     full = true
-    petsc_options_iname = '-ksp_type -pc_type -snes_atol -snes_rtol -snes_max_it'
-    petsc_options_value = 'bcgs bjacobi 1E-15 1E-10 10000'
-  [../]
-  [./check]
-    type = SMP
-    full = true
-    petsc_options_iname = '-ksp_type -pc_type -snes_atol -snes_rtol -snes_max_it -snes_type'
-    petsc_options_value = 'bcgs bjacobi 1E-15 1E-10 10000 test'
   [../]
 []
 

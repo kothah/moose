@@ -16,7 +16,7 @@
 #include "Factory.h"
 
 registerMooseAction("MooseApp", SetupMeshAction, "setup_mesh");
-
+registerMooseAction("MooseApp", SetupMeshAction, "set_mesh_base");
 registerMooseAction("MooseApp", SetupMeshAction, "init_mesh");
 
 template <>
@@ -50,7 +50,14 @@ validParams<SetupMeshAction>()
       "displacements",
       "The variables corresponding to the x y z displacements of the mesh.  If "
       "this is provided then the displacements will be taken into account during "
-      "the computation.");
+      "the computation. Creation of the displaced mesh can be suppressed even if "
+      "this is set by setting 'use_displaced_mesh = false'.");
+  params.addParam<bool>(
+      "use_displaced_mesh",
+      true,
+      "Create the displaced mesh if the 'displacements' "
+      "parameter is set. If this is 'false', a displaced mesh will not be created, "
+      "regardless of whether 'displacements' is set.");
   params.addParam<std::vector<BoundaryName>>("ghosted_boundaries",
                                              "Boundaries to be ghosted if using Nemesis");
   params.addParam<std::vector<Real>>("ghosted_boundaries_inflation",
@@ -161,7 +168,7 @@ SetupMeshAction::act()
   if (_current_task == "setup_mesh")
   {
     // switch non-file meshes to be a file-mesh if using a pre-split mesh configuration.
-    if (_app.parameters().get<bool>("use_split"))
+    if (_app.isUseSplit())
     {
       auto split_file = _app.parameters().get<std::string>("split_file");
 
@@ -185,19 +192,20 @@ SetupMeshAction::act()
             mooseError(
                 "Cannot use split mesh for a non-file mesh without specifying --split-file on "
                 "command line");
-          MOOSE_ABORT;
         }
 
         _type = "FileMesh";
         auto new_pars = validParams<FileMesh>();
+
+        // Keep existing parameters where possible
+        new_pars.applyParameters(_moose_object_pars);
+
         new_pars.set<MeshFileName>("file") = split_file;
         new_pars.set<MooseApp *>("_moose_app") = _moose_object_pars.get<MooseApp *>("_moose_app");
-        new_pars.set<MooseEnum>("parallel_type") = "distributed";
         _moose_object_pars = new_pars;
       }
       else
       {
-        _moose_object_pars.set<MooseEnum>("parallel_type") = "distributed";
         if (split_file != "")
           _moose_object_pars.set<MeshFileName>("file") = split_file;
         else
@@ -207,17 +215,20 @@ SetupMeshAction::act()
     }
 
     _mesh = _factory.create<MooseMesh>(_type, "mesh", _moose_object_pars);
-    if (isParamValid("displacements"))
-      _displaced_mesh = _factory.create<MooseMesh>(_type, "displaced_mesh", _moose_object_pars);
   }
+
+  else if (_current_task == "set_mesh_base")
+    _mesh->setMeshBase(_mesh->buildMeshBaseObject());
+
   else if (_current_task == "init_mesh")
   {
     _mesh->init();
 
-    if (isParamValid("displacements"))
+    if (isParamValid("displacements") && getParam<bool>("use_displaced_mesh"))
     {
-      // Initialize the displaced mesh
-      _displaced_mesh->init();
+      _displaced_mesh = _mesh->safeClone();
+      _displaced_mesh->getMesh().allow_remote_element_removal(
+          _mesh->getMesh().allow_remote_element_removal());
 
       std::vector<std::string> displacements = getParam<std::vector<std::string>>("displacements");
       if (displacements.size() < _displaced_mesh->dimension())

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef GENERALIZEDPLANESTRAINOFFDIAG_H
-#define GENERALIZEDPLANESTRAINOFFDIAG_H
+#pragma once
 
 #include "Kernel.h"
 #include "DerivativeMaterialInterface.h"
@@ -16,8 +15,12 @@
 
 // Forward Declarations
 class GeneralizedPlaneStrainOffDiag;
-class RankTwoTensor;
-class RankFourTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
+template <typename>
+class RankFourTensorTempl;
+typedef RankFourTensorTempl<Real> RankFourTensor;
 
 template <>
 InputParameters validParams<GeneralizedPlaneStrainOffDiag>();
@@ -58,4 +61,3 @@ protected:
 
   unsigned int _scalar_out_of_plane_strain_direction;
 };
-#endif // GENERALIZEDPLANESSTRAINOFFDIAG_H

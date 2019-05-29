@@ -7,13 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef FEATUREFLOODCOUNT_H
-#define FEATUREFLOODCOUNT_H
+#pragma once
 
 #include "Coupleable.h"
 #include "GeneralPostprocessor.h"
 #include "InfixIterator.h"
 #include "MooseVariableDependencyInterface.h"
+#include "BoundaryRestrictable.h"
 
 #include <iterator>
 #include <list>
@@ -43,19 +43,21 @@ InputParameters validParams<FeatureFloodCount>();
  */
 class FeatureFloodCount : public GeneralPostprocessor,
                           public Coupleable,
-                          public MooseVariableDependencyInterface
+                          public MooseVariableDependencyInterface,
+                          public BoundaryRestrictable
 {
 public:
   FeatureFloodCount(const InputParameters & parameters);
-  ~FeatureFloodCount();
 
   virtual void initialSetup() override;
   virtual void meshChanged() override;
-
   virtual void initialize() override;
   virtual void execute() override;
   virtual void finalize() override;
   virtual Real getValue() override;
+
+  /// Return the number of active features
+  std::size_t getNumberActiveFeatures() const;
 
   /// Returns the total feature count (active and inactive ids, useful for sizing vectors)
   virtual std::size_t getTotalFeatureCount() const;
@@ -63,7 +65,11 @@ public:
   /// Returns a Boolean indicating whether this feature intersects _any_ boundary
   virtual bool doesFeatureIntersectBoundary(unsigned int feature_id) const;
 
-  /// Returns the centroid of the designated feature (only suppored without periodic boundaries)
+  /// Returns a Boolean indicating whether this feature is percolated (e.g. intersects at least two
+  /// different boundaries from sets supplied by the user)
+  virtual bool isFeaturePercolated(unsigned int feature_id) const;
+
+  /// Returns the centroid of the designated feature (only supported without periodic boundaries)
   virtual Point featureCentroid(unsigned int feature_id) const;
 
   /**
@@ -116,9 +122,28 @@ public:
     INACTIVE = 0x4
   };
 
+  /// This enumeration is used to inidacate status of boundary intersections.
+  enum class BoundaryIntersection : unsigned char
+  {
+    NONE = 0x0,
+    ANY_BOUNDARY = 0x1,
+    PRIMARY_PERCOLATION_BOUNDARY = 0x2,
+    SECONDARY_PERCOLATION_BOUNDARY = 0x4
+  };
+
   class FeatureData
   {
   public:
+    /**
+     * The primary underlying container type used to hold the data in each FeatureData.
+     * Supported types are std::set<dof_id_type> (with minor adjustmnets)
+     * or std::vector<dof_id_type>.
+     *
+     * Note: Testing has shown that the vector container is nearly 10x faster. There's really
+     * no reason to use sets.
+     */
+    using container_type = std::set<dof_id_type>;
+
     FeatureData() : FeatureData(std::numeric_limits<std::size_t>::max(), Status::INACTIVE) {}
 
     FeatureData(std::size_t var_index,
@@ -140,7 +165,7 @@ public:
         _min_entity_id(DofObject::invalid_id),
         _vol_count(0),
         _status(status),
-        _intersects_boundary(false)
+        _boundary_intersection(BoundaryIntersection::NONE)
     {
     }
 
@@ -176,6 +201,16 @@ public:
      */
     bool mergeable(const FeatureData & rhs) const;
 
+    /**
+     * This routine indicates whether two features can be consolidated, that is, one feature is
+     * reasonably expected to be part of another. This is different than mergable in that a portion
+     * of the feature is expected to be completely identical. This happens in the distributed work
+     * scenario when a feature that is partially owned by a processor is merged on a different
+     * processor (where local entities are not sent or available). However, later that feature
+     * ends back up on the original processor and just needs to be consolidated.
+     */
+    bool canConsolidate(const FeatureData & rhs) const;
+
     ///@{
     /**
      * Determine if one of this FeaturesData's member sets intersects
@@ -197,6 +232,11 @@ public:
      * in an inconsistent state.
      */
     void merge(FeatureData && rhs);
+
+    /**
+     * Consolidates features, i.e. merges local entities but leaves everything else untouched.
+     */
+    void consolidate(FeatureData && rhs);
 
     // TODO: Doco
     void clear();
@@ -221,20 +261,20 @@ public:
     friend std::ostream & operator<<(std::ostream & out, const FeatureData & feature);
 
     /// Holds the ghosted ids for a feature (the ids which will be used for stitching
-    std::set<dof_id_type> _ghosted_ids;
+    container_type _ghosted_ids;
 
     /// Holds the local ids in the interior of a feature.
     /// This data structure is only maintained on the local processor
-    std::set<dof_id_type> _local_ids;
+    container_type _local_ids;
 
     /// Holds the ids surrounding the feature
-    std::set<dof_id_type> _halo_ids;
+    container_type _halo_ids;
 
     /// Holds halo ids that extend onto a non-topologically connected surface
-    std::set<dof_id_type> _disjoint_halo_ids;
+    container_type _disjoint_halo_ids;
 
     /// Holds the nodes that belong to the feature on a periodic boundary
-    std::set<dof_id_type> _periodic_nodes;
+    container_type _periodic_nodes;
 
     /// The Moose variable where this feature was found (often the "order parameter")
     std::size_t _var_index;
@@ -262,8 +302,8 @@ public:
     /// The status of a feature (used mostly in derived classes like the GrainTracker)
     Status _status;
 
-    /// Flag indicating whether this feature intersects a boundary
-    bool _intersects_boundary;
+    /// Enumaration indicating boundary intersection status
+    BoundaryIntersection _boundary_intersection;
 
     FeatureData duplicate() const { return FeatureData(*this); }
 
@@ -297,6 +337,12 @@ public:
 
 protected:
   /**
+   * Returns a Boolean indicating whether the entity is on one of the desired boundaries.
+   */
+  template <typename T>
+  bool isBoundaryEntity(const T * entity) const;
+
+  /**
    * This method is used to populate any of the data structures used for storing field data (nodal
    * or elemental). It is called at the end of finalize and can make use of any of the data
    * structures created during the execution of this postprocessor.
@@ -304,14 +350,13 @@ protected:
   virtual void updateFieldInfo();
 
   /**
-   * This method will "mark" all entities on neighboring elements that
-   * are above the supplied threshold. If feature is NULL, we are exploring
-   * for a new region to mark, otherwise we are in the recursive calls
-   * currently marking a region.
+   * This method will check if the current entity is above the supplied threshold and "mark" it. It
+   * will then inspect neighboring entities that are above the connecting threshold and add them to
+   * the current feature.
    *
    * @return Boolean indicating whether a new feature was found while exploring the current entity.
    */
-  bool flood(const DofObject * dof_object, std::size_t current_index, FeatureData * feature);
+  bool flood(const DofObject * dof_object, std::size_t current_index);
 
   /**
    * Return the starting comparison threshold to use when inspecting an entity during the flood
@@ -346,8 +391,8 @@ protected:
   /**
    * This method takes all of the partial features and expands the local, ghosted, and halo sets
    * around those regions to account for the diffuse interface. Rather than using any kind of
-   * recursion here, we simply expand the region by all "point" neighbors from the actual
-   * grain cells since all point neighbors will contain contributions to the region.
+   * recursion here, we simply expand the region by all "point" neighbors from the actual grain
+   * cells since all point neighbors will contain contributions to the region.
    */
   void expandPointHalos();
 
@@ -363,12 +408,8 @@ protected:
    * visiting neighbors. Since the logic is different for the elemental versus nodal case it's
    * easier to split them up.
    */
-  void visitNodalNeighbors(const Node * node,
-                           std::size_t current_index,
-                           FeatureData * feature,
-                           bool expand_halos_only);
+  void visitNodalNeighbors(const Node * node, FeatureData * feature, bool expand_halos_only);
   void visitElementalNeighbors(const Elem * elem,
-                               std::size_t current_index,
                                FeatureData * feature,
                                bool expand_halos_only,
                                bool disjoint_only);
@@ -382,7 +423,6 @@ protected:
   template <typename T>
   void visitNeighborsHelper(const T * curr_entity,
                             std::vector<const T *> neighbor_entities,
-                            std::size_t current_index,
                             FeatureData * feature,
                             bool expand_halos_only,
                             bool topological_neighbor,
@@ -396,26 +436,32 @@ protected:
    *
    * _feature_sets layout:
    * The outer vector is sized to one when _single_map_mode == true, otherwise it is sized for the
-   * number of coupled variables. The inner list represents the flooded regions (local only
-   * after this call but fully populated after parallel communication and stitching).
+   * number of coupled variables. The inner list represents the flooded regions (local only after
+   * this call but fully populated after parallel communication and stitching).
    */
   void prepareDataForTransfer();
 
-  ///@{
   /**
-   * These routines packs/unpack the _feature_map data into a structure suitable for parallel
-   * communication operations. See the comments in these routines for the exact
-   * data structure layout.
+   * This routines packs the _partial_feature_sets data into a structure suitable for parallel
+   * communication operations.
    */
-  void serialize(std::string & serialized_buffer);
-  void deserialize(std::vector<std::string> & serialized_buffers);
-  ///@}
+  void serialize(std::string & serialized_buffer, unsigned int var_num = invalid_id);
+
+  /**
+   * This routine takes the vector of byte buffers (one for each processor), deserializes them
+   * into a series of FeatureSet objects, and appends them to the _feature_sets data structure.
+   *
+   * Note: It is assumed that local processor information may already be stored in the _feature_sets
+   * data structure so it is not cleared before insertion.
+   */
+  void deserialize(std::vector<std::string> & serialized_buffers,
+                   unsigned int var_num = invalid_id);
 
   /**
    * This routine is called on the master rank only and stitches together the partial
    * feature pieces seen on any processor.
    */
-  void mergeSets();
+  virtual void mergeSets();
 
   /**
    * Method for determining whether two features are mergeable. This routine exists because
@@ -469,6 +515,11 @@ protected:
   virtual void clearDataStructures();
 
   /**
+   * Update the feature's attributes to indicate boundary intersections
+   */
+  void updateBoundaryIntersections(FeatureData & feature) const;
+
+  /**
    * This routine adds the periodic node information to our data structure prior to packing the data
    * this makes those periodic neighbors appear much like ghosted nodes in a multiprocessor setting
    */
@@ -485,10 +536,10 @@ protected:
    * It exits as soon as any intersection is detected.
    */
   template <class InputIterator>
-  static inline bool setsIntersect(InputIterator first1,
-                                   InputIterator last1,
-                                   InputIterator first2,
-                                   InputIterator last2)
+  static bool setsIntersect(InputIterator first1,
+                            InputIterator last1,
+                            InputIterator first2,
+                            InputIterator last2)
   {
     while (first1 != last1 && first2 != last2)
     {
@@ -510,6 +561,9 @@ protected:
   std::vector<MooseVariableFEBase *> _fe_vars;
   /// The vector of coupled in variables cast to MooseVariable
   std::vector<MooseVariable *> _vars;
+
+  /// Reference to the dof_map containing the coupled variables
+  const DofMap & _dof_map;
 
   /// The threshold above (or below) where an entity may begin a new region (feature)
   const Real _threshold;
@@ -591,17 +645,27 @@ protected:
   unsigned int _feature_count;
 
   /**
-   * The data structure used to hold partial and communicated feature data.
-   * The data structure mirrors that found in _feature_sets, but contains
-   * one additional vector indexed by processor id
+   * The data structure used to hold partial and communicated feature data, during the discovery and
+   * merging phases. The outer vector is indexed by map number (often variable number). The inner
+   * list is an unordered list of partially discovered features.
    */
   std::vector<std::list<FeatureData>> _partial_feature_sets;
 
   /**
-   * The data structure used to hold the globally unique features. The outer vector
-   * is indexed by variable number, the inner vector is indexed by feature number
+   * The data structure used to hold the globally unique features. The sorting of the vector is
+   * implementation defined and may not correspond to anything useful. The ID of each feature should
+   * be queried from the FeatureData objects.
    */
-  std::vector<FeatureData> _feature_sets;
+  std::vector<FeatureData> & _feature_sets;
+
+  /**
+   * Derived objects (e.g. the GrainTracker) may require restartable data to track information
+   * across time steps. The FeatureFloodCounter however does not. This container is here so that
+   * we have the flexabilty to switch between volatile and non-volatile storage. The _feature_sets
+   * data structure can conditionally refer to this structure or a MOOSE-provided structure, which
+   * is backed up.
+   */
+  std::vector<FeatureData> _volatile_feature_sets;
 
   /**
    * The feature maps contain the raw flooded node information and eventually the unique grain
@@ -641,17 +705,73 @@ protected:
 
   /// The set of entities on the boundary of the domain used for determining
   /// if features intersect any boundary
-  std::set<dof_id_type> _all_boundary_entity_ids;
+  std::unordered_set<dof_id_type> _all_boundary_entity_ids;
 
   std::map<dof_id_type, std::vector<unsigned int>> _entity_var_to_features;
 
   std::vector<unsigned int> _empty_var_to_features;
 
+  std::vector<BoundaryID> _primary_perc_bnds;
+  std::vector<BoundaryID> _secondary_perc_bnds;
+
   /// Determines if the flood counter is elements or not (nodes)
-  bool _is_elemental;
+  const bool _is_elemental;
+
+  /// Indicates that this object should only run on one or more boundaries
+  bool _is_boundary_restricted;
+
+  /// Boundary element range pointer
+  ConstBndElemRange * _bnd_elem_range;
 
   /// Convenience variable for testing master rank
-  bool _is_master;
+  const bool _is_master;
+
+private:
+  template <class T>
+  static inline void sort(std::set<T> & /*container*/)
+  {
+    // Sets are already sorted, do nothing
+  }
+
+  template <class T>
+  static inline void sort(std::vector<T> & container)
+  {
+    std::sort(container.begin(), container.end());
+  }
+
+  template <class T>
+  static inline void reserve(std::set<T> & /*container*/, std::size_t /*size*/)
+  {
+    // Sets are trees, no reservations necessary
+  }
+
+  template <class T>
+  static inline void reserve(std::vector<T> & container, std::size_t size)
+  {
+    container.reserve(size);
+  }
+
+  /**
+   * This method consolidates all of the merged information from _partial_feature_sets into
+   * the _feature_sets vectors.
+   */
+  void consolidateMergedFeatures(std::vector<std::list<FeatureData>> * saved_data = nullptr);
+
+  /// The data structure for maintaining entities to flood during discovery
+  std::deque<const DofObject *> _entity_queue;
+
+  /// Keeps track of whether we are distributing the merge work
+  const bool _distribute_merge_work;
+
+  /// Timers
+  const PerfID _execute_timer;
+  const PerfID _merge_timer;
+  const PerfID _finalize_timer;
+  const PerfID _comm_and_merge;
+  const PerfID _expand_halos;
+  const PerfID _update_field_info;
+  const PerfID _prepare_for_transfer;
+  const PerfID _consolidate_merged_features;
 };
 
 template <>
@@ -670,4 +790,9 @@ struct enable_bitmask_operators<FeatureFloodCount::Status>
   static const bool enable = true;
 };
 
-#endif // FEATUREFLOODCOUNT_H
+template <>
+struct enable_bitmask_operators<FeatureFloodCount::BoundaryIntersection>
+{
+  static const bool enable = true;
+};
+

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CAVITYPRESSUREUSEROBJECT_H
-#define CAVITYPRESSUREUSEROBJECT_H
+#pragma once
 
 #include "GeneralUserObject.h"
 
@@ -26,6 +25,8 @@ public:
   virtual void timestepSetup() {}
 
   virtual void execute();
+
+  virtual Real computeCavityVolume();
 
   virtual void initialize();
   virtual void finalize() {}
@@ -45,14 +46,13 @@ protected:
   const Real _initial_pressure;
 
   std::vector<const PostprocessorValue *> _material_input;
+  std::vector<const PostprocessorValue *> _volume;
 
   const Real _R;
 
   const Real & _temperature;
   const bool _init_temp_given;
   const Real _init_temp;
-
-  const Real & _volume;
 
   Real _start_time;
   const Real _startup_time;
@@ -63,4 +63,3 @@ protected:
 template <>
 InputParameters validParams<CavityPressureUserObject>();
 
-#endif // CAVITYRESSUREPOSTPROCESSOR_H

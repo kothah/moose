@@ -7,11 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef RESURRECTOR_H
-#define RESURRECTOR_H
+#pragma once
 
 // MOOSE includes
 #include "RestartableDataIO.h"
+#include "PerfGraphInterface.h"
 
 // C++ includes
 #include <string>
@@ -24,7 +24,7 @@ class FEProblemBase;
  *
  * It takes care of writing and reading the restart files.
  */
-class Resurrector
+class Resurrector : public PerfGraphInterface
 {
 public:
   Resurrector(FEProblemBase & fe_problem);
@@ -63,8 +63,11 @@ protected:
   /// Restartable Data
   RestartableDataIO _restartable;
 
+  /// Timers
+  PerfID _restart_from_file_timer;
+  PerfID _restart_restartable_data_timer;
+
   static const std::string MAT_PROP_EXT;
   static const std::string RESTARTABLE_DATA_EXT;
 };
 
-#endif /* RESURRECTOR_H */

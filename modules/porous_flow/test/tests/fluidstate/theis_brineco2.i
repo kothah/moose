@@ -1,4 +1,4 @@
-# Two phase Theis problem: Flow from single source using PorousFlowFluidStateBrineCO2.
+# Two phase Theis problem: Flow from single source.
 # Constant rate injection 2 kg/s
 # 1D cylindrical mesh
 # Initially, system has only a liquid phase, until enough gas is injected
@@ -137,10 +137,21 @@
     [./co2]
       type = TabulatedFluidProperties
       fp = co2sw
-      fluid_property_file = fluid_properties.csv
+    [../]
+    [./water]
+      type = Water97FluidProperties
+    [../]
+    [./watertab]
+      type = TabulatedFluidProperties
+      fp = water
+      temperature_min = 273.15
+      temperature_max = 573.15
+      fluid_property_file = water_fluid_properties.csv
+      save_file = false
     [../]
     [./brine]
       type = BrineFluidProperties
+      water_fp = watertab
     [../]
   [../]
 []
@@ -148,23 +159,9 @@
 [Materials]
   [./temperature]
     type = PorousFlowTemperature
-    at_nodes = true
-  [../]
-  [./temperature_qp]
-    type = PorousFlowTemperature
   [../]
   [./brineco2]
-    type = PorousFlowFluidStateBrineCO2
-    gas_porepressure = pgas
-    z = zi
-    at_nodes = true
-    temperature_unit = Celsius
-    xnacl = xnacl
-    capillary_pressure = pc
-    fluid_state = fs
-  [../]
-  [./brineco2_qp]
-    type = PorousFlowFluidStateBrineCO2
+    type = PorousFlowFluidState
     gas_porepressure = pgas
     z = zi
     temperature_unit = Celsius
@@ -174,7 +171,6 @@
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
-    at_nodes = true
     porosity = 0.2
   [../]
   [./permeability]
@@ -183,7 +179,6 @@
   [../]
   [./relperm_water]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 2
     phase = 0
     s_res = 0.1
@@ -191,7 +186,6 @@
   [../]
   [./relperm_gas]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 2
     phase = 1
   [../]
@@ -235,9 +229,12 @@
 
 [VectorPostprocessors]
   [./line]
-    type = NodalValueSampler
+    type = LineValueSampler
     sort_by = x
-    variable = 'pgas zi xnacl'
+    start_point = '0 0 0'
+    end_point = '2000 0 0'
+    num_points = 10000
+    variable = 'pgas zi xnacl x1 saturation_gas'
     execute_on = 'timestep_end'
   [../]
 []
@@ -281,7 +278,7 @@
 
 [Outputs]
   print_linear_residuals = false
-  print_perf_log = true
+  perf_graph = true
   [./csvout]
     type = CSV
     execute_on = timestep_end

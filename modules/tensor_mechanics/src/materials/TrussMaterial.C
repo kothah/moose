@@ -26,7 +26,7 @@ validParams<TrussMaterial>()
                                "Optional parameter that allows the user to define "
                                "multiple mechanics material systems on the same "
                                "block, i.e. for multiple phases");
-  params.addRequiredParam<std::vector<NonlinearVariableName>>(
+  params.addRequiredParam<std::vector<VariableName>>(
       "displacements",
       "The displacements appropriate for the simulation geometry and coordinate system");
   params.addCoupledVar("youngs_modulus", "Variable containing Young's modulus");
@@ -42,8 +42,7 @@ TrussMaterial::TrussMaterial(const InputParameters & parameters)
     _axial_stress(declareProperty<Real>(_base_name + "axial_stress")),
     _e_over_l(declareProperty<Real>(_base_name + "e_over_l"))
 {
-  const std::vector<NonlinearVariableName> & nl_vnames(
-      getParam<std::vector<NonlinearVariableName>>("displacements"));
+  const std::vector<VariableName> & nl_vnames(getParam<std::vector<VariableName>>("displacements"));
   _ndisp = nl_vnames.size();
 
   // fetch nonlinear variables
@@ -66,9 +65,9 @@ TrussMaterial::computeProperties()
   mooseAssert(_current_elem->n_nodes() == 2, "Truss element needs to have exactly two nodes.");
 
   // fetch the two end nodes for _current_elem
-  std::vector<Node *> node;
+  std::vector<const Node *> node;
   for (unsigned int i = 0; i < 2; ++i)
-    node.push_back(_current_elem->get_node(i));
+    node.push_back(_current_elem->node_ptr(i));
 
   // calculate original length of a truss element
   RealGradient dxyz;

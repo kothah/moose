@@ -7,14 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEVARIABLEBASE_H
-#define MOOSEVARIABLEBASE_H
+#pragma once
 
 #include "MooseTypes.h"
 #include "MooseArray.h"
 
-#include "libmesh/tensor_value.h"
-#include "libmesh/vector_value.h"
 #include "libmesh/fe_type.h"
 
 // libMesh forward declarations
@@ -34,7 +31,8 @@ public:
   MooseVariableBase(unsigned int var_num,
                     const FEType & fe_type,
                     SystemBase & sys,
-                    Moose::VarKindType var_kind);
+                    Moose::VarKindType var_kind,
+                    THREAD_ID tid);
   virtual ~MooseVariableBase();
 
   /**
@@ -90,22 +88,11 @@ public:
    */
   const DofMap & dofMap() const { return _dof_map; }
 
-  std::vector<dof_id_type> & dofIndices() { return _dof_indices; }
+  /// Get local DoF indices
+  virtual const std::vector<dof_id_type> & dofIndices() const { return _dof_indices; }
 
-  const std::vector<dof_id_type> & dofIndices() const { return _dof_indices; }
-
-  unsigned int numberOfDofs() { return _dof_indices.size(); }
-
-  /**
-   * Is this variable nodal
-   * @return true if it nodal, otherwise false
-   */
-  virtual bool isNodal() const = 0;
-
-  /**
-   * @returns true if this is a vector-valued element, false otherwise.
-   */
-  virtual bool isVector() const = 0;
+  /// Get the number of local DoFs
+  virtual unsigned int numberOfDofs() const { return _dof_indices.size(); }
 
 protected:
   /// variable number (from libMesh)
@@ -133,6 +120,8 @@ protected:
 
   /// scaling factor for this variable
   Real _scaling_factor;
+
+  /// Thread ID
+  THREAD_ID _tid;
 };
 
-#endif /* MOOSEVARIABLEBASE_H */

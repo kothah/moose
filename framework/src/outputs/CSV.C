@@ -20,7 +20,8 @@ validParams<CSV>()
 {
   // Get the parameters from the parent object
   InputParameters params = validParams<TableOutput>();
-
+  params.addClassDescription("Output for postprocessors, vector postprocessors, and scalar "
+                             "variables using comma seperated values (CSV).");
   params.addParam<bool>("sort_columns", false, "Toggle the sorting of columns alphabetically.");
 
   // Options for aligning csv output with whitespace padding
@@ -30,6 +31,14 @@ validParams<CSV>()
       "Align the outputted csv data by padding the numbers with trailing whitespace");
   params.addParam<std::string>("delimiter", ",", "Assign the delimiter (default is ','");
   params.addParam<unsigned int>("precision", 14, "Set the output precision");
+  params.addParam<bool>("create_final_symlink",
+                        false,
+                        "Enable/disable the creation of a _FINAL symlink for vector postprocessor "
+                        "data with 'execute_on' includes 'FINAL'.");
+  params.addParam<bool>(
+      "create_latest_symlink",
+      false,
+      "Enable/disable the creation of a _LATEST symlink for vector postprocessor data.");
 
   // Suppress unused parameters
   params.suppressParameter<unsigned int>("padding");
@@ -46,7 +55,9 @@ CSV::CSV(const InputParameters & parameters)
     _write_all_table(false),
     _write_vector_table(false),
     _sort_columns(getParam<bool>("sort_columns")),
-    _recovering(_app.isRecovering())
+    _recovering(_app.isRecovering()),
+    _create_final_symlink(getParam<bool>("create_final_symlink")),
+    _create_latest_symlink(getParam<bool>("create_latest_symlink"))
 {
 }
 
@@ -64,6 +75,20 @@ CSV::initialSetup()
 
   if (_recovering)
     _all_data_table.append(true);
+
+  // Clear any existing symbolic links to LATEST and/or FINAL
+  if (processor_id() == 0)
+  {
+    const std::set<std::string> & out = getVectorPostprocessorOutput();
+    for (const auto & vpp_name : out)
+    {
+      std::string short_name = MooseUtils::shortName(vpp_name);
+      std::string out_latest = _file_base + "_" + short_name + "_LATEST.csv";
+      std::string out_final = _file_base + "_" + short_name + "_FINAL.csv";
+      MooseUtils::clearSymlink(out_latest);
+      MooseUtils::clearSymlink(out_final);
+    }
+  }
 }
 
 std::string
@@ -93,12 +118,27 @@ CSV::outputVectorPostprocessors()
   _write_vector_table = true;
 }
 
+std::string
+CSV::getVectorPostprocessorFileName(const std::string & vpp_name, bool include_time_step)
+{
+  std::ostringstream file_name;
+  file_name << _file_base;
+
+  auto short_name = MooseUtils::shortName(vpp_name);
+  if (short_name.size())
+    file_name << '_' << short_name;
+
+  if (include_time_step)
+    file_name << '_' << std::setw(_padding) << std::setprecision(0) << std::setfill('0')
+              << std::right << timeStep();
+  file_name << ".csv";
+
+  return file_name.str();
+}
+
 void
 CSV::output(const ExecFlagType & type)
 {
-  // Start the performance log
-  Moose::perf_log.push("CSV::output()", "Output");
-
   // Call the base class output (populates tables)
   TableOutput::output(type);
 
@@ -115,34 +155,54 @@ CSV::output(const ExecFlagType & type)
   // Output each VectorPostprocessor's data to a file
   if (_write_vector_table && processor_id() == 0)
   {
+
+    // The VPP table will not write the same data twice, so to get the symlinks correct
+    // for EXEC_FINAL (when other flags exist) whenever files are written the names must
+    // be stored. These stored names are then used outside of this loop when the EXEC_FINAL call is
+    // made.
+    _latest_vpp_filenames.clear();
+
     for (auto & it : _vector_postprocessor_tables)
     {
-      std::ostringstream output;
-      output << _file_base << "_" << MooseUtils::shortName(it.first);
-
-      if (!vpp_data.containsCompleteHistory(it.first))
-        output << "_" << std::setw(_padding) << std::setprecision(0) << std::setfill('0')
-               << std::right << timeStep();
-      output << ".csv";
-
+      const auto & vpp_name = it.first;
       it.second.setDelimiter(_delimiter);
       it.second.setPrecision(_precision);
       if (_sort_columns)
         it.second.sortColumns();
-      it.second.printCSV(output.str(), 1, _align);
+
+      auto include_time_suffix = !vpp_data.containsCompleteHistory(vpp_name);
+      std::string fname = getVectorPostprocessorFileName(vpp_name, include_time_suffix);
+      std::string fprefix = getVectorPostprocessorFilePrefix(vpp_name);
+      _latest_vpp_filenames.emplace_back(fname, fprefix);
+      it.second.printCSV(fname, 1, _align);
+
+      if (_create_latest_symlink)
+      {
+        std::string out_latest = fprefix + "_LATEST.csv";
+        MooseUtils::createSymlink(fname, out_latest);
+      }
 
       if (_time_data)
-      {
-        std::ostringstream filename;
-        filename << _file_base << "_" << MooseUtils::shortName(it.first) << "_time.csv";
-        _vector_postprocessor_time_tables[it.first].printCSV(filename.str());
-      }
+        _vector_postprocessor_time_tables[vpp_name].printCSV(fprefix + "_time.csv");
+    }
+  }
+
+  if (type == EXEC_FINAL && _create_final_symlink && processor_id() == 0)
+  {
+    for (const auto & name_pair : _latest_vpp_filenames)
+    {
+      std::string out_final = name_pair.second + "_FINAL.csv";
+      MooseUtils::createSymlink(name_pair.first, out_final);
     }
   }
 
   // Re-set write flags
   _write_all_table = false;
   _write_vector_table = false;
+}
 
-  Moose::perf_log.pop("CSV::output()", "Output");
+std::string
+CSV::getVectorPostprocessorFilePrefix(const std::string & vpp_name)
+{
+  return _file_base + "_" + MooseUtils::shortName(vpp_name);
 }

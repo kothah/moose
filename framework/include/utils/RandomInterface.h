@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef RANDOMINTERFACE_H
-#define RANDOMINTERFACE_H
+#pragma once
 
 #include "MooseTypes.h"
 #include "MooseEnumItem.h"
@@ -62,7 +61,7 @@ public:
    * @param id - dof object id
    * @return current seed for this id
    */
-  unsigned int getSeed(unsigned int id);
+  unsigned int getSeed(std::size_t id);
 
   /**************************************************
    *                Data Accessors                  *
@@ -84,11 +83,10 @@ private:
   bool _is_nodal;
   ExecFlagType _reset_on;
 
-  const Node *& _curr_node;
-  const Elem *& _curr_element;
+  const Node * const & _curr_node;
+  const Elem * const & _curr_element;
 
   //  friend void FEProblemBase::registerRandomInterface(RandomInterface *random_interface, const
   //  std::string & name, ExecFlagType exec_flag);
 };
 
-#endif /* RANDOMINTERFACE_H */

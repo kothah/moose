@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ADAPTIVITY_H
-#define ADAPTIVITY_H
+#pragma once
 
 #include "libmesh/libmesh_config.h"
 
@@ -18,6 +17,7 @@
 #include "MooseError.h"
 #include "ConsoleStreamInterface.h"
 #include "MooseTypes.h"
+#include "PerfGraphInterface.h"
 
 // libMesh
 #include "libmesh/mesh_refinement.h"
@@ -43,17 +43,17 @@ class ErrorEstimator;
  * Takes care of everything related to mesh adaptivity
  *
  */
-class Adaptivity : public ConsoleStreamInterface
+class Adaptivity : public ConsoleStreamInterface, public PerfGraphInterface
 {
 public:
   Adaptivity(FEProblemBase & subproblem);
   virtual ~Adaptivity();
 
   /**
-   * Initialize the initial adaptivity ;-)
-   *
-   * @param steps TODO: describe me
-   * @param initial_steps number of steps to do in the initial adaptivity
+   * Initialize and turn on adaptivity for the simulation. initial_steps specifies the number of
+   * adaptivity cycles to perform before the simulation starts and steps indicates the
+   * number of adaptivity cycles to run during a steady (not transient) solve.  steps is not used
+   * for transient or eigen solves.
    */
   void init(unsigned int steps, unsigned int initial_steps);
 
@@ -298,6 +298,12 @@ protected:
 
   /// Stores pointers to ErrorVectors associated with indicator field names
   std::map<std::string, std::unique_ptr<ErrorVector>> _indicator_field_to_error_vector;
+
+  /// Timers
+  PerfID _adapt_mesh_timer;
+  PerfID _uniform_refine_timer;
+  PerfID _uniform_refine_with_projection;
+  PerfID _update_error_vectors;
 };
 
 template <typename T>
@@ -331,4 +337,3 @@ Adaptivity::setParam(const std::string & param_name, const T & param_value)
 }
 #endif // LIBMESH_ENABLE_AMR
 
-#endif /* ADAPTIVITY_H */

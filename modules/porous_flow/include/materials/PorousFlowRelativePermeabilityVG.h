@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWRELATIVEPERMEABILITYVG_H
-#define POROUSFLOWRELATIVEPERMEABILITYVG_H
+#pragma once
 
 #include "PorousFlowRelativePermeabilityBase.h"
 #include "PorousFlowVanGenuchten.h"
@@ -42,7 +41,10 @@ protected:
   /// van Genuchten exponent m for the specified phase
   const Real _m;
 
-  /// start of cubic smoothing
+  /// Whether to use the wetting or non-wetting van Genuchten expression
+  const bool _wetting;
+
+  /// Start of cubic smoothing
   const Real _cut;
 
   /// Parameter of the cubic
@@ -55,4 +57,3 @@ protected:
   const Real _cub3;
 };
 
-#endif // POROUSFLOWRELATIVEPERMEABILITYVG_H

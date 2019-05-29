@@ -9,8 +9,9 @@
 
 #include "PorousFlowBrineCO2.h"
 #include "BrineFluidProperties.h"
-#include "SinglePhaseFluidPropertiesPT.h"
+#include "SinglePhaseFluidProperties.h"
 #include "MathUtils.h"
+#include "Conversion.h"
 
 registerMooseObject("PorousFlowApp", PorousFlowBrineCO2);
 
@@ -18,7 +19,7 @@ template <>
 InputParameters
 validParams<PorousFlowBrineCO2>()
 {
-  InputParameters params = validParams<PorousFlowFluidStateBase>();
+  InputParameters params = validParams<PorousFlowFluidStateMultiComponentBase>();
   params.addRequiredParam<UserObjectName>("brine_fp", "The name of the user object for brine");
   params.addRequiredParam<UserObjectName>("co2_fp", "The name of the user object for CO2");
   params.addParam<unsigned int>("salt_component", 2, "The component number of salt");
@@ -27,10 +28,10 @@ validParams<PorousFlowBrineCO2>()
 }
 
 PorousFlowBrineCO2::PorousFlowBrineCO2(const InputParameters & parameters)
-  : PorousFlowFluidStateBase(parameters),
+  : PorousFlowFluidStateMultiComponentBase(parameters),
     _salt_component(getParam<unsigned int>("salt_component")),
     _brine_fp(getUserObject<BrineFluidProperties>("brine_fp")),
-    _co2_fp(getUserObject<SinglePhaseFluidPropertiesPT>("co2_fp")),
+    _co2_fp(getUserObject<SinglePhaseFluidProperties>("co2_fp")),
     _water_fp(_brine_fp.getComponent(BrineFluidProperties::WATER)),
     _Mh2o(_brine_fp.molarMassH2O()),
     _invMh2o(1.0 / _Mh2o),
@@ -38,7 +39,8 @@ PorousFlowBrineCO2::PorousFlowBrineCO2(const InputParameters & parameters)
     _Mnacl(_brine_fp.molarMassNaCl()),
     _Rbar(_R * 10.0),
     _Tlower(372.15),
-    _Tupper(382.15)
+    _Tupper(382.15),
+    _Zmin(1.0e-4)
 {
   // Check that the correct FluidProperties UserObjects have been provided
   if (_co2_fp.fluidName() != "co2")
@@ -89,6 +91,7 @@ PorousFlowBrineCO2::thermophysicalProperties(Real pressure,
                                              Real temperature,
                                              Real Xnacl,
                                              Real Z,
+                                             unsigned int qp,
                                              std::vector<FluidStateProperties> & fsp) const
 {
   FluidStateProperties & liquid = fsp[_aqueous_phase_number];
@@ -119,7 +122,7 @@ PorousFlowBrineCO2::thermophysicalProperties(Real pressure,
     case FluidStatePhaseEnum::LIQUID:
     {
       // Calculate the liquid properties
-      Real liquid_pressure = pressure - _pc_uo.capillaryPressure(1.0);
+      Real liquid_pressure = pressure - _pc.capillaryPressure(1.0, qp);
       liquidProperties(liquid_pressure, temperature, Xnacl, fsp);
 
       break;
@@ -134,7 +137,7 @@ PorousFlowBrineCO2::thermophysicalProperties(Real pressure,
       saturationTwoPhase(pressure, temperature, Xnacl, Z, fsp);
 
       // Calculate the liquid properties
-      Real liquid_pressure = pressure - _pc_uo.capillaryPressure(1.0 - gas.saturation);
+      Real liquid_pressure = pressure - _pc.capillaryPressure(1.0 - gas.saturation, qp);
       liquidProperties(liquid_pressure, temperature, Xnacl, fsp);
 
       break;
@@ -150,7 +153,7 @@ PorousFlowBrineCO2::thermophysicalProperties(Real pressure,
 
   // Save pressures to FluidStateProperties object
   gas.pressure = pressure;
-  liquid.pressure = pressure - _pc_uo.capillaryPressure(liquid.saturation);
+  liquid.pressure = pressure - _pc.capillaryPressure(liquid.saturation, qp);
 }
 
 void
@@ -164,27 +167,38 @@ PorousFlowBrineCO2::massFractions(Real pressure,
   FluidStateProperties & liquid = fsp[_aqueous_phase_number];
   FluidStateProperties & gas = fsp[_gas_phase_number];
 
-  // Equilibrium mass fraction of CO2 in liquid and H2O in gas phases
-  Real Xco2, dXco2_dp, dXco2_dT, dXco2_dX, Yh2o, dYh2o_dp, dYh2o_dT, dYh2o_dX;
-  equilibriumMassFractions(pressure,
-                           temperature,
-                           Xnacl,
-                           Xco2,
-                           dXco2_dp,
-                           dXco2_dT,
-                           dXco2_dX,
-                           Yh2o,
-                           dYh2o_dp,
-                           dYh2o_dT,
-                           dYh2o_dX);
+  Real Xco2 = 0.0, dXco2_dp = 0.0, dXco2_dT = 0.0, dXco2_dX = 0.0;
+  Real Yh2o = 0.0, dYh2o_dp = 0.0, dYh2o_dT = 0.0, dYh2o_dX = 0.0;
+  Real Yco2 = 0.0, dYco2_dp = 0.0, dYco2_dT = 0.0, dYco2_dX = 0.0;
 
-  Real Yco2 = 1.0 - Yh2o;
-  Real dYco2_dp = -dYh2o_dp;
-  Real dYco2_dT = -dYh2o_dT;
-  Real dYco2_dX = -dYh2o_dX;
+  // If the amount of CO2 is less than the smallest solubility, then all CO2 will
+  // be dissolved, and the equilibrium mass fractions do not need to be computed
+  if (Z < _Zmin)
+    phase_state = FluidStatePhaseEnum::LIQUID;
 
-  // Determine which phases are present based on the value of z
-  phaseState(Z, Xco2, Yco2, phase_state);
+  else
+  {
+    // Equilibrium mass fraction of CO2 in liquid and H2O in gas phases
+    equilibriumMassFractions(pressure,
+                             temperature,
+                             Xnacl,
+                             Xco2,
+                             dXco2_dp,
+                             dXco2_dT,
+                             dXco2_dX,
+                             Yh2o,
+                             dYh2o_dp,
+                             dYh2o_dT,
+                             dYh2o_dX);
+
+    Yco2 = 1.0 - Yh2o;
+    dYco2_dp = -dYh2o_dp;
+    dYco2_dT = -dYh2o_dT;
+    dYco2_dX = -dYh2o_dX;
+
+    // Determine which phases are present based on the value of z
+    phaseState(Z, Xco2, Yco2, phase_state);
+  }
 
   // The equilibrium mass fractions calculated above are only correct in the two phase
   // state. If only liquid or gas phases are present, the mass fractions are given by
@@ -273,16 +287,16 @@ PorousFlowBrineCO2::gasProperties(Real pressure,
   Real co2_density, dco2_density_dp, dco2_density_dT;
   Real co2_viscosity, dco2_viscosity_dp, dco2_viscosity_dT;
   Real co2_enthalpy, dco2_enthalpy_dp, dco2_enthalpy_dT;
-  _co2_fp.rho_mu_dpT(pressure,
-                     temperature,
-                     co2_density,
-                     dco2_density_dp,
-                     dco2_density_dT,
-                     co2_viscosity,
-                     dco2_viscosity_dp,
-                     dco2_viscosity_dT);
+  _co2_fp.rho_mu_from_p_T(pressure,
+                          temperature,
+                          co2_density,
+                          dco2_density_dp,
+                          dco2_density_dT,
+                          co2_viscosity,
+                          dco2_viscosity_dp,
+                          dco2_viscosity_dT);
 
-  _co2_fp.h_dpT(pressure, temperature, co2_enthalpy, dco2_enthalpy_dp, dco2_enthalpy_dT);
+  _co2_fp.h_from_p_T(pressure, temperature, co2_enthalpy, dco2_enthalpy_dp, dco2_enthalpy_dT);
 
   // Save the values to the FluidStateProperties object. Note that derivatives wrt z are 0
   gas.density = co2_density;
@@ -311,13 +325,13 @@ PorousFlowBrineCO2::liquidProperties(Real pressure,
 
   // The liquid density includes the density increase due to dissolved CO2
   Real brine_density, dbrine_density_dp, dbrine_density_dT, dbrine_density_dX;
-  _brine_fp.rho_dpTx(pressure,
-                     temperature,
-                     Xnacl,
-                     brine_density,
-                     dbrine_density_dp,
-                     dbrine_density_dT,
-                     dbrine_density_dX);
+  _brine_fp.rho_from_p_T_X(pressure,
+                           temperature,
+                           Xnacl,
+                           brine_density,
+                           dbrine_density_dp,
+                           dbrine_density_dT,
+                           dbrine_density_dX);
 
   // Mass fraction of CO2 in liquid phase
   const Real Xco2 = liquid.mass_fraction[_gas_fluid_component];
@@ -353,27 +367,27 @@ PorousFlowBrineCO2::liquidProperties(Real pressure,
 
   // Assume that liquid viscosity is just the brine viscosity
   Real liquid_viscosity, dliquid_viscosity_dp, dliquid_viscosity_dT, dliquid_viscosity_dX;
-  _brine_fp.mu_dpTx(pressure,
-                    temperature,
-                    Xnacl,
-                    liquid_viscosity,
-                    dliquid_viscosity_dp,
-                    dliquid_viscosity_dT,
-                    dliquid_viscosity_dX);
+  _brine_fp.mu_from_p_T_X(pressure,
+                          temperature,
+                          Xnacl,
+                          liquid_viscosity,
+                          dliquid_viscosity_dp,
+                          dliquid_viscosity_dT,
+                          dliquid_viscosity_dX);
 
   // Liquid enthalpy (including contribution due to the enthalpy of dissolution)
   Real brine_enthalpy, dbrine_enthalpy_dp, dbrine_enthalpy_dT, dbrine_enthalpy_dX;
-  _brine_fp.h_dpTx(pressure,
-                   temperature,
-                   Xnacl,
-                   brine_enthalpy,
-                   dbrine_enthalpy_dp,
-                   dbrine_enthalpy_dT,
-                   dbrine_enthalpy_dX);
+  _brine_fp.h_from_p_T_X(pressure,
+                         temperature,
+                         Xnacl,
+                         brine_enthalpy,
+                         dbrine_enthalpy_dp,
+                         dbrine_enthalpy_dT,
+                         dbrine_enthalpy_dX);
 
   // Enthalpy of CO2
   Real co2_enthalpy, dco2_enthalpy_dp, dco2_enthalpy_dT;
-  _co2_fp.h_dpT(pressure, temperature, co2_enthalpy, dco2_enthalpy_dp, dco2_enthalpy_dT);
+  _co2_fp.h_from_p_T(pressure, temperature, co2_enthalpy, dco2_enthalpy_dp, dco2_enthalpy_dT);
 
   // Enthalpy of dissolution
   Real hdis, dhdis_dT;
@@ -421,13 +435,13 @@ PorousFlowBrineCO2::saturationTwoPhase(Real pressure,
 
   // Approximate liquid density as saturation isn't known yet
   Real brine_density, dbrine_density_dp, dbrine_density_dT, dbrine_density_dX;
-  _brine_fp.rho_dpTx(pressure,
-                     temperature,
-                     Xnacl,
-                     brine_density,
-                     dbrine_density_dp,
-                     dbrine_density_dT,
-                     dbrine_density_dX);
+  _brine_fp.rho_from_p_T_X(pressure,
+                           temperature,
+                           Xnacl,
+                           brine_density,
+                           dbrine_density_dp,
+                           dbrine_density_dT,
+                           dbrine_density_dX);
 
   // Mass fraction of CO2 in liquid phase
   const Real Xco2 = liquid.mass_fraction[_gas_fluid_component];
@@ -532,7 +546,7 @@ PorousFlowBrineCO2::equilibriumMassFractions(Real pressure,
                                              Real & dYh2o_dX) const
 {
   Real co2_density, dco2_density_dp, dco2_density_dT;
-  _co2_fp.rho_dpT(pressure, temperature, co2_density, dco2_density_dp, dco2_density_dT);
+  _co2_fp.rho_from_p_T(pressure, temperature, co2_density, dco2_density_dp, dco2_density_dT);
 
   // Mole fractions at equilibrium
   Real xco2, dxco2_dp, dxco2_dT, dxco2_dX, yh2o, dyh2o_dp, dyh2o_dT, dyh2o_dX;
@@ -902,7 +916,7 @@ PorousFlowBrineCO2::activityCoefficientHighTemp(
 void
 PorousFlowBrineCO2::equilibriumConstantH2O(Real temperature, Real & kh2o, Real & dkh2o_dT) const
 {
-  // Uses temperature in Celcius
+  // Uses temperature in Celsius
   const Real Tc = temperature - _T_c2k;
   const Real Tc2 = Tc * Tc;
   const Real Tc3 = Tc2 * Tc;
@@ -935,7 +949,7 @@ PorousFlowBrineCO2::equilibriumConstantH2O(Real temperature, Real & kh2o, Real &
 void
 PorousFlowBrineCO2::equilibriumConstantCO2(Real temperature, Real & kco2, Real & dkco2_dT) const
 {
-  // Uses temperature in Celcius
+  // Uses temperature in Celsius
   const Real Tc = temperature - _T_c2k;
   const Real Tc2 = Tc * Tc;
   const Real Tc3 = Tc2 * Tc;
@@ -979,7 +993,7 @@ PorousFlowBrineCO2::equilibriumMoleFractions(Real pressure,
 {
   // CO2 density and derivatives wrt pressure and temperature
   Real co2_density, dco2_density_dp, dco2_density_dT;
-  _co2_fp.rho_dpT(pressure, temperature, co2_density, dco2_density_dp, dco2_density_dT);
+  _co2_fp.rho_from_p_T(pressure, temperature, co2_density, dco2_density_dp, dco2_density_dT);
 
   if (temperature <= _Tlower)
   {
@@ -1016,7 +1030,7 @@ PorousFlowBrineCO2::equilibriumMoleFractions(Real pressure,
 
     // Equilibrium mole fractions and derivatives at the upper temperature
     Real xco2_upper, yh2o_upper;
-    Real co2_density_upper = _co2_fp.rho(pressure, _Tupper);
+    Real co2_density_upper = _co2_fp.rho_from_p_T(pressure, _Tupper);
 
     solveEquilibriumMoleFractionHighTemp(
         pressure, _Tupper, Xnacl, co2_density_upper, xco2_upper, yh2o_upper);
@@ -1099,7 +1113,7 @@ PorousFlowBrineCO2::equilibriumMoleFractionsLowTemp(Real pressure,
 
   // CO2 density and derivatives wrt pressure and temperature
   Real co2_density, dco2_density_dp, dco2_density_dT;
-  _co2_fp.rho_dpT(pressure, temperature, co2_density, dco2_density_dp, dco2_density_dT);
+  _co2_fp.rho_from_p_T(pressure, temperature, co2_density, dco2_density_dp, dco2_density_dT);
 
   // Assume infinite dilution (yh20 = 0 and xco2 = 0) in low temperature regime
   Real A, dA_dp, dA_dT, B, dB_dp, dB_dT;
@@ -1402,10 +1416,8 @@ PorousFlowBrineCO2::partialDensityCO2(Real temperature,
 }
 
 Real
-PorousFlowBrineCO2::totalMassFraction(Real pressure,
-                                      Real temperature,
-                                      Real Xnacl,
-                                      Real saturation) const
+PorousFlowBrineCO2::totalMassFraction(
+    Real pressure, Real temperature, Real Xnacl, Real saturation, unsigned int qp) const
 {
   // Check whether the input pressure and temperature are within the region of validity
   checkVariables(pressure, temperature);
@@ -1441,7 +1453,7 @@ PorousFlowBrineCO2::totalMassFraction(Real pressure,
 
   // Liquid properties
   const Real liquid_saturation = 1.0 - saturation;
-  const Real liquid_pressure = pressure - _pc_uo.capillaryPressure(liquid_saturation);
+  const Real liquid_pressure = pressure - _pc.capillaryPressure(liquid_saturation, qp);
   liquidProperties(liquid_pressure, temperature, Xnacl, fsp);
 
   // The total mass fraction of ncg (z) can now be calculated
@@ -1457,12 +1469,12 @@ PorousFlowBrineCO2::henryConstant(
 {
   // Henry's constant for dissolution in water
   Real Kh_h2o, dKh_h2o_dT;
-  _co2_fp.henryConstant_dT(temperature, Kh_h2o, dKh_h2o_dT);
+  _co2_fp.henryConstant(temperature, Kh_h2o, dKh_h2o_dT);
 
   // The correction to salt is obtained through the salting out coefficient
   const std::vector<Real> b{1.19784e-1, -7.17823e-4, 4.93854e-6, -1.03826e-8, 1.08233e-11};
 
-  // Need temperature in Celcius
+  // Need temperature in Celsius
   const Real Tc = temperature - _T_c2k;
 
   Real kb = 0.0;
@@ -1543,8 +1555,10 @@ PorousFlowBrineCO2::checkVariables(Real pressure, Real temperature) const
   // The calculation of mass fractions is valid from 12C <= T <= 300C, and
   // pressure less than 60 MPa
   if (temperature < 285.15 || temperature > 573.15)
-    mooseError(name(), ": temperature is outside range 285.15 K <= T <= 573.15 K");
+    mooseException(name() + ": temperature " + Moose::stringify(temperature) +
+                   " is outside range 285.15 K <= T <= 573.15 K");
 
   if (pressure > 6.0e7)
-    mooseError(name(), ": pressure must be less than 60 MPa");
+    mooseException(name() + ": pressure " + Moose::stringify(pressure) +
+                   " must be less than 60 MPa");
 }

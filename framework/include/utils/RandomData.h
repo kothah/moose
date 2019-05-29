@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef RANDOMDATA_H
-#define RANDOMDATA_H
+#pragma once
 
 // MOOSE includes
 #include "MooseRandom.h"
@@ -24,7 +23,11 @@ class RandomInterface;
 class RandomData
 {
 public:
-  RandomData(FEProblemBase & problem, const RandomInterface & random_interface);
+  RandomData(FEProblemBase & fe_problem, const RandomInterface & random_interface);
+
+  RandomData(FEProblemBase & fe_problem, bool is_nodal, ExecFlagType reset_on, unsigned int seed);
+
+  ~RandomData() = default;
 
   /**
    * This method is called to reset or update the seeds based on the reset_on
@@ -47,9 +50,6 @@ public:
 private:
   void updateGenerators();
 
-  template <typename T>
-  void updateGeneratorHelper(T it, T end_it);
-
   FEProblemBase & _rd_problem;
   MooseMesh & _rd_mesh;
 
@@ -64,4 +64,3 @@ private:
   std::unordered_map<dof_id_type, unsigned int> _seeds;
 };
 
-#endif // RANDOMDATA_H

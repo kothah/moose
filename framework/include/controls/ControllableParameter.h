@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CONTROLLABLEPARAMETER_H
-#define CONTROLLABLEPARAMETER_H
+#pragma once
 
 // MOOSE includes
 #include "InputParameters.h"
@@ -65,6 +64,11 @@ public:
    */
   template <typename T>
   bool check();
+
+  /**
+   * Check the execute flags.
+   */
+  void checkExecuteOnType(const ExecFlagType & current) const;
 
   /**
    * Adds the supplied item with the other items within this object.
@@ -131,4 +135,3 @@ ControllableParameter::check()
 
 
 
-#endif // CONTROLLABLEPARAMETER_H

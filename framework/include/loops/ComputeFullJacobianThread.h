@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEFULLJACOBIANTHREAD_H
-#define COMPUTEFULLJACOBIANTHREAD_H
+#pragma once
 
 #include "ComputeJacobianThread.h"
 
@@ -34,16 +33,5 @@ protected:
   virtual void computeFaceJacobian(BoundaryID bnd_id) override;
   virtual void computeInternalFaceJacobian(const Elem * neighbor) override;
   virtual void computeInternalInterFaceJacobian(BoundaryID bnd_id) override;
-  NonlinearSystemBase & _nl;
-
-  // Reference to BC storage structures
-  const MooseObjectWarehouse<IntegratedBCBase> & _integrated_bcs;
-
-  // Reference to DGKernel storage
-  const MooseObjectWarehouse<DGKernel> & _dg_kernels;
-
-  // Reference to interface kernel storage
-  const MooseObjectWarehouse<InterfaceKernel> & _interface_kernels;
 };
 
-#endif // COMPUTEFULLJACOBIANTHREAD_H

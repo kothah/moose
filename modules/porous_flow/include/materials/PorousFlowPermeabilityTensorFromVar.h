@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWPERMEABILITYTENSORFROMVAR_H
-#define POROUSFLOWPERMEABILITYTENSORFROMVAR_H
+#pragma once
 
 #include "PorousFlowPermeabilityBase.h"
 
-// Forward Declarations
 class PorousFlowPermeabilityTensorFromVar;
 
 template <>
@@ -40,4 +38,3 @@ protected:
   const RealTensorValue _k_anisotropy;
 };
 
-#endif // POROUSFLOWPERMEABILITYTENSORFROMVAR_H

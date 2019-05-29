@@ -7,11 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MULTICOMPONENTFLUIDPROPERTIESMATERIALPT_H
-#define MULTICOMPONENTFLUIDPROPERTIESMATERIALPT_H
+#pragma once
 
 #include "Material.h"
-#include "MultiComponentFluidPropertiesPT.h"
+#include "MultiComponentFluidProperties.h"
 
 class MultiComponentFluidPropertiesMaterialPT;
 
@@ -48,7 +47,6 @@ protected:
   MaterialProperty<Real> & _e;
 
   // Multicomponent fluid properties UserObject
-  const MultiComponentFluidPropertiesPT & _fp;
+  const MultiComponentFluidProperties & _fp;
 };
 
-#endif /* MULTICOMPONENTFLUIDPROPERTIESMATERIALPT_H */

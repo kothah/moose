@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEAXISYMMETRIC1DFINITESTRAIN_H
-#define COMPUTEAXISYMMETRIC1DFINITESTRAIN_H
+#pragma once
 
 #include "Compute1DFiniteStrain.h"
 #include "SubblockIndexProvider.h"
@@ -27,9 +26,9 @@ class ComputeAxisymmetric1DFiniteStrain : public Compute1DFiniteStrain
 public:
   ComputeAxisymmetric1DFiniteStrain(const InputParameters & parameters);
 
-protected:
   void initialSetup() override;
 
+protected:
   /// Computes the current dUy/dy for axisymmetric problems
   Real computeGradDispYY() override;
 
@@ -65,4 +64,3 @@ protected:
   std::vector<const VariableValue *> _scalar_out_of_plane_strain_old;
 };
 
-#endif // COMPUTEAXISYMMETRIC1DFINITESTRAIN_H

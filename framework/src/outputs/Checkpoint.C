@@ -29,6 +29,7 @@ validParams<Checkpoint>()
 {
   // Get the parameters from the base classes
   InputParameters params = validParams<FileOutput>();
+  params.addClassDescription("Output for MOOSE recovery checkpoint files.");
 
   // Typical checkpoint options
   params.addParam<unsigned int>("num_files", 2, "Number of the restart files to save");
@@ -76,9 +77,6 @@ Checkpoint::directory()
 void
 Checkpoint::output(const ExecFlagType & /*type*/)
 {
-  // Start the performance log
-  Moose::perf_log.push("Checkpoint::output()", "Output");
-
   // Create the output directory
   std::string cp_dir = directory();
   mkdir(cp_dir.c_str(), S_IRWXU | S_IRGRP);
@@ -125,9 +123,6 @@ Checkpoint::output(const ExecFlagType & /*type*/)
 
   // Remove old checkpoint files
   updateCheckpointFiles(current_file_struct);
-
-  // Stop the logging
-  Moose::perf_log.pop("Checkpoint::output()", "Output");
 }
 
 void

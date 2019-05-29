@@ -59,7 +59,7 @@ validParams<PorousFlowAqueousPreDisChemistry>()
                                      "Theta exponent.  Defaults to 1.  (one for each reaction)");
   params.addParam<std::vector<Real>>("eta_exponent",
                                      "Eta exponent.  Defaults to 1.  (one for each reaction)");
-
+  params.addPrivateParam<std::string>("pf_material_type", "chemistry");
   params.addClassDescription("This Material forms a std::vector of mineralisation reaction rates "
                              "(L(precipitate)/L(solution)/s) appropriate to the aqueous "
                              "precipitation-dissolution system provided.  Note: the "
@@ -213,12 +213,12 @@ PorousFlowAqueousPreDisChemistry::PorousFlowAqueousPreDisChemistry(
   for (unsigned i = 0; i < _num_primary; ++i)
   {
     _primary_var_num[i] = coupled("primary_concentrations", i);
-    _primary[i] = (_nodal_material ? &coupledNodalValue("primary_concentrations", i)
+    _primary[i] = (_nodal_material ? &coupledDofValues("primary_concentrations", i)
                                    : &coupledValue("primary_concentrations", i));
   }
 
   for (unsigned i = 0; i < _num_equilibrium_constants; ++i)
-    _equilibrium_constants[i] = (_nodal_material ? &coupledNodalValue("equilibrium_constants", i)
+    _equilibrium_constants[i] = (_nodal_material ? &coupledDofValues("equilibrium_constants", i)
                                                  : &coupledValue("equilibrium_constants", i));
 }
 

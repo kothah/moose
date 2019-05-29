@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWPLOTQUANTITY_H
-#define POROUSFLOWPLOTQUANTITY_H
+#pragma once
 
 #include "GeneralPostprocessor.h"
 
@@ -30,12 +29,11 @@ public:
   virtual void initialize() override;
   virtual void execute() override;
 
-  /// returns the value of the PorousFlowSumQuantity
+  /// Returns the value of the PorousFlowSumQuantity
   virtual PostprocessorValue getValue() override;
 
 protected:
-  /// the PorousFlowSumQuantity userobject
+  /// The PorousFlowSumQuantity userobject
   const PorousFlowSumQuantity & _total_mass;
 };
 
-#endif /* POROUSFLOWPLOTQUANTITY_H */

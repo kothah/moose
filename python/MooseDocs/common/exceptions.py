@@ -1,31 +1,28 @@
+#* This file is part of the MOOSE framework
+#* https://www.mooseframework.org
+#*
+#* All rights reserved, see COPYRIGHT for full restrictions
+#* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+#*
+#* Licensed under LGPL 2.1, please see LICENSE for details
+#* https://www.gnu.org/licenses/lgpl-2.1.html
+
 """
 The MooseDocs systems raises the following exceptions.
 """
-
+import logging
+LOG = logging.getLogger(__name__)
 class MooseDocsException(Exception):
     """
     General exception.
 
     Inputs:
         message[str]: (Required) The exception messages.
-        *args: (Optoinal) Any values supplied in *args are automattically applied to the to the
+        *args: (Optoinal) Any values supplied in *args are automatically applied to the to the
                message with the built-in python format method.
     """
-    def __init__(self, message, *args):
-        Exception.__init__(self, message.format(*args))
-
-class TokenizeException(MooseDocsException):
-    """
-    Exception for reporting problems during tokenization, this should be called from within
-    the 'createToken' method of TokenComponent objects.
-    """
-    pass
-
-class RenderException(MooseDocsException):
-    """
-    Exception for reporting problem during rendering, this should be called from within the
-    create methods (e.g., 'createHTML', 'createLatex') of RenderComponent objects.
-    """
-    def __init__(self, info, message, *args):
-        MooseDocsException.__init__(self, message, *args)
-        self.info = info
+    def __init__(self, message, *args, **kwargs):
+        msg = message.format(*args)
+        if kwargs.pop('log', False):
+            LOG.exception(msg)
+        Exception.__init__(self, msg.encode('utf-8'))

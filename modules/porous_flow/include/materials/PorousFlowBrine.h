@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWBRINE_H
-#define POROUSFLOWBRINE_H
+#pragma once
 
 #include "PorousFlowFluidPropertiesBase.h"
 #include "BrineFluidProperties.h"
@@ -80,10 +79,9 @@ protected:
   const BrineFluidProperties * _brine_fp;
 
   /// Water Fluid properties UserObject
-  const SinglePhaseFluidPropertiesPT * _water_fp;
+  const SinglePhaseFluidProperties * _water_fp;
 
   /// NaCl mass fraction at the qps or nodes
   const VariableValue & _xnacl;
 };
 
-#endif // POROUSFLOWBRINE_H

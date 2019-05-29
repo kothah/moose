@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef DIRACKERNEL_H
-#define DIRACKERNEL_H
+#pragma once
 
 // MOOSE includes
 #include "DiracKernelInfo.h"
@@ -25,6 +24,7 @@
 #include "Restartable.h"
 #include "MeshChangedInterface.h"
 #include "MooseVariableInterface.h"
+#include "TaggingInterface.h"
 
 // Forward Declarations
 class Assembly;
@@ -53,7 +53,8 @@ class DiracKernel : public MooseObject,
                     public PostprocessorInterface,
                     protected GeometricSearchInterface,
                     public Restartable,
-                    public MeshChangedInterface
+                    public MeshChangedInterface,
+                    public TaggingInterface
 {
 public:
   DiracKernel(const InputParameters & parameters);
@@ -177,7 +178,7 @@ protected:
   Point _current_point;
 
   ///< Current element
-  const Elem *& _current_elem;
+  const Elem * const & _current_elem;
 
   /// Quadrature point index
   unsigned int _qp;
@@ -186,7 +187,7 @@ protected:
   /// Physical points
   const MooseArray<Point> & _physical_point;
   /// Quadrature rule
-  QBase *& _qrule;
+  const QBase * const & _qrule;
   /// Transformed Jacobian weights
   const MooseArray<Real> & _JxW;
 
@@ -211,11 +212,6 @@ protected:
   const VariableValue & _u;
   /// Holds the solution gradient at the current quadrature points
   const VariableGradient & _grad_u;
-
-  /// Time derivative of the solution
-  const VariableValue & _u_dot;
-  /// Derivative of u_dot wrt u
-  const VariableValue & _du_dot_du;
 
   /// drop duplicate points or consider them in residual and Jacobian
   const bool _drop_duplicate_points;
@@ -244,4 +240,3 @@ private:
   const Elem * addPointWithValidId(Point p, unsigned id);
 };
 
-#endif

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef STIFFENEDGASFLUIDPROPERTIESTEST_H
-#define STIFFENEDGASFLUIDPROPERTIESTEST_H
+#pragma once
 
 #include "MooseObjectUnitTest.h"
 #include "StiffenedGasFluidProperties.h"
@@ -18,13 +17,10 @@ class StiffenedGasFluidPropertiesTest : public MooseObjectUnitTest
 public:
   StiffenedGasFluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp")
   {
-    registerObjects(_factory);
     buildObjects();
   }
 
 protected:
-  void registerObjects(Factory & factory) { registerUserObject(StiffenedGasFluidProperties); }
-
   void buildObjects()
   {
     InputParameters eos_pars = _factory.getValidParams("StiffenedGasFluidProperties");
@@ -41,4 +37,3 @@ protected:
   const StiffenedGasFluidProperties * _fp;
 };
 
-#endif /* STIFFENEDGASFLUIDPROPERTIESTEST_H */

@@ -30,7 +30,6 @@
 - /ICs/ClosePackIC
 - /ICs/CrossIC
 - /ICs/LatticeSmoothCircleIC
-- /ICs/MultiBoundingBoxIC
 - /ICs/MultiSmoothCircleIC
 - /ICs/MultiSmoothSuperellipsoidIC
 - /ICs/PFCFreezingIC
@@ -42,7 +41,6 @@
 - /ICs/RndBoundingBoxIC
 - /ICs/RndSmoothCircleIC
 - /ICs/SmoothCircleFromFileIC
-- /ICs/SmoothCircleIC
 - /ICs/SmoothSuperellipsoidIC
 - /ICs/SpecifiedSmoothCircleIC
 - /ICs/SpecifiedSmoothSuperellipsoidIC
@@ -68,11 +66,9 @@
 - /InterfaceKernels/InterfaceDiffusionFluxMatch
 - /Kernels/ACGBPoly
 - /Kernels/ACGrGrElasticDrivingForce
-- /Kernels/ACGrGrMulti
 - /Kernels/ACGrGrPoly
 - /Kernels/ACInterfaceKobayashi2
 - /Kernels/ACSEDGPoly
-- /Kernels/CHCpldPFCTrad
 - /Kernels/CHPFCRFF
 - /Kernels/CHSplitChemicalPotential
 - /Kernels/CHSplitConcentration
@@ -83,7 +79,6 @@
 - /Kernels/SingleGrainRigidBodyMotion
 - /Kernels/SoretDiffusion
 - /Kernels/SplitCHMath
-- /Kernels/SplitCHParsed
 - /Kernels/SwitchingFunctionConstraintEta
 - /Kernels/SwitchingFunctionConstraintLagrange
 - /Kernels/SwitchingFunctionPenalty
@@ -118,7 +113,6 @@
 - /Materials/InterfaceOrientationMaterial
 - /Materials/KKSXeVacSolidMaterial
 - /Materials/MathEBFreeEnergy
-- /Materials/MathFreeEnergy
 - /Materials/PFCRFFMaterial
 - /Materials/PFCTradMaterial
 - /Materials/PFFracBulkRateMaterial
@@ -142,13 +136,13 @@
 - /Modules/PhaseField/GrainGrowth
 - /Modules/PhaseField/GrainGrowth/GrainGrowthAction
 - /Modules/PhaseField/Nonconserved
+- /Modules/PhaseField/GrandPotential
 - /Postprocessors/AverageGrainVolume
 - /Postprocessors/FauxGrainTracker
 - /Postprocessors/FeatureVolumeFraction
 - /Postprocessors/GrainBoundaryArea
 - /Postprocessors/GrainTrackerElasticity
 - /Postprocessors/PFCElementEnergyIntegral
-- /Postprocessors/FeatureFloodCount
 - /UserObjects/ComputeExternalGrainForceAndTorque
 - /UserObjects/ComputeGrainForceAndTorque
 - /UserObjects/ConstantGrainForceAndTorque
@@ -166,6 +160,5 @@
 - /Variables/PolycrystalVariables
 - /Variables/PolycrystalVariables/PolycrystalVariablesAction
 - /VectorPostprocessors/EulerAngleUpdaterCheck
-- /VectorPostprocessors/FeatureVolumeVectorPostprocessor
 - /VectorPostprocessors/GrainForcesPostprocessor
 - /VectorPostprocessors/GrainTextureVectorPostprocessor

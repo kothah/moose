@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TABULATEDFLUIDPROPERTIESTEST_H
-#define TABULATEDFLUIDPROPERTIESTEST_H
+#pragma once
 
 #include "MooseObjectUnitTest.h"
 #include "TabulatedFluidProperties.h"
@@ -20,19 +19,9 @@ class TabulatedFluidProperties;
 class TabulatedFluidPropertiesTest : public MooseObjectUnitTest
 {
 public:
-  TabulatedFluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp")
-  {
-    registerObjects(_factory);
-    buildObjects();
-  }
+  TabulatedFluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp") { buildObjects(); }
 
 protected:
-  void registerObjects(Factory & factory)
-  {
-    registerUserObject(CO2FluidProperties);
-    registerUserObject(TabulatedFluidProperties);
-  }
-
   void buildObjects()
   {
     InputParameters co2_uo_params = _factory.getValidParams("CO2FluidProperties");
@@ -109,4 +98,3 @@ protected:
   const TabulatedFluidProperties * _missing_data_fp;
 };
 
-#endif // TABULATEDFLUIDPROPERTIESTEST_H

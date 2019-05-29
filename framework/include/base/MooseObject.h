@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEOBJECT_H
-#define MOOSEOBJECT_H
+#pragma once
 
 // MOOSE includes
 #include "InputParameters.h"
@@ -16,6 +15,10 @@
 #include "Registry.h"
 
 #include "libmesh/parallel_object.h"
+
+#define usingMooseObjectMembers                                                                    \
+  using MooseObject::isParamValid;                                                                 \
+  using MooseObject::paramError
 
 class MooseApp;
 class MooseObject;
@@ -26,6 +29,13 @@ InputParameters validParams<MooseObject>();
 // needed to avoid #include cycle with MooseApp and MooseObject
 [[noreturn]] void callMooseErrorRaw(std::string & msg, MooseApp * app);
 
+// helper macro to explicitly instantiate AD classes
+#define adBaseClass(X)                                                                             \
+  template class X<RESIDUAL>;                                                                      \
+  template class X<JACOBIAN>
+
+#define adGetParam this->template getParam
+
 /**
  * Every object that can be built by the factory should be derived from this class.
  */
@@ -35,6 +45,12 @@ public:
   MooseObject(const InputParameters & parameters);
 
   virtual ~MooseObject() = default;
+
+  /**
+   * Get the type of this object.
+   * @return the name of the type of this object
+   */
+  const std::string & type() const { return _type; }
 
   /**
    * Get the name of the object
@@ -89,11 +105,10 @@ public:
    * back to the normal behavior of mooseError - only printing a message using the given args.
    */
   template <typename... Args>
-  [[noreturn]] void paramError(const std::string & param, Args... args)
-  {
+  [[noreturn]] void paramError(const std::string & param, Args... args) {
     auto prefix = param + ": ";
     if (!_pars.inputLocation(param).empty())
-      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + ") ";
+      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + "):\n";
     mooseError(prefix, args...);
   }
 
@@ -108,7 +123,7 @@ public:
   {
     auto prefix = param + ": ";
     if (!_pars.inputLocation(param).empty())
-      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + ") ";
+      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + "):\n";
     mooseWarning(prefix, args...);
   }
 
@@ -124,13 +139,12 @@ public:
   {
     auto prefix = param + ": ";
     if (!_pars.inputLocation(param).empty())
-      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + ") ";
+      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + "):\n";
     mooseInfo(prefix, args...);
   }
 
   template <typename... Args>
-  [[noreturn]] void mooseError(Args &&... args) const
-  {
+  [[noreturn]] void mooseError(Args &&... args) const {
     std::ostringstream oss;
     moose::internal::mooseStreamAll(oss, std::forward<Args>(args)...);
     std::string msg = oss.str();
@@ -162,6 +176,9 @@ protected:
   /// The MooseApp this object is associated with
   MooseApp & _app;
 
+  /// The type of this object (the Class name)
+  const std::string & _type;
+
   /// The name of this object, reference to value stored in InputParameters
   const std::string & _name;
 
@@ -176,4 +193,3 @@ MooseObject::getParam(const std::string & name) const
   return InputParameters::getParamHelper(name, _pars, static_cast<T *>(0));
 }
 
-#endif /* MOOSEOBJECT_H*/

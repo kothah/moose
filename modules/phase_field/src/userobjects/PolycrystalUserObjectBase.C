@@ -35,6 +35,22 @@ validParams<PolycrystalUserObjectBase>()
                              PolycrystalUserObjectBase::coloringAlgorithms(),
                              PolycrystalUserObjectBase::coloringAlgorithmDescriptions());
 
+  // FeatureFloodCount adds a relationship manager, but we need to extend that for PolycrystalIC
+  params.clearRelationshipManagers();
+
+  params.addRelationshipManager(
+      "ElementSideNeighborLayers",
+      Moose::RelationshipManagerType::GEOMETRIC,
+
+      [](const InputParameters & /*obj_params*/, InputParameters & rm_params) {
+        rm_params.set<unsigned short>("layers") = 2;
+      }
+
+  );
+
+  params.addRelationshipManager("ElementSideNeighborLayers",
+                                Moose::RelationshipManagerType::ALGEBRAIC);
+
   // Hide the output of the IC objects by default, it doesn't change over time
   params.set<std::vector<OutputName>>("outputs") = {"none"};
 
@@ -88,6 +104,8 @@ PolycrystalUserObjectBase::initialize()
   if (_colors_assigned && !_fe_problem.hasInitialAdaptivity())
     return;
 
+  _entity_to_grain_cache.clear();
+
   FeatureFloodCount::initialize();
 }
 
@@ -118,20 +136,20 @@ PolycrystalUserObjectBase::execute()
    *    the flood routine on the same entity as long as new discoveries are being made. We know
    *    this information from the return value of flood.
    */
-  for (const auto & current_elem : _mesh.getMesh().active_local_element_ptr_range())
+  for (const auto & current_elem : _fe_problem.getEvaluableElementRange())
   {
     // Loop over elements or nodes
     if (_is_elemental)
-      while (flood(current_elem, invalid_size_t, nullptr))
+      while (flood(current_elem, invalid_size_t))
         ;
     else
     {
       auto n_nodes = current_elem->n_vertices();
       for (auto i = decltype(n_nodes)(0); i < n_nodes; ++i)
       {
-        const Node * current_node = current_elem->get_node(i);
+        const Node * current_node = current_elem->node_ptr(i);
 
-        while (flood(current_node, invalid_size_t, nullptr))
+        while (flood(current_node, invalid_size_t))
           ;
       }
     }
@@ -179,6 +197,34 @@ PolycrystalUserObjectBase::finalize()
   _colors_assigned = true;
 }
 
+void
+PolycrystalUserObjectBase::mergeSets()
+{
+  /**
+   * With initial conditions we know the grain IDs of every grain (even partial grains). We can use
+   * this information to put all mergeable features adjacent to one and other in the list so that
+   * merging is simply O(n).
+   */
+  _partial_feature_sets[0].sort();
+
+  auto it1 = _partial_feature_sets[0].begin();
+  auto it_end = _partial_feature_sets[0].end();
+  while (it1 != it_end)
+  {
+    auto it2 = it1;
+    if (++it2 == it_end)
+      break;
+
+    if (areFeaturesMergeable(*it1, *it2))
+    {
+      it1->merge(std::move(*it2));
+      _partial_feature_sets[0].erase(it2);
+    }
+    else
+      ++it1; // Only increment if we have a mismatch
+  }
+}
+
 bool
 PolycrystalUserObjectBase::isNewFeatureOrConnectedRegion(const DofObject * dof_object,
                                                          std::size_t & current_index,
@@ -188,13 +234,21 @@ PolycrystalUserObjectBase::isNewFeatureOrConnectedRegion(const DofObject * dof_o
 {
   mooseAssert(_t_step == 0, "PolyIC only works if we begin in the initial condition");
 
-  if (_is_elemental)
-    getGrainsBasedOnElem(*static_cast<const Elem *>(dof_object), _prealloc_tmp_grains);
-  else
-    getGrainsBasedOnPoint(*static_cast<const Node *>(dof_object), _prealloc_tmp_grains);
-
   // Retrieve the id of the current entity
   auto entity_id = dof_object->id();
+  auto grains_it = _entity_to_grain_cache.lower_bound(entity_id);
+
+  if (grains_it == _entity_to_grain_cache.end() || grains_it->first != entity_id)
+  {
+    std::vector<unsigned int> grain_ids;
+
+    if (_is_elemental)
+      getGrainsBasedOnElem(*static_cast<const Elem *>(dof_object), grain_ids);
+    else
+      getGrainsBasedOnPoint(*static_cast<const Node *>(dof_object), grain_ids);
+
+    grains_it = _entity_to_grain_cache.emplace_hint(grains_it, entity_id, std::move(grain_ids));
+  }
 
   /**
    * When building the IC, we can't use the _entities_visited data structure the same way as we do
@@ -208,7 +262,7 @@ PolycrystalUserObjectBase::isNewFeatureOrConnectedRegion(const DofObject * dof_o
   auto saved_grain_id = invalid_id;
   if (current_index == invalid_size_t)
   {
-    for (auto grain_id : _prealloc_tmp_grains)
+    for (auto grain_id : grains_it->second)
     {
       mooseAssert(!_colors_assigned || grain_id < _grain_to_op.size(), "grain_id out of range");
       auto map_num = _colors_assigned ? _grain_to_op[grain_id] : grain_id;
@@ -240,15 +294,88 @@ PolycrystalUserObjectBase::isNewFeatureOrConnectedRegion(const DofObject * dof_o
     return true;
   }
   else
-    return std::find(_prealloc_tmp_grains.begin(), _prealloc_tmp_grains.end(), feature->_id) !=
-           _prealloc_tmp_grains.end();
+  {
+    const auto & grain_ids = grains_it->second;
+    if (std::find(grain_ids.begin(), grain_ids.end(), feature->_id) != grain_ids.end())
+      return true;
+
+    /**
+     * If we get here the current entity is not part of the active feature, however we now want to
+     * look at neighbors.
+     *
+     */
+    if (_is_elemental)
+    {
+      Elem * elem = _mesh.queryElemPtr(entity_id);
+      mooseAssert(elem, "Element is nullptr");
+
+      std::vector<const Elem *> all_active_neighbors;
+      MeshBase & mesh = _mesh.getMesh();
+
+      for (auto i = decltype(elem->n_neighbors())(0); i < elem->n_neighbors(); ++i)
+      {
+        const Elem * neighbor_ancestor = nullptr;
+
+        /**
+         * Retrieve only the active neighbors for each side of this element, append them to the list
+         * of active neighbors
+         */
+        neighbor_ancestor = elem->neighbor_ptr(i);
+        if (neighbor_ancestor)
+          neighbor_ancestor->active_family_tree_by_neighbor(all_active_neighbors, elem, false);
+        else // if (expand_halos_only /*&& feature->_periodic_nodes.empty()*/)
+        {
+          neighbor_ancestor = elem->topological_neighbor(i, mesh, *_point_locator, _pbs);
+
+          /**
+           * If the current element (passed into this method) doesn't have a connected neighbor but
+           * does have a topological neighbor, this might be a new disjoint region that we'll
+           * need to represent with a separate bounding box. To find out for sure, we'll need
+           * see if the new neighbors are present in any of the halo or disjoint halo sets. If
+           * they are not present, this is a new region.
+           */
+          if (neighbor_ancestor)
+            neighbor_ancestor->active_family_tree_by_topological_neighbor(
+                all_active_neighbors, elem, mesh, *_point_locator, _pbs, false);
+        }
+      }
+
+      for (const auto neighbor : all_active_neighbors)
+      {
+        // Retrieve the id of the current entity
+        auto neighbor_id = neighbor->id();
+        auto neighbor_it = _entity_to_grain_cache.lower_bound(neighbor_id);
+
+        if (neighbor_it == _entity_to_grain_cache.end() || neighbor_it->first != neighbor_id)
+        {
+          std::vector<unsigned int> more_grain_ids;
+
+          getGrainsBasedOnElem(*static_cast<const Elem *>(neighbor), more_grain_ids);
+
+          neighbor_it = _entity_to_grain_cache.emplace_hint(
+              neighbor_it, neighbor_id, std::move(more_grain_ids));
+        }
+
+        const auto & more_grain_ids = neighbor_it->second;
+        if (std::find(more_grain_ids.begin(), more_grain_ids.end(), feature->_id) !=
+            more_grain_ids.end())
+          return true;
+      }
+    }
+
+    return false;
+  }
 }
 
 bool
 PolycrystalUserObjectBase::areFeaturesMergeable(const FeatureData & f1,
                                                 const FeatureData & f2) const
 {
-  return _colors_assigned ? f1.mergeable(f2) : f1._id == f2._id;
+  if (f1._id != f2._id)
+    return false;
+
+  mooseAssert(f1._var_index == f2._var_index, "Feature should be mergeable but aren't");
+  return true;
 }
 
 void
@@ -285,14 +412,14 @@ PolycrystalUserObjectBase::assignOpsToGrains()
   {
     paramInfo("coloring_algorithm",
               "The backtracking algorithm has exponential complexity. If you are using very few "
-              "order parameters, or you have several hundred grains or more, you should use one of "
-              "the PETSc coloring algorithms such as \"jp\".");
+              "order parameters,\nor you have several hundred grains or more, you should use one "
+              "of the PETSc coloring algorithms such as \"jp\".");
 
     if (!colorGraph(0))
       paramError("op_num",
                  "Unable to find a valid grain to op coloring, Make sure you have created enough "
-                 "variables to hold a valid polycrystal initial condition (no grains represented "
-                 "by the same variable should be allowed to touch, ~8 for 2D, ~25 for 3D)?");
+                 "variables to hold a\nvalid polycrystal initial condition (no grains represented "
+                 "by the same variable should be allowed to\ntouch, ~8 for 2D, ~25 for 3D)?");
   }
   else // PETSc Coloring algorithms
   {
@@ -309,8 +436,8 @@ PolycrystalUserObjectBase::assignOpsToGrains()
     {
       paramError("op_num",
                  "Unable to find a valid grain to op coloring, Make sure you have created enough "
-                 "variables to hold a valid polycrystal initial condition (no grains represented "
-                 "by the same variable should be allowed to touch, ~8 for 2D, ~25 for 3D)?");
+                 "variables to hold a\nvalid polycrystal initial condition (no grains represented "
+                 "by the same variable should be allowed to\ntouch, ~8 for 2D, ~25 for 3D)?");
     }
 #else
     mooseError("Selected coloring algorithm requires PETSc");

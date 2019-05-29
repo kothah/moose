@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef AEFVUpwindINTERNALSIDEFLUX_H
-#define AEFVUpwindINTERNALSIDEFLUX_H
+#pragma once
 
 #include "InternalSideFluxBase.h"
 
@@ -47,6 +46,7 @@ public:
                             DenseMatrix<Real> & jac2) const override;
 
 protected:
+  /// advective velocity
+  const Real _velocity;
 };
 
-#endif

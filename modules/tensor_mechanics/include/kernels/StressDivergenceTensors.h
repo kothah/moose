@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef STRESSDIVERGENCETENSORS_H
-#define STRESSDIVERGENCETENSORS_H
+#pragma once
 
 #include "ALEKernel.h"
 #include "RankTwoTensor.h"
@@ -16,8 +15,6 @@
 
 // Forward Declarations
 class StressDivergenceTensors;
-class RankTwoTensor;
-class RankFourTensor;
 
 template <>
 InputParameters validParams<StressDivergenceTensors>();
@@ -86,4 +83,3 @@ protected:
   bool _volumetric_locking_correction;
 };
 
-#endif // STRESSDIVERGENCETENSORS_H

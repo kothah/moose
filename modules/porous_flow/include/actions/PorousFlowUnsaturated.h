@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWUNSATURATED_H
-#define POROUSFLOWUNSATURATED_H
+#pragma once
 
 #include "PorousFlowSinglePhaseBase.h"
 
@@ -27,9 +26,13 @@ class PorousFlowUnsaturated : public PorousFlowSinglePhaseBase
 public:
   PorousFlowUnsaturated(const InputParameters & params);
 
-  virtual void act() override;
-
 protected:
+  virtual void addKernels() override;
+  virtual void addAuxObjects() override;
+  virtual void addMaterialDependencies() override;
+  virtual void addMaterials() override;
+  virtual void addUserObjects() override;
+
   /// Add an Aux Variable to record saturation
   const bool _add_saturation_aux;
 
@@ -47,6 +50,8 @@ protected:
 
   /// Residual saturation to use in the relative permeability expressions
   const Real _s_res;
+
+  /// Name of the capillary pressure UserObject
+  const std::string _capillary_pressure_name;
 };
 
-#endif // POROUSFLOWUNSATURATED_H

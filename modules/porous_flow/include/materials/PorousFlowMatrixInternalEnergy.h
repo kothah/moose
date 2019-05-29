@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWMATRIXINTERNALENERGY_H
-#define POROUSFLOWMATRIXINTERNALENERGY_H
+#pragma once
 
 #include "PorousFlowMaterialVectorBase.h"
 
@@ -42,7 +41,7 @@ protected:
   /// Heat capacity = _cp * _density
   const Real _heat_cap;
 
-  /// temperature at the nodes
+  /// Temperature at the nodes
   const MaterialProperty<Real> & _temperature_nodal;
 
   /// d(temperature at the nodes)/d(PorousFlow variable)
@@ -55,4 +54,3 @@ protected:
   MaterialProperty<std::vector<Real>> & _den_nodal_dvar;
 };
 
-#endif // POROUSFLOWMATRIXINTERNALENERGY_H

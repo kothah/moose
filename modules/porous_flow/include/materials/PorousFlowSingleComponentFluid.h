@@ -7,11 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWSINGLECOMPONENTFLUID_H
-#define POROUSFLOWSINGLECOMPONENTFLUID_H
+#pragma once
 
 #include "PorousFlowFluidPropertiesBase.h"
-#include "SinglePhaseFluidPropertiesPT.h"
+#include "SinglePhaseFluidProperties.h"
 
 class PorousFlowSingleComponentFluid;
 
@@ -31,6 +30,18 @@ public:
 protected:
   virtual void initQpStatefulProperties() override;
   virtual void computeQpProperties() override;
+
+  /// Unit used for porepressure
+  const enum class PressureUnitEnum { Pa, MPa } _p_unit;
+
+  /// convert porepressure to Pascals by multiplying by this quantity
+  const Real _pressure_to_Pascals;
+
+  /// Unit used for time
+  const enum class TimeUnitEnum { seconds, hours, days, years } _time_unit;
+
+  /// convert time to seconds by multiplying by this quantity
+  const Real _time_to_seconds;
 
   /// If true, this Material will compute density and viscosity, and their derivatives
   const bool _compute_rho_mu;
@@ -78,7 +89,5 @@ protected:
   MaterialProperty<Real> * const _denthalpy_dT;
 
   /// Fluid properties UserObject
-  const SinglePhaseFluidPropertiesPT & _fp;
+  const SinglePhaseFluidProperties & _fp;
 };
-
-#endif // POROUSFLOWSINGLECOMPONENTFLUID_H

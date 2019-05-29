@@ -25,6 +25,7 @@
 #include "libmesh/quadrature_gauss.h"
 #include "libmesh/sparse_matrix.h"
 #include "libmesh/string_to_enum.h"
+#include "libmesh/default_coupling.h"
 
 void
 assemble_l2(EquationSystems & es, const std::string & system_name)
@@ -40,10 +41,7 @@ template <>
 InputParameters
 validParams<MultiAppProjectionTransfer>()
 {
-  InputParameters params = validParams<MultiAppTransfer>();
-  params.addRequiredParam<AuxVariableName>(
-      "variable", "The auxiliary variable to store the transferred values in.");
-  params.addRequiredParam<VariableName>("source_variable", "The variable to transfer from.");
+  InputParameters params = validParams<MultiAppFieldTransfer>();
 
   MooseEnum proj_type("l2", "l2");
   params.addParam<MooseEnum>("proj_type", proj_type, "The type of the projection.");
@@ -54,23 +52,29 @@ validParams<MultiAppProjectionTransfer>()
                         "no movement or adaptivity).  This will cache some "
                         "information to speed up the transfer.");
 
+  // Need one layer of ghosting
+  params.addRelationshipManager("ElementSideNeighborLayers",
+                                Moose::RelationshipManagerType::GEOMETRIC |
+                                    Moose::RelationshipManagerType::ALGEBRAIC);
   return params;
 }
 
 MultiAppProjectionTransfer::MultiAppProjectionTransfer(const InputParameters & parameters)
-  : MultiAppTransfer(parameters),
-    _to_var_name(getParam<AuxVariableName>("variable")),
-    _from_var_name(getParam<VariableName>("source_variable")),
+  : MultiAppFieldTransfer(parameters),
     _proj_type(getParam<MooseEnum>("proj_type")),
     _compute_matrix(true),
     _fixed_meshes(getParam<bool>("fixed_meshes")),
     _qps_cached(false)
 {
+  if (_to_var_names.size() != 1 || _from_var_names.size() != 1)
+    mooseError(" Support single variable only ");
 }
 
 void
 MultiAppProjectionTransfer::initialSetup()
 {
+  MultiAppFieldTransfer::initialSetup();
+
   getAppInfo();
 
   _proj_sys.resize(_to_problems.size(), NULL);
@@ -87,7 +91,13 @@ MultiAppProjectionTransfer::initialSetup()
                                       Moose::VarKindType::VAR_ANY,
                                       Moose::VarFieldType::VAR_FIELD_STANDARD)
                          .feType();
+
     LinearImplicitSystem & proj_sys = to_es.add_system<LinearImplicitSystem>("proj-sys-" + name());
+
+    proj_sys.get_dof_map().add_coupling_functor(
+        proj_sys.get_dof_map().default_coupling(),
+        false); // The false keeps it from getting added to the mesh
+
     _proj_var_num = proj_sys.add_variable("var", fe_type);
     proj_sys.attach_assemble_function(assemble_l2);
     _proj_sys[i_to] = &proj_sys;
@@ -503,6 +513,8 @@ MultiAppProjectionTransfer::execute()
     _qps_cached = true;
 
   _console << "Finished projection transfer " << name() << std::endl;
+
+  postExecute();
 }
 
 void

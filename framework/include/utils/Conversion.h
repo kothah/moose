@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CONVERSION_H
-#define CONVERSION_H
+#pragma once
 
 // MOOSE includes
 #include "MooseTypes.h"
@@ -16,10 +15,13 @@
 // libMesh
 #include "libmesh/enum_order.h"
 #include "libmesh/enum_quadrature_type.h"
-#include "libmesh/point.h"
 
 // Forward declarations
 class MultiMooseEnum;
+namespace libMesh
+{
+class Point;
+}
 
 namespace Moose
 {
@@ -44,6 +46,9 @@ LineSearchType stringToEnum<LineSearchType>(const std::string & s);
 
 template <>
 TimeIntegratorType stringToEnum<TimeIntegratorType>(const std::string & s);
+
+template <>
+RelationshipManagerType stringToEnum<RelationshipManagerType>(const std::string & s);
 
 // Vector conversions
 template <typename T>
@@ -119,4 +124,3 @@ std::string stringifyExact(Real);
  */
 Point toPoint(const std::vector<Real> & pos);
 
-#endif // CONVERSION_H

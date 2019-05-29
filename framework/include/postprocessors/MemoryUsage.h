@@ -7,10 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MEMORYUSAGE_H
-#define MEMORYUSAGE_H
+#pragma once
 
 #include "GeneralPostprocessor.h"
+#include "MemoryUsageReporter.h"
+#include "MemoryUtils.h"
 
 class MemoryUsage;
 
@@ -20,14 +21,14 @@ InputParameters validParams<MemoryUsage>();
 /**
  * Output maximum, average, or total process memory usage
  */
-class MemoryUsage : public GeneralPostprocessor
+class MemoryUsage : public GeneralPostprocessor, public MemoryUsageReporter
 {
 public:
   MemoryUsage(const InputParameters & parameters);
 
   virtual void timestepSetup() override;
 
-  virtual void initialize() override;
+  virtual void initialize() override {}
   virtual void execute() override;
   virtual void finalize() override;
   virtual PostprocessorValue getValue() override;
@@ -35,8 +36,8 @@ public:
 protected:
   enum class MemType
   {
-    virtual_memory,
     physical_memory,
+    virtual_memory,
     page_faults
   } _mem_type;
 
@@ -48,6 +49,9 @@ protected:
     min_process
   } _value_type;
 
+  /// The unit prefix for the reported memory statistics (kilobyte, megabyte, etc).
+  MemoryUtils::MemUnits _mem_units;
+
   /// memory usage metric in bytes
   Real _value;
 
@@ -58,4 +62,3 @@ protected:
   const bool _report_peak_value;
 };
 
-#endif // MEMORYUSAGE_H

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef DISPLACEDPROBLEM_H
-#define DISPLACEDPROBLEM_H
+#pragma once
 
 #include "SubProblem.h"
 #include "DisplacedSystem.h"
@@ -43,10 +42,17 @@ public:
 
   virtual EquationSystems & es() override { return _eq; }
   virtual MooseMesh & mesh() override { return _mesh; }
+  virtual const MooseMesh & mesh() const override { return _mesh; }
   MooseMesh & refMesh();
 
   DisplacedSystem & nlSys() { return _displaced_nl; }
   DisplacedSystem & auxSys() { return _displaced_aux; }
+
+  virtual const SystemBase & systemBaseNonlinear() const override { return _displaced_nl; }
+  virtual SystemBase & systemBaseNonlinear() override { return _displaced_nl; }
+
+  virtual const SystemBase & systemBaseAuxiliary() const override { return _displaced_aux; }
+  virtual SystemBase & systemBaseAuxiliary() override { return _displaced_aux; }
 
   // Return a constant reference to the vector of variable names.
   const std::vector<std::string> & getDisplacementVarNames() const { return _displacements; }
@@ -95,7 +101,7 @@ public:
   virtual TagID getVectorTagID(const TagName & tag_name) override;
   virtual TagName vectorTagName(TagID tag) override;
   virtual bool vectorTagExists(TagID tag) override;
-  virtual unsigned int numVectorTags() override;
+  virtual unsigned int numVectorTags() const override;
   virtual std::map<TagName, TagID> & getVectorTags() override;
 
   virtual TagID addMatrixTag(TagName tag_name) override;
@@ -103,7 +109,7 @@ public:
   virtual TagName matrixTagName(TagID tag) override;
   virtual bool matrixTagExists(const TagName & tag_name) override;
   virtual bool matrixTagExists(TagID tag_id) override;
-  virtual unsigned int numMatrixTags() override;
+  virtual unsigned int numMatrixTags() const override;
 
   virtual bool isTransient() const override;
   virtual Moose::CoordinateSystemType getCoordSystem(SubdomainID sid) override;
@@ -166,7 +172,8 @@ public:
   virtual void reinitElem(const Elem * elem, THREAD_ID tid) override;
   virtual void reinitElemPhys(const Elem * elem,
                               const std::vector<Point> & phys_points_in_elem,
-                              THREAD_ID tid) override;
+                              THREAD_ID tid,
+                              bool = false) override;
   virtual void
   reinitElemFace(const Elem * elem, unsigned int side, BoundaryID bnd_id, THREAD_ID tid) override;
   virtual void reinitNode(const Node * node, THREAD_ID tid) override;
@@ -233,7 +240,8 @@ public:
   virtual void prepareFaceShapes(unsigned int var, THREAD_ID tid) override;
   virtual void prepareNeighborShapes(unsigned int var, THREAD_ID tid) override;
 
-  virtual Assembly & assembly(THREAD_ID tid) override { return *_assembly[tid]; }
+  Assembly & assembly(THREAD_ID tid) override { return *_assembly[tid]; }
+  const Assembly & assembly(THREAD_ID tid) const override { return *_assembly[tid]; }
 
   // Geom Search /////
   virtual void updateGeomSearch(
@@ -291,9 +299,14 @@ protected:
 
   GeometricSearchData _geometric_search_data;
 
+  /// Timers
+  PerfID _eq_init_timer;
+  PerfID _update_mesh_timer;
+  PerfID _sync_solutions_timer;
+  PerfID _update_geometric_search_timer;
+
 private:
   friend class UpdateDisplacedMeshThread;
   friend class Restartable;
 };
 
-#endif /* DISPLACEDPROBLEM_H */

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEMULTIPLASTICITYSTRESS_H
-#define COMPUTEMULTIPLASTICITYSTRESS_H
+#pragma once
 
 #include "ComputeStressBase.h"
 #include "MultiPlasticityDebugger.h"
@@ -97,6 +96,11 @@ protected:
 
   /// whether to perform the rotations necessary in finite-strain simulations
   bool _perform_finite_strain_rotations;
+
+  /// Name of the elasticity tensor material property
+  const std::string _elasticity_tensor_name;
+  /// Elasticity tensor material property
+  const MaterialProperty<RankFourTensor> & _elasticity_tensor;
 
   /// plastic strain
   MaterialProperty<RankTwoTensor> & _plastic_strain;
@@ -588,4 +592,3 @@ private:
   RankTwoTensor rot(const RankTwoTensor & tens);
 };
 
-#endif // COMPUTEMULTIPLASTICITYSTRESS_H

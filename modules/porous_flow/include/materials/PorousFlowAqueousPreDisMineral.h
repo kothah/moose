@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWMASSFRACTIONAQUEOUSPREDISMINERAL_H
-#define POROUSFLOWMASSFRACTIONAQUEOUSPREDISMINERAL_H
+#pragma once
 
 #include "PorousFlowMaterialVectorBase.h"
 
-// Forward Declarations
 class PorousFlowAqueousPreDisMineral;
 
 template <>
@@ -32,36 +30,35 @@ protected:
   void initQpStatefulProperties() override;
   void computeQpProperties() override;
 
-  /// number of equations in the aqueous geochemistry system
+  /// Number of equations in the aqueous geochemistry system
   const unsigned int _num_reactions;
 
   /// Aqueous phase number
   const unsigned int _aq_ph;
 
-  /// saturation
+  /// Saturation
   const MaterialProperty<std::vector<Real>> & _saturation;
 
   /// Mineral concentrations at quadpoint or nodes
   MaterialProperty<std::vector<Real>> & _sec_conc;
 
-  /// porosity
+  /// Porosity
   const MaterialProperty<Real> & _porosity_old;
 
-  // old values of the mineral species concentrations
+  /// Old values of the mineral species concentrations
   const MaterialProperty<std::vector<Real>> & _sec_conc_old;
 
-  // reaction rate of mineralisation
+  /// Reaction rate of mineralisation
   const MaterialProperty<std::vector<Real>> & _reaction_rate;
 
-  // whether the initial values of the secondary species concentrations have been supplied by the
-  // user
+  /// Whether the initial values of the secondary species concentrations have been supplied by the
+  /// user
   const bool _initial_conc_supplied;
 
-  // number of secondary species concentrations supplied by the user
+  /// Number of secondary species concentrations supplied by the user
   const unsigned _num_initial_conc;
 
-  // initial values of the secondary species concentrations
+  /// Initial values of the secondary species concentrations
   std::vector<const VariableValue *> _initial_conc;
 };
 
-#endif // POROUSFLOWMASSFRACTIONAQUEOUSPREDISMINERAL_H

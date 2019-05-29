@@ -17,25 +17,28 @@
 Syntax::Syntax() : _actions_to_syntax_valid(false) {}
 
 void
-Syntax::registerTaskName(const std::string & task, bool is_required)
+Syntax::registerTaskName(const std::string & task, bool should_auto_build)
 {
-  if (_registered_tasks.find(task) != _registered_tasks.end())
-    mooseError("A ", task, " is already registered.  Do you need to use appendTaskName instead?");
-
+  if (_registered_tasks.count(task) > 0)
+    return;
   _tasks.addItem(task);
-  _registered_tasks[task] = is_required;
+  _registered_tasks[task] = should_auto_build;
 }
 
 void
 Syntax::registerTaskName(const std::string & task,
                          const std::string & moose_object_type,
-                         bool is_required)
+                         bool should_auto_build)
 {
+  auto range = _moose_systems_to_tasks.equal_range(moose_object_type);
+  for (auto it = range.first; it != range.second; ++it)
+    if (it->second == task)
+      return;
+
   if (_registered_tasks.find(task) != _registered_tasks.end())
     mooseError("A ", task, " is already registered.  Do you need to use appendTaskName instead?");
 
-  _tasks.addItem(task);
-  _registered_tasks[task] = is_required;
+  registerTaskName(task, should_auto_build);
   _moose_systems_to_tasks.insert(std::make_pair(moose_object_type, task));
 }
 
@@ -79,6 +82,15 @@ Syntax::addDependencySets(const std::string & action_sets)
 }
 
 void
+Syntax::deleteTaskDependencies(const std::string & task)
+{
+  if (_registered_tasks.find(task) == _registered_tasks.end())
+    mooseError("A ", task, " is not a registered task name.");
+
+  _tasks.deleteDependenciesOfKey(task);
+}
+
+void
 Syntax::clearTaskDependencies()
 {
   _tasks.clear();
@@ -97,15 +109,25 @@ Syntax::getSortedTaskSet()
 }
 
 bool
-Syntax::hasTask(const std::string & task)
+Syntax::hasTask(const std::string & task) const
 {
   return (_registered_tasks.find(task) != _registered_tasks.end());
 }
 
 bool
-Syntax::isActionRequired(const std::string & task)
+Syntax::isActionRequired(const std::string & task) const
 {
-  return _registered_tasks[task];
+  mooseDeprecated("Syntax::isActionRequired is deprecated, use shouldAutoBuild() instead");
+  return shouldAutoBuild(task);
+}
+
+bool
+Syntax::shouldAutoBuild(const std::string & task) const
+{
+  auto map_pair = _registered_tasks.find(task);
+  mooseAssert(map_pair != _registered_tasks.end(), std::string("Unregistered task: ") + task);
+
+  return map_pair->second;
 }
 
 void
@@ -115,13 +137,13 @@ Syntax::registerActionSyntax(const std::string & action,
                              const std::string & file,
                              int line)
 {
-  ActionInfo action_info;
-  action_info._action = action;
-  action_info._task = task;
+  auto range = _syntax_to_actions.equal_range(syntax);
+  for (auto it = range.first; it != range.second; ++it)
+    if (it->second._action == action && it->second._task == task)
+      return;
 
-  _syntax_to_actions.insert(std::make_pair(syntax, action_info));
+  _syntax_to_actions.insert(std::make_pair(syntax, ActionInfo{action, task}));
   _syntax_to_line.addInfo(syntax, action, task, file, line);
-
   _actions_to_syntax_valid = false;
 }
 
@@ -139,7 +161,25 @@ Syntax::replaceActionSyntax(const std::string & action,
 void
 Syntax::deprecateActionSyntax(const std::string & syntax)
 {
-  _deprecated_syntax.insert(syntax);
+  const std::string message = "\"[" + syntax + "]\" is deprecated.";
+  deprecateActionSyntax(syntax, message);
+}
+
+void
+Syntax::deprecateActionSyntax(const std::string & syntax, const std::string & message)
+{
+  _deprecated_syntax.insert(std::make_pair(syntax, message));
+}
+
+std::string
+Syntax::deprecatedActionSyntaxMessage(const std::string syntax)
+{
+  auto it = _deprecated_syntax.find(syntax);
+
+  if (it != _deprecated_syntax.end())
+    return it->second;
+  else
+    mooseError("The action syntax ", syntax, " is not deprecated");
 }
 
 bool
@@ -175,7 +215,7 @@ Syntax::getSyntaxByAction(const std::string & action, const std::string & task)
 }
 
 std::string
-Syntax::isAssociated(const std::string & real_id, bool * is_parent)
+Syntax::isAssociated(const std::string & real_id, bool * is_parent) const
 {
   /**
    * This implementation assumes that wildcards can occur in the place of an entire token but not as

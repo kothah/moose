@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef OUTPUT_H
-#define OUTPUT_H
+#pragma once
 
 // MOOSE includes
 #include "MooseObject.h"
@@ -16,6 +15,7 @@
 #include "MeshChangedInterface.h"
 #include "SetupInterface.h"
 #include "AdvancedOutputUtils.h"
+#include "PerfGraphInterface.h"
 
 // Forward declarations
 class Output;
@@ -41,7 +41,8 @@ InputParameters validParams<Output>();
 class Output : public MooseObject,
                public Restartable,
                public MeshChangedInterface,
-               public SetupInterface
+               public SetupInterface,
+               public PerfGraphInterface
 {
 public:
   /**
@@ -107,12 +108,6 @@ public:
    * Check if this is valid first with isAdvanced()
    */
   virtual const OutputOnWarehouse & advancedExecuteOn() const;
-
-  /**
-   * (DEPRECATED) Return the support output execution times
-   * @param default_type The default MultiMooseEnum option
-   */
-  static MultiMooseEnum getExecuteOptions(std::string default_type = "");
 
   /**
    * Return an ExecFlagEnum object with the available execution flags for Output objects.
@@ -246,7 +241,9 @@ protected:
   // the output settings.
   OutputOnWarehouse _advanced_execute_on;
 
+  /// Timers
+  PerfID _output_step_timer;
+
   friend class OutputWarehouse;
 };
 
-#endif /* OUTPUT_H */

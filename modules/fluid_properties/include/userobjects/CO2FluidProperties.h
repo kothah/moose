@@ -7,16 +7,18 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CO2FLUIDPROPERTIES_H
-#define CO2FLUIDPROPERTIES_H
+#pragma once
 
-#include "SinglePhaseFluidPropertiesPT.h"
+#include "HelmholtzFluidProperties.h"
 #include <array>
 
 class CO2FluidProperties;
 
 template <>
 InputParameters validParams<CO2FluidProperties>();
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
 
 /**
  * CO2 fluid properties
@@ -40,41 +42,42 @@ InputParameters validParams<CO2FluidProperties>();
  * Equation for Carbon Dioxide with an Optimized Functional Form, J. Phys.
  * Chem. Ref. Data 35 (2006)
  */
-class CO2FluidProperties : public SinglePhaseFluidPropertiesPT
+class CO2FluidProperties : public HelmholtzFluidProperties
 {
 public:
   CO2FluidProperties(const InputParameters & parameters);
   virtual ~CO2FluidProperties();
 
-  virtual Real rho(Real pressure, Real temperature) const override;
+  virtual Real rho_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual void rho_dpT(
+  virtual void rho_from_p_T(
       Real pressure, Real temperature, Real & rho, Real & drho_dp, Real & drho_dT) const override;
 
-  virtual Real mu(Real pressure, Real temperature) const override;
+  virtual Real mu_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual void
-  mu_dpT(Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const override;
+  virtual void mu_from_p_T(
+      Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const override;
 
   virtual Real mu_from_rho_T(Real density, Real temperature) const override;
 
-  virtual void mu_drhoT_from_rho_T(Real density,
-                                   Real temperature,
-                                   Real ddensity_dT,
-                                   Real & mu,
-                                   Real & dmu_drho,
-                                   Real & dmu_dT) const override;
+  virtual void mu_from_rho_T(Real density,
+                             Real temperature,
+                             Real ddensity_dT,
+                             Real & mu,
+                             Real & dmu_drho,
+                             Real & dmu_dT) const override;
 
-  virtual void rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const override;
+  virtual void
+  rho_mu_from_p_T(Real pressure, Real temperature, Real & rho, Real & mu) const override;
 
-  virtual void rho_mu_dpT(Real pressure,
-                          Real temperature,
-                          Real & rho,
-                          Real & drho_dp,
-                          Real & drho_dT,
-                          Real & mu,
-                          Real & dmu_dp,
-                          Real & dmu_dT) const override;
+  virtual void rho_mu_from_p_T(Real pressure,
+                               Real temperature,
+                               Real & rho,
+                               Real & drho_dp,
+                               Real & drho_dT,
+                               Real & mu,
+                               Real & dmu_dp,
+                               Real & dmu_dT) const override;
 
   virtual std::string fluidName() const override;
 
@@ -114,6 +117,8 @@ public:
 
   virtual Real vaporPressure(Real temperature) const override;
 
+  virtual void vaporPressure(Real temperature, Real & psat, Real & dpsat_dT) const override;
+
   /**
    * Saturated liquid density of CO2
    * Valid for temperatures between the triple point temperature
@@ -138,85 +143,11 @@ public:
    */
   Real saturatedVaporDensity(Real temperature) const;
 
-  /**
-   * Pressure as a function of density and temperature
-   * From Span and Wagner (reference above)
-   *
-   * @param density CO2 density (kg/m^3)
-   * @param temperature CO2 temperature (K)
-   * @return CO2 pressure (Pa)
-   */
-  Real pressure(Real density, Real temperature) const;
-
-  /**
-   * Internal function to calculate pressure as a function of density and
-   * temperature using the Span and Wagner EOS. This function is called by
-   * pressure(density, temperature)
-   *
-   * @param density CO2 density (kg/m^3)
-   * @param temperature CO2 temperature (K)
-   * @return CO2 pressure (Pa)
-   */
-  Real pressureSW(Real density, Real temperature) const;
-
-  /**
-   * Helmholtz free energy for CO2
-   * From Span and Wagner (reference above)
-   *
-   * @param delta scaled density (-)
-   * @param tau scaled temperature (-)
-   * @return phi Helmholtz free energy
-   */
-  Real phiSW(Real delta, Real tau) const;
-
-  /**
-   * Derivative of Helmholtz free energy wrt delta
-   *
-   * @param delta scaled density (-)
-   * @param tau scaled temperature (-)
-   * @return derivative of Helmholtz free energy wrt delta
-   */
-  Real dphiSW_dd(Real delta, Real tau) const;
-
-  /**
-   * Derivative of Helmholtz free energy wrt tau
-   *
-   * @param delta scaled density (-)
-   * @param tau scaled temperature (-)
-   * @return derivative of Helmholtz free energy wrt tau
-   */
-  Real dphiSW_dt(Real delta, Real tau) const;
-
-  /**
-   * Second derivative of Helmholtz free energy wrt delta
-   *
-   * @param delta scaled density (-)
-   * @param tau scaled temperature (-)
-   * @return second derivative of Helmholtz free energy wrt delta
-   */
-  Real d2phiSW_dd2(Real delta, Real tau) const;
-
-  /**
-   * Second derivative of Helmholtz free energy wrt tau
-   *
-   * @param delta scaled density (-)
-   * @param tau scaled temperature (-)
-   * @return second derivative of Helmholtz free energy wrt tau
-   */
-  Real d2phiSW_dt2(Real delta, Real tau) const;
-
-  /**
-   * Second derivative of Helmholtz free energy wrt delta and tau
-   *
-   * @param delta scaled density (-)
-   * @param tau scaled temperature (-)
-   * @return second derivative of Helmholtz free energy wrt delta and tau
-   */
-  Real d2phiSW_ddt(Real delta, Real tau) const;
+  virtual Real p_from_rho_T(Real density, Real temperature) const override;
 
   virtual Real henryConstant(Real temperature) const override;
 
-  virtual void henryConstant_dT(Real temperature, Real & Kh, Real & dKh_dT) const override;
+  virtual void henryConstant(Real temperature, Real & Kh, Real & dKh_dT) const override;
 
   /**
    * Partial density of dissolved CO2
@@ -227,41 +158,26 @@ public:
    */
   Real partialDensity(Real temperature) const;
 
-  virtual Real e(Real pressure, Real temperature) const override;
+  virtual Real k_from_p_T(Real pressure, Real temperature) const override;
 
   virtual void
-  e_dpT(Real pressure, Real temperature, Real & e, Real & de_dp, Real & de_dT) const override;
-
-  virtual void rho_e_dpT(Real pressure,
-                         Real temperature,
-                         Real & rho,
-                         Real & drho_dp,
-                         Real & drho_dT,
-                         Real & e,
-                         Real & de_dp,
-                         Real & de_dT) const override;
-
-  virtual Real c(Real pressure, Real temperature) const override;
-
-  virtual Real cp(Real pressure, Real temperature) const override;
-
-  virtual Real cv(Real pressure, Real temperature) const override;
-
-  virtual Real k(Real pressure, Real temperature) const override;
-
-  virtual void
-  k_dpT(Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const override;
+  k_from_p_T(Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const override;
 
   virtual Real k_from_rho_T(Real density, Real temperature) const override;
 
-  virtual Real s(Real pressure, Real temperature) const override;
-
-  virtual Real h(Real p, Real T) const override;
-
-  virtual void
-  h_dpT(Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const override;
-
 protected:
+  virtual Real alpha(Real delta, Real tau) const override;
+
+  virtual Real dalpha_ddelta(Real delta, Real tau) const override;
+
+  virtual Real dalpha_dtau(Real delta, Real tau) const override;
+
+  virtual Real d2alpha_ddelta2(Real delta, Real tau) const override;
+
+  virtual Real d2alpha_dtau2(Real delta, Real tau) const override;
+
+  virtual Real d2alpha_ddeltatau(Real delta, Real tau) const override;
+
   /// Molar mass of CO2 (kg/mol)
   const Real _Mco2 = 44.0098e-3;
   /// Critical pressure (Pa)
@@ -340,4 +256,5 @@ protected:
       {3.0, 6.70697, 0.94604, 0.3, 0.3, 0.39751, 0.33791, 0.77963, 0.79857, 0.9, 0.02, 0.2}};
 };
 
-#endif /* CO2FLUIDPROPERTIES_H */
+#pragma GCC diagnostic pop
+

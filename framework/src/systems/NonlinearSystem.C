@@ -20,6 +20,7 @@
 #include "libmesh/petsc_nonlinear_solver.h"
 #include "libmesh/sparse_matrix.h"
 #include "libmesh/petsc_matrix.h"
+#include "libmesh/default_coupling.h"
 
 namespace Moose
 {
@@ -91,6 +92,10 @@ NonlinearSystem::NonlinearSystem(FEProblemBase & fe_problem, const std::string &
     _fd_residual_functor(_fe_problem),
     _use_coloring_finite_difference(false)
 {
+  _sys.get_dof_map().add_coupling_functor(
+      _sys.get_dof_map().default_coupling(),
+      false); // The false keeps it from getting added to the mesh
+
   nonlinearSolver()->residual_object = &_nl_residual_functor;
   nonlinearSolver()->jacobian = Moose::compute_jacobian;
   nonlinearSolver()->bounds = Moose::compute_bounds;
@@ -177,6 +182,8 @@ NonlinearSystem::solve()
   PetscNonlinearSolver<Real> & solver =
       static_cast<PetscNonlinearSolver<Real> &>(*_transient_sys.nonlinear_solver);
   solver.mffd_residual_object = &_fd_residual_functor;
+
+  solver.set_snesmf_reuse_base(_fe_problem.useSNESMFReuseBase());
 #endif
 
   if (_time_integrator)
@@ -341,9 +348,12 @@ NonlinearSystem::setupColoringFiniteDifferencedPreconditioner()
 
   MatFDColoringCreate(petsc_mat->mat(), iscoloring, &_fdcoloring);
   MatFDColoringSetFromOptions(_fdcoloring);
+  // clang-format off
   MatFDColoringSetFunction(_fdcoloring,
-                           (PetscErrorCode(*)(void)) & libMesh::__libmesh_petsc_snes_fd_residual,
+                           (PetscErrorCode(*)(void))(void (*)(void)) &
+                               libMesh::libmesh_petsc_snes_fd_residual,
                            &petsc_nonlinear_solver);
+  // clang-format on
 #if !PETSC_RELEASE_LESS_THAN(3, 5, 0)
   MatFDColoringSetUp(petsc_mat->mat(), iscoloring, _fdcoloring);
 #endif

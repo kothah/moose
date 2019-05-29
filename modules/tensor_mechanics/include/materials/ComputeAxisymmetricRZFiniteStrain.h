@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEAXISYMMETRICRZFINITESTRAIN_H
-#define COMPUTEAXISYMMETRICRZFINITESTRAIN_H
+#pragma once
 
 #include "Compute2DFiniteStrain.h"
 
@@ -27,9 +26,9 @@ class ComputeAxisymmetricRZFiniteStrain : public Compute2DFiniteStrain
 public:
   ComputeAxisymmetricRZFiniteStrain(const InputParameters & parameters);
 
-protected:
   void initialSetup() override;
 
+protected:
   Real computeOutOfPlaneGradDisp() override;
 
   Real computeOutOfPlaneGradDispOld() override;
@@ -38,4 +37,3 @@ protected:
   const VariableValue & _disp_old_0;
 };
 
-#endif // COMPUTEAXISYMMETRICRZFINITESTRAIN_H

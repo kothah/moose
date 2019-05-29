@@ -28,6 +28,9 @@ LStableDirk3::LStableDirk3(const InputParameters & parameters)
     _gamma(-std::sqrt(2.) * std::cos(std::atan(std::sqrt(2.) / 4.) / 3.) / 2. +
            std::sqrt(6.) * std::sin(std::atan(std::sqrt(2.) / 4.) / 3.) / 2. + 1.)
 {
+  mooseInfo("LStableDirk3 and other multistage TimeIntegrators are known not to work with "
+            "Materials/AuxKernels that accumulate 'state' and should be used with caution.");
+
   // Name the stage residuals "residual_stage1", "residual_stage2", etc.
   for (unsigned int stage = 0; stage < 3; ++stage)
   {
@@ -55,11 +58,21 @@ LStableDirk3::computeTimeDerivatives()
   // We are multiplying by the method coefficients in postResidual(), so
   // the time derivatives are of the same form at every stage although
   // the current solution varies depending on the stage.
-  _u_dot = *_solution;
-  _u_dot -= _solution_old;
-  _u_dot *= 1. / _dt;
-  _u_dot.close();
+  if (!_sys.solutionUDot())
+    mooseError("LStableDirk3: Time derivative of solution (`u_dot`) is not stored. Please set "
+               "uDotRequested() to true in FEProblemBase befor requesting `u_dot`.");
+
+  NumericVector<Number> & u_dot = *_sys.solutionUDot();
+  u_dot = *_solution;
+  computeTimeDerivativeHelper(u_dot, _solution_old);
+  u_dot.close();
   _du_dot_du = 1. / _dt;
+}
+
+void
+LStableDirk3::computeADTimeDerivatives(DualReal & ad_u_dot, const dof_id_type & dof) const
+{
+  computeTimeDerivativeHelper(ad_u_dot, _solution_old(dof));
 }
 
 void
@@ -95,6 +108,10 @@ LStableDirk3::solve()
     // Update the iteration counts
     _n_nonlinear_iterations += getNumNonlinearIterationsLastSolve();
     _n_linear_iterations += getNumLinearIterationsLastSolve();
+
+    // Abort time step immediately on stage failure - see TimeIntegrator doc page
+    if (!_fe_problem.converged())
+      return;
   }
 }
 

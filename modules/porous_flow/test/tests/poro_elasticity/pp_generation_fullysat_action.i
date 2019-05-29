@@ -110,9 +110,9 @@
 
 [AuxKernels]
   [./porosity]
-    type = MaterialRealAux
+    type = PorousFlowPropertyAux
     variable = porosity
-    property = PorousFlow_porosity_qp
+    property = porosity
   [../]
 []
 
@@ -130,15 +130,6 @@
     type = ComputeLinearElasticStress
   [../]
   [./porosity]
-    type = PorousFlowPorosity
-    fluid = true
-    mechanical = true
-    at_nodes = true
-    porosity_zero = 0.1
-    biot_coefficient = 0.3
-    solid_bulk = 2
-  [../]
-  [./porosity_qp]
     type = PorousFlowPorosity
     fluid = true
     mechanical = true

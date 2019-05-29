@@ -8,9 +8,9 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "RandomIC.h"
-#include "MooseRandom.h"
 
 #include "libmesh/point.h"
+#include "Distribution.h"
 
 registerMooseObject("MooseApp", RandomIC);
 
@@ -18,37 +18,43 @@ template <>
 InputParameters
 validParams<RandomIC>()
 {
-  InputParameters params = validParams<InitialCondition>();
-  params.addParam<Real>("min", 0.0, "Lower bound of the randomly generated values");
-  params.addParam<Real>("max", 1.0, "Upper bound of the randomly generated values");
-  params.addParam<unsigned int>("seed", 0, "Seed value for the random number generator");
+  InputParameters params = validParams<RandomICBase>();
+  params += validParams<DistributionInterface>();
+  params.addParam<Real>(
+      "min", 0.0, "Lower bound of uniformly distributed randomly generated values");
+  params.addParam<Real>(
+      "max", 1.0, "Upper bound of uniformly distributed randomly generated values");
+  params.addParam<DistributionName>(
+      "distribution", "Name of distribution defining distribution of randomly generated values");
 
-  params.addClassDescription(
-      "This class produces a random field for a variable. It is not parallel agnostic.");
+  params.addClassDescription("Initialize a variable with randomly generated numbers following "
+                             "either a uniform distribution or a user-defined distribution");
   return params;
 }
 
 RandomIC::RandomIC(const InputParameters & parameters)
-  : InitialCondition(parameters),
+  : RandomICBase(parameters),
+    DistributionInterface(this),
     _min(getParam<Real>("min")),
     _max(getParam<Real>("max")),
-    _range(_max - _min)
+    _distribution(nullptr)
 {
-  mooseAssert(_range > 0.0, "Min > Max for RandomIC!");
-  MooseRandom::seed(getParam<unsigned int>("seed"));
+  if (_min >= _max)
+    paramError("min", "Min >= Max for RandomIC!");
+
+  if (parameters.isParamSetByUser("distribution"))
+  {
+    _distribution = &getDistributionByName(getParam<DistributionName>("distribution"));
+    if (parameters.isParamSetByUser("min") || parameters.isParamSetByUser("max"))
+      paramError("distribution", "Cannot use together with 'min' or 'max' parameter");
+  }
 }
 
 Real
 RandomIC::value(const Point & /*p*/)
 {
-  // Random number between 0 and 1
-  Real rand_num = MooseRandom::rand();
-
-  // Between 0 and range
-  rand_num *= _range;
-
-  // Between min and max
-  rand_num += _min;
-
-  return rand_num;
+  if (_distribution)
+    return _distribution->quantile(generateRandom());
+  else
+    return generateRandom() * (_max - _min) + _min;
 }

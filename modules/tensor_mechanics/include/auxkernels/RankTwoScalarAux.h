@@ -7,10 +7,9 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef RANKTWOSCALARAUX_H
-#define RANKTWOSCALARAUX_H
+#pragma once
 
-#include "AuxKernel.h"
+#include "NodalPatchRecovery.h"
 #include "RankTwoTensor.h"
 
 class RankTwoScalarAux;
@@ -22,7 +21,7 @@ InputParameters validParams<RankTwoScalarAux>();
  * RankTwoScalarAux uses the namespace RankTwoScalarTools to compute scalar
  * values from Rank-2 tensors.
  */
-class RankTwoScalarAux : public AuxKernel
+class RankTwoScalarAux : public NodalPatchRecovery
 {
 public:
   RankTwoScalarAux(const InputParameters & parameters);
@@ -50,4 +49,3 @@ protected:
   Point _input_direction;
 };
 
-#endif // RANKTWOSCALARAUX_H

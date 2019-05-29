@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef REGISTRY_H
-#define REGISTRY_H
+#pragma once
 
 #include <string>
 #include <vector>
@@ -23,35 +22,75 @@
 /// when your app/module code may be compiled with other apps without your objects being
 /// registered.  Calling this multiple times with the same argument is safe.
 #define registerKnownLabel(X)                                                                      \
-  static char combineNames1(dummy_var_for_known_label, __LINE__) = Registry::addKnownLabel(X)
+  static char combineNames(dummy_var_for_known_label, __LINE__) = Registry::addKnownLabel(X)
 
 /// add an Action to the registry with the given app name/label as being associated with the given
 /// task (quoted string).  classname is the (unquoted) c++ class.
 #define registerMooseAction(app, classname, task)                                                  \
   static char combineNames(dummyvar_for_registering_action_##classname, __LINE__) =                \
-      Registry::addAction<classname>(                                                              \
-          {app, #classname, "", task, nullptr, nullptr, nullptr, __FILE__, __LINE__, "", ""})
+      Registry::addAction<classname>({app,                                                         \
+                                      #classname,                                                  \
+                                      "",                                                          \
+                                      task,                                                        \
+                                      nullptr,                                                     \
+                                      nullptr,                                                     \
+                                      nullptr,                                                     \
+                                      __FILE__,                                                    \
+                                      __LINE__,                                                    \
+                                      "",                                                          \
+                                      "",                                                          \
+                                      false})
 
 /// Add a MooseObject to the registry with the given app name/label.  classname is the (unquoted)
 /// c++ class.  Each object/class should only be registered once.
 #define registerMooseObject(app, classname)                                                        \
   static char combineNames(dummyvar_for_registering_obj_##classname, __LINE__) =                   \
       Registry::add<classname>(                                                                    \
-          {app, #classname, "", "", nullptr, nullptr, nullptr, __FILE__, __LINE__, "", ""})
+          {app, #classname, "", "", nullptr, nullptr, nullptr, __FILE__, __LINE__, "", "", false})
+
+/// Add AD MooseObjects (e.g. both residual and jacobian objects) to the registry with the given app name/label.  classname is the (unquoted)
+/// c++ class template.  Each class template should only be registered once.
+#define registerADMooseObject(app, templatename)                                                   \
+  static char combineNames(dummyvar_for_registering_obj_##templatename##_residual, __LINE__) =     \
+      Registry::add<templatename<RESIDUAL>>({app,                                                  \
+                                             #templatename "<RESIDUAL>",                           \
+                                             "",                                                   \
+                                             "",                                                   \
+                                             nullptr,                                              \
+                                             nullptr,                                              \
+                                             nullptr,                                              \
+                                             __FILE__,                                             \
+                                             __LINE__,                                             \
+                                             "",                                                   \
+                                             "",                                                   \
+                                             true});                                               \
+  static char combineNames(dummyvar_for_registering_obj_##templatename##_jacobian, __LINE__) =     \
+      Registry::add<templatename<JACOBIAN>>({app,                                                  \
+                                             #templatename "<JACOBIAN>",                           \
+                                             "",                                                   \
+                                             "",                                                   \
+                                             nullptr,                                              \
+                                             nullptr,                                              \
+                                             nullptr,                                              \
+                                             __FILE__,                                             \
+                                             __LINE__,                                             \
+                                             "",                                                   \
+                                             "",                                                   \
+                                             true})
 
 /// Add a MooseObject to the registry with the given app name/label under an alternate alias/name
 /// (quoted string) instead of the classname.
 #define registerMooseObjectAliased(app, classname, alias)                                          \
-  static char combineNames(dummyvar_for_registering_obj_##classname, __LINE__) =                   \
-      Registry::add<classname>(                                                                    \
-          {app, #classname, alias, "", nullptr, nullptr, nullptr, __FILE__, __LINE__, "", ""})
+  static char combineNames(dummyvar_for_registering_obj_##classname, __LINE__) = Registry::add<    \
+      classname>(                                                                                  \
+      {app, #classname, alias, "", nullptr, nullptr, nullptr, __FILE__, __LINE__, "", "", false})
 
 /// Add a deprecated MooseObject to the registry with the given app name/label. time is the time
 /// the object became/becomes deprecated in "mm/dd/yyyy HH:MM" format.
 #define registerMooseObjectDeprecated(app, classname, time)                                        \
-  static char combineNames(dummyvar_for_registering_obj_##classname, __LINE__) =                   \
-      Registry::add<classname>(                                                                    \
-          {app, #classname, "", "", nullptr, nullptr, nullptr, __FILE__, __LINE__, time, ""})
+  static char combineNames(dummyvar_for_registering_obj_##classname, __LINE__) = Registry::add<    \
+      classname>(                                                                                  \
+      {app, #classname, "", "", nullptr, nullptr, nullptr, __FILE__, __LINE__, time, "", false})
 
 /// add a deprecated MooseObject to the registry that has been replaced by another
 /// object. time is the time the object became/becomes deprecated in "mm/dd/yyyy hh:mm" format.
@@ -67,13 +106,15 @@
                                 __FILE__,                                                          \
                                 __LINE__,                                                          \
                                 time,                                                              \
-                                #replacement})
+                                #replacement,                                                      \
+                                false})
 
 /// add a deprecated MooseObject orig_class to the registry that has been replaced by another
 /// object new_class with the same API. time is the time the object became/becomes deprecated in
 /// "mm/dd/yyyy hh:mm" format.
+/// A call to registerMooseObject is still required for the new class
 #define registerMooseObjectRenamed(app, orig_class, time, new_class)                               \
-  static char combineNames(dummyvar_for_registering_obj_##orig_name, __LINE__) =                   \
+  static char combineNames(dummyvar_for_registering_obj_##orig_class, __LINE__) =                  \
       Registry::add<new_class>({app,                                                               \
                                 #new_class,                                                        \
                                 #orig_class,                                                       \
@@ -84,7 +125,39 @@
                                 __FILE__,                                                          \
                                 __LINE__,                                                          \
                                 time,                                                              \
-                                #new_class})
+                                #new_class,                                                        \
+                                false})
+
+/// Add AD MooseObjects (e.g. both residual and jacobian objects) to the registry with the given app name/label.  classname is the (unquoted)
+/// c++ class template.  Each class template should only be registered once.
+/// A call to registerADMooseObject is still required for the new class
+#define registerADMooseObjectRenamed(app, origtemplatename, time, templatename)                    \
+  static char combineNames(dummyvar_for_registering_obj_##origtemplatename##_residual, __LINE__) = \
+      Registry::add<templatename<RESIDUAL>>({app,                                                  \
+                                             #templatename "<RESIDUAL>",                           \
+                                             #origtemplatename "<RESIDUAL>",                       \
+                                             #origtemplatename "<RESIDUAL>",                       \
+                                             nullptr,                                              \
+                                             nullptr,                                              \
+                                             nullptr,                                              \
+                                             __FILE__,                                             \
+                                             __LINE__,                                             \
+                                             time,                                                 \
+                                             #templatename "<RESIDUAL>",                           \
+                                             true});                                               \
+  static char combineNames(dummyvar_for_registering_obj_##origtemplatename##_jacobian, __LINE__) = \
+      Registry::add<templatename<JACOBIAN>>({app,                                                  \
+                                             #templatename "<JACOBIAN>",                           \
+                                             #origtemplatename "<JACOBIAN>",                       \
+                                             #origtemplatename "<JACOBIAN>",                       \
+                                             nullptr,                                              \
+                                             nullptr,                                              \
+                                             nullptr,                                              \
+                                             __FILE__,                                             \
+                                             __LINE__,                                             \
+                                             time,                                                 \
+                                             #templatename "<JACOBIAN>",                           \
+                                             true})
 
 struct RegistryEntry;
 class Factory;
@@ -124,6 +197,8 @@ struct RegistryEntry
   std::string _deprecated_time;
   /// class name for an object that replaces this object if deprecated, blank otherwise.
   std::string _replaced_by;
+  /// if or not this obect is an AD object
+  bool _is_ad;
 };
 
 template <class T>
@@ -200,13 +275,17 @@ public:
   /// Returns a per-label keyed map of all Actions in the registry.
   static const std::map<std::string, std::vector<RegistryEntry>> & allActions();
 
+  static RegistryEntry & objData(const std::string & name);
+  static bool isADObj(const std::string & name);
+  static bool isRegisteredObj(const std::string & name);
+
 private:
   static void addInner(const RegistryEntry & info);
   static void addActionInner(const RegistryEntry & info);
 
+  std::map<std::string, RegistryEntry> _name_to_entry;
   std::map<std::string, std::vector<RegistryEntry>> _per_label_objects;
   std::map<std::string, std::vector<RegistryEntry>> _per_label_actions;
   std::set<std::string> _known_labels;
 };
 
-#endif

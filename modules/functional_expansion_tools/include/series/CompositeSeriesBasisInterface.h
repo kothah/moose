@@ -7,12 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPOSITESERIESBASISINTERFACE_H
-#define COMPOSITESERIESBASISINTERFACE_H
+#pragma once
 
 #include <iomanip>
 
 #include "FunctionalBasisInterface.h"
+
+#include "libmesh/point.h"
 
 class SingleSeriesBasisInterface;
 
@@ -89,4 +90,3 @@ private:
   using FunctionalBasisInterface::clearBasisEvaluation;
 };
 
-#endif // COMPOSITESERIESBASISINTERFACE_H

@@ -7,12 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef BOUNDINGBOXNODESET_H
-#define BOUNDINGBOXNODESET_H
+#pragma once
 
 // MOOSE includes
 #include "MeshModifier.h"
 #include "MooseEnum.h"
+
+#include "libmesh/bounding_box.h"
 
 // Forward Declaration
 class BoundingBoxNodeSet;
@@ -45,4 +46,3 @@ private:
   BoundingBox _bounding_box;
 };
 
-#endif // BOUNDINGBOXNODESET_H

@@ -7,13 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef LAYEREDBASE_H
-#define LAYEREDBASE_H
+#pragma once
 
 // MOOSE includes
 #include "Moose.h"
 #include "MooseEnum.h"
 #include "MooseTypes.h"
+#include "Restartable.h"
 
 // Forward Declarations
 class InputParameters;
@@ -33,11 +33,11 @@ template <>
 InputParameters validParams<LayeredBase>();
 
 /**
- * This UserObject computes volume integrals of a variable storing
+ * This UserObject (????? this isn't a userobject) computes volume integrals of a variable storing
  * partial sums for the specified number of intervals in a direction
  * (x,y,z).
  */
-class LayeredBase
+class LayeredBase : private Restartable
 {
 public:
   LayeredBase(const InputParameters & parameters);
@@ -120,10 +120,10 @@ protected:
 
 private:
   /// Value of the integral for each layer
-  std::vector<Real> _layer_values;
+  std::vector<Real> & _layer_values;
 
   /// Whether or not each layer has had any value summed into it
-  std::vector<bool> _layer_has_value;
+  std::vector<int> & _layer_has_value;
 
   /// Subproblem for the child object
   SubProblem & _layered_base_subproblem;
@@ -132,7 +132,6 @@ private:
   bool _cumulative;
 
   /// List of SubdomainIDs, if given
-  std::vector<SubdomainID> _blocks;
+  std::vector<SubdomainID> _layer_bounding_blocks;
 };
 
-#endif

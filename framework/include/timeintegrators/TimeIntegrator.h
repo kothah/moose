@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TIMEINTEGRATOR_H
-#define TIMEINTEGRATOR_H
+#pragma once
 
 // MOOSE includes
 #include "MooseObject.h"
@@ -101,6 +100,11 @@ public:
   virtual void computeTimeDerivatives() = 0;
 
   /**
+   * method for computing local automatic differentiation time derivatives
+   */
+  virtual void computeADTimeDerivatives(DualReal & ad_u_dot, const dof_id_type & dof) const = 0;
+
+  /**
    * Gets the total number of nonlinear iterations over all stages of the time step.
    */
   virtual unsigned int getNumNonlinearIterations() const { return _n_nonlinear_iterations; }
@@ -128,12 +132,10 @@ protected:
   /// Nonlinear implicit system, if applicable; otherwise, nullptr
   const NonlinearImplicitSystem * _nonlinear_implicit_system;
 
-  /// solution vector for u^dot
-  NumericVector<Number> & _u_dot;
   /// solution vector for \f$ {du^dot}\over{du} \f$
   Real & _du_dot_du;
   /// solution vectors
-  const NumericVector<Number> *& _solution;
+  const NumericVector<Number> * const & _solution;
   const NumericVector<Number> & _solution_old;
   const NumericVector<Number> & _solution_older;
   //
@@ -153,4 +155,3 @@ protected:
   unsigned int _n_linear_iterations;
 };
 
-#endif /* TIMEINTEGRATOR_H */

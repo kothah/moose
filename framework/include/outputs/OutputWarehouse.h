@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef OUTPUTWAREHOUSE_H
-#define OUTPUTWAREHOUSE_H
+#pragma once
 
 // MOOSE includes
 #include "Output.h"
@@ -191,6 +190,9 @@ public:
 
   /// Returns a Boolean indicating whether performance logging is requested in this application
   bool getLoggingRequested() const { return _logging_requested; }
+
+  /// Reset the output system
+  void reset();
 
 private:
   /**
@@ -444,4 +446,3 @@ OutputWarehouse::allowOutput(bool state)
     (*it)->allowOutput(state);
 }
 
-#endif // OUTPUTWAREHOUSE_H

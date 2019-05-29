@@ -19,6 +19,7 @@ validParams<PorousFlowJoiner>()
   InputParameters params = validParams<PorousFlowMaterialVectorBase>();
   params.addRequiredParam<std::string>("material_property",
                                        "The property that you want joined into a std::vector");
+  params.set<std::string>("pf_material_type") = "joiner";
   params.addClassDescription("This Material forms a std::vector of properties, old properties "
                              "(optionally), and derivatives, out of the individual phase "
                              "properties");
@@ -27,13 +28,7 @@ validParams<PorousFlowJoiner>()
 
 PorousFlowJoiner::PorousFlowJoiner(const InputParameters & parameters)
   : PorousFlowMaterialVectorBase(parameters),
-
-    _pressure_variable_name(_dictator.pressureVariableNameDummy()),
-    _saturation_variable_name(_dictator.saturationVariableNameDummy()),
-    _temperature_variable_name(_dictator.temperatureVariableNameDummy()),
-    _mass_fraction_variable_name(_dictator.massFractionVariableNameDummy()),
     _pf_prop(getParam<std::string>("material_property")),
-
     _dporepressure_dvar(!_nodal_material ? getMaterialProperty<std::vector<std::vector<Real>>>(
                                                "dPorousFlow_porepressure_qp_dvar")
                                          : getMaterialProperty<std::vector<std::vector<Real>>>(
@@ -46,7 +41,6 @@ PorousFlowJoiner::PorousFlowJoiner(const InputParameters & parameters)
         !_nodal_material
             ? getMaterialProperty<std::vector<Real>>("dPorousFlow_temperature_qp_dvar")
             : getMaterialProperty<std::vector<Real>>("dPorousFlow_temperature_nodal_dvar")),
-
     _property(declareProperty<std::vector<Real>>(_pf_prop)),
     _dproperty_dvar(declareProperty<std::vector<std::vector<Real>>>("d" + _pf_prop + "_dvar"))
 {

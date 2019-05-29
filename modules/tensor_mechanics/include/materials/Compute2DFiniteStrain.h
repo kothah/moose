@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTE2DFINITESTRAIN_H
-#define COMPUTE2DFINITESTRAIN_H
+#pragma once
 
 #include "ComputeFiniteStrain.h"
 
@@ -28,21 +27,25 @@ class Compute2DFiniteStrain : public ComputeFiniteStrain
 {
 public:
   Compute2DFiniteStrain(const InputParameters & parameters);
-
-protected:
   void initialSetup() override;
-  virtual void displacementIntegrityCheck() override;
+
   virtual void computeProperties() override;
 
-  /// Computes the current out-of-plane component of the displacement gradient; as a virtual function, this function is
-  /// overwritten for the specific geometries defined by inheriting classes
+protected:
+  virtual void displacementIntegrityCheck() override;
+
+  /**
+   * Computes the current out-of-plane component of the displacement gradient; as a virtual
+   *function, this function is overwritten for the specific geometries defined by inheriting classes
+   */
   virtual Real computeOutOfPlaneGradDisp() = 0;
 
-  /// Computes the old out-of-plane component of the displacement gradient; as a virtual function, this function is
-  /// overwritten for the specific geometries defined by inheriting classes
+  /**
+   * Computes the old out-of-plane component of the displacement gradient; as a virtual function,
+   * this function is overwritten for the specific geometries defined by inheriting classes
+   */
   virtual Real computeOutOfPlaneGradDispOld() = 0;
 
   const unsigned int _out_of_plane_direction;
 };
 
-#endif // COMPUTE2DFINITESTRAIN_H

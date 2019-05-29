@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef NONLINEAREIGEN_H
-#define NONLINEAREIGEN_H
+#pragma once
 
 #include "EigenExecutionerBase.h"
 
@@ -27,6 +26,8 @@ public:
 
   virtual void execute() override;
 
+  virtual bool lastSolveConverged() const override { return _last_solve_converged; }
+
 protected:
   virtual void takeStep();
 
@@ -36,6 +37,6 @@ protected:
   const Real & _pfactor;
   bool _output_pi;
   bool _output_after_pi;
+  bool _last_solve_converged;
 };
 
-#endif // NONLINEAREIGEN_H

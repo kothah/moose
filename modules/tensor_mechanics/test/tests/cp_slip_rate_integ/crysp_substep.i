@@ -184,7 +184,7 @@
   #Preconditioned JFNK (default)
   solve_type = 'PJFNK'
 
-  petsc_options_iname = 'pc_type'
+  petsc_options_iname = '-pc_type'
   petsc_options_value = 'lu'
 
   nl_rel_tol = 1e-10
@@ -201,5 +201,5 @@
   file_base = crysp_substep_out
   exodus = true
   print_linear_residuals = true
-  print_perf_log = true
+  perf_graph = true
 []

@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWPOROSITYBASE_H
-#define POROUSFLOWPOROSITYBASE_H
+#pragma once
 
 #include "PorousFlowMaterialVectorBase.h"
 
-// Forward Declarations
 class PorousFlowPorosityBase;
 
 template <>
@@ -27,7 +25,7 @@ public:
   PorousFlowPorosityBase(const InputParameters & parameters);
 
 protected:
-  /// computed porosity at the nodes or quadpoints
+  /// Computed porosity at the nodes or quadpoints
   MaterialProperty<Real> & _porosity;
 
   /// d(porosity)/d(PorousFlow variable)
@@ -37,4 +35,3 @@ protected:
   MaterialProperty<std::vector<RealGradient>> & _dporosity_dgradvar;
 };
 
-#endif // POROUSFLOWPOROSITYBASE_H

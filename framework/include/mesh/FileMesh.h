@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef FILEMESH_H
-#define FILEMESH_H
+#pragma once
 
 #include "MooseMesh.h"
 
@@ -39,8 +38,15 @@ public:
 protected:
   /// the file_name from whence this mesh came
   std::string _file_name;
+
   /// Auxiliary object for restart
   std::unique_ptr<ExodusII_IO> _exreader;
+
+  /// The requested dimension of the mesh. For some file meshes, this is not required may be implied
+  /// from the element type(s).
+  const unsigned int _dim;
+
+  /// Timers
+  const PerfID _read_mesh_timer;
 };
 
-#endif // FILEMESH_H

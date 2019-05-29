@@ -1,5 +1,5 @@
 #
-# Pressure Test
+# Gravity Test
 #
 # This test is designed to apply a gravity body force.
 #
@@ -17,16 +17,10 @@
 
 [Variables]
   [./disp_x]
-    order = FIRST
-    family = LAGRANGE
   [../]
   [./disp_y]
-    order = FIRST
-    family = LAGRANGE
   [../]
   [./disp_z]
-    order = FIRST
-    family = LAGRANGE
   [../]
 []
 
@@ -65,22 +59,18 @@
 [Materials]
   [./Elasticity_tensor]
     type = ComputeElasticityTensor
-    block = 0
     fill_method = symmetric_isotropic
     C_ijkl = '0 0.5e6'
   [../]
   [./strain]
     type = ComputeSmallStrain
-    block = 0
     displacements = 'disp_x disp_y disp_z'
   [../]
   [./stress]
     type = ComputeLinearElasticStress
-    block = 0
   [../]
   [./density]
     type = GenericConstantMaterial
-    block = 0
     prop_names = density
     prop_values = 2.0387
   [../]
@@ -99,4 +89,3 @@
     elemental_as_nodal = true
   [../]
 []
-

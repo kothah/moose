@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEUNITAPP_H
-#define MOOSEUNITAPP_H
+#pragma once
 
 #include "MooseApp.h"
 
@@ -22,6 +21,7 @@ class MooseUnitApp : public MooseApp
 public:
   MooseUnitApp(const InputParameters & parameters);
   virtual ~MooseUnitApp();
+
+  static void registerAll(Factory & f, ActionFactory & af, Syntax & s);
 };
 
-#endif /* MOOSEUNITAPP_H */

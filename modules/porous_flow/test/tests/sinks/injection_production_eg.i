@@ -16,7 +16,6 @@
   xmax = 20
 []
 
-
 [GlobalParams]
   PorousFlowDictator = dictator
   gravity = '0 0 0'
@@ -121,73 +120,45 @@
 [Materials]
   [./temperature]
     type = PorousFlowTemperature
-    at_nodes = true
     temperature = 293.15
   [../]
-  [./temperature_qp]
-    type = PorousFlowTemperature
-    temperature = 293.15
-  [../]
-  [./saturation_calculator_nodal]
-    type = PorousFlow2PhasePP
-    at_nodes = true
-    phase0_porepressure = pwater
-    phase1_porepressure = pgas
-    capillary_pressure = pc
-  [../]
-  [./saturation_calculator_qp]
+  [./saturation_calculator]
     type = PorousFlow2PhasePP
     phase0_porepressure = pwater
     phase1_porepressure = pgas
     capillary_pressure = pc
   [../]
-  [./massfrac_nodal]
+  [./massfrac]
     type = PorousFlowMassFraction
-    at_nodes = true
     mass_fraction_vars = 'frac_water_in_liquid frac_water_in_gas'
   [../]
-  [./water_nodal]
-    type = PorousFlowSingleComponentFluid
-    at_nodes = true
-    fp = tabulated_water
-    phase = 0
-  [../]
-  [./water_qp]
+  [./water]
     type = PorousFlowSingleComponentFluid
     fp = tabulated_water
     phase = 0
   [../]
-  [./co2_nodal]
-    type = PorousFlowSingleComponentFluid
-    at_nodes = true
-    fp = tabulated_co2
-    phase = 1
-  [../]
-  [./co2_qp]
+  [./co2]
     type = PorousFlowSingleComponentFluid
     fp = tabulated_co2
     phase = 1
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
-    at_nodes = true
     porosity = 0.2
   [../]
   [./permeability]
     type = PorousFlowPermeabilityConst
     permeability = '1e-12 0 0 0 1e-12 0 0 0 1e-12'
   [../]
-  [./relperm_nodal_water]
+  [./relperm_water]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 2
     phase = 0
     s_res = 0.1
     sum_s_res = 0.2
   [../]
-  [./relperm_gas_nodal]
+  [./relperm_gas]
     type = PorousFlowRelativePermeabilityBC
-    at_nodes = true
     nw_phase = true
     lambda = 2
     s_res = 0.1
@@ -270,7 +241,7 @@
   solve_type = NEWTON
   nl_abs_tol = 1E-13
   nl_rel_tol = 1E-10
-  end_time = 1e8
+  end_time = 1e4
   [./TimeStepper]
     type = IterationAdaptiveDT
     dt = 1E4
@@ -290,9 +261,10 @@
 []
 
 [Outputs]
-  execute_on = timestep_end
   print_linear_residuals = false
-  print_perf_log = true
-  exodus = true
-  csv = false
+  perf_graph = true
+  [./out]
+    type = CSV
+    execute_on = final
+  [../]
 []

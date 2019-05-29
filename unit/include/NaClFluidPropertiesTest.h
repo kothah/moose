@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef NACLFLUIDPROPERTIESTEST_H
-#define NACLFLUIDPROPERTIESTEST_H
+#pragma once
 
 #include "MooseObjectUnitTest.h"
 #include "NaClFluidProperties.h"
@@ -18,13 +17,10 @@ class NaClFluidPropertiesTest : public MooseObjectUnitTest
 public:
   NaClFluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp")
   {
-    registerObjects(_factory);
     buildObjects();
   }
 
 protected:
-  void registerObjects(Factory & factory) { registerUserObject(NaClFluidProperties); }
-
   void buildObjects()
   {
     InputParameters uo_pars = _factory.getValidParams("NaClFluidProperties");
@@ -35,4 +31,3 @@ protected:
   const NaClFluidProperties * _fp;
 };
 
-#endif // NACLFLUIDPROPERTIESTEST_H

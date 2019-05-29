@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef LEVELSETREINITIALIZATIONMULTIAPP_H
-#define LEVELSETREINITIALIZATIONMULTIAPP_H
+#pragma once
 
 #include "MultiApp.h"
 
@@ -31,8 +30,6 @@ public:
   LevelSetReinitializationMultiApp(const InputParameters & parameters);
 
   virtual void initialSetup() override;
-  virtual void incrementTStep() override {}
-  virtual void finishStep() override {}
   virtual bool solveStep(Real dt, Real target_time, bool auto_advance = true) override;
 
 protected:
@@ -46,4 +43,3 @@ protected:
   const unsigned int & _interval;
 };
 
-#endif // LevelSetReinitializationMultiApp_H

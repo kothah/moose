@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TESTDISTRIBUTIONPOSTPROCESSOR_H
-#define TESTDISTRIBUTIONPOSTPROCESSOR_H
+#pragma once
 
 #include "GeneralPostprocessor.h"
 
@@ -33,7 +32,7 @@ public:
 
 protected:
   /// Object of statistics distribution
-  Distribution & _distribution;
+  const Distribution & _distribution;
 
   /// The value to supply to method
   const Real & _value;
@@ -42,4 +41,3 @@ protected:
   const MooseEnum & _distribution_method;
 };
 
-#endif /* TESTDISTRIBUTIONPOSTPROCESSOR_H */

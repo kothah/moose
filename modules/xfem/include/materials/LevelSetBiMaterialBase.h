@@ -1,11 +1,13 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
-#ifndef LEVELSETBIMATERIALBASE_H
-#define LEVELSETBIMATERIALBASE_H
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#pragma once
 
 #include "Material.h"
 
@@ -42,6 +44,9 @@ protected:
   /// global material properties
   std::string _base_name;
 
+  /// Property name
+  std::string _prop_name;
+
   /// shared pointer to XFEM
   std::shared_ptr<XFEM> _xfem;
 
@@ -58,4 +63,3 @@ protected:
   bool _use_positive_property;
 };
 
-#endif // LEVELSETBIMATERIALBASE_H

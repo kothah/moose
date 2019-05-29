@@ -8,8 +8,8 @@
 [Mesh]
   type = GeneratedMesh
   dim = 1
-  nx = 100
-  xmax = 2000
+  nx = 80
+  xmax = 200
   bias_x = 1.05
 []
 
@@ -135,22 +135,9 @@
 [Materials]
   [./temperature]
     type = PorousFlowTemperature
-    at_nodes = true
-  [../]
-  [./temperature_qp]
-    type = PorousFlowTemperature
   [../]
   [./waterncg]
-    type = PorousFlowFluidStateWaterNCG
-    gas_porepressure = pgas
-    z = zi
-    at_nodes = true
-    temperature_unit = Celsius
-    capillary_pressure = pc
-    fluid_state = fs
-  [../]
-  [./waterncg_qp]
-    type = PorousFlowFluidStateWaterNCG
+    type = PorousFlowFluidState
     gas_porepressure = pgas
     z = zi
     temperature_unit = Celsius
@@ -159,7 +146,6 @@
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
-    at_nodes = true
     porosity = 0.2
   [../]
   [./permeability]
@@ -168,7 +154,6 @@
   [../]
   [./relperm_water]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 2
     phase = 0
     s_res = 0.1
@@ -176,7 +161,6 @@
   [../]
   [./relperm_gas]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 2
     phase = 1
   [../]
@@ -213,20 +197,22 @@
 [Executioner]
   type = Transient
   solve_type = NEWTON
-  end_time = 1e5
-  dtmax = 1e5
+  end_time = 8e2
   [./TimeStepper]
     type = IterationAdaptiveDT
-    dt = 1
-    growth_factor = 1.5
+    dt = 2
+    growth_factor = 2
   [../]
 []
 
 [VectorPostprocessors]
   [./line]
-    type = NodalValueSampler
+    type = LineValueSampler
     sort_by = x
-    variable = 'pgas zi'
+    start_point = '0 0 0'
+    end_point = '200 0 0'
+    num_points = 1000
+    variable = 'pgas zi x1 saturation_gas'
     execute_on = 'timestep_end'
   [../]
 []
@@ -234,17 +220,17 @@
 [Postprocessors]
   [./pgas]
     type = PointValue
-    point =  '4 0 0'
+    point =  '1 0 0'
     variable = pgas
   [../]
   [./sgas]
     type = PointValue
-    point =  '4 0 0'
+    point =  '1 0 0'
     variable = saturation_gas
   [../]
   [./zi]
     type = PointValue
-    point = '4 0 0'
+    point = '1 0 0'
     variable = zi
   [../]
   [./massgas]
@@ -253,22 +239,22 @@
   [../]
   [./x1]
     type = PointValue
-    point =  '4 0 0'
+    point =  '1 0 0'
     variable = x1
   [../]
   [./y0]
     type = PointValue
-    point =  '4 0 0'
+    point =  '1 0 0'
     variable = y0
   [../]
 []
 
 [Outputs]
   print_linear_residuals = false
-  print_perf_log = true
+  perf_graph = true
   [./csvout]
     type = CSV
-    file_base = theis_csvout
+    file_base = theis_tabulated_csvout
     execute_on = timestep_end
     execute_vector_postprocessors_on = final
   [../]

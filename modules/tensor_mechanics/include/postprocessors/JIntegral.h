@@ -7,15 +7,16 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef JINTEGRAL_H
-#define JINTEGRAL_H
+#pragma once
 
 #include "ElementIntegralPostprocessor.h"
 #include "CrackFrontDefinition.h"
 
 // Forward Declarations
 class JIntegral;
-class RankTwoTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 template <>
 InputParameters validParams<JIntegral>();
@@ -52,4 +53,3 @@ protected:
   const std::vector<std::vector<RealGradient>> * _dphi_curr_elem;
 };
 
-#endif // JINTEGRAL3D_H

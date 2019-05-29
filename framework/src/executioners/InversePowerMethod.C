@@ -16,6 +16,7 @@ InputParameters
 validParams<InversePowerMethod>()
 {
   InputParameters params = validParams<EigenExecutionerBase>();
+  params.addClassDescription("Inverse power method for Eigen value problems.");
   params.addParam<PostprocessorName>(
       "xdiff", "", "To evaluate |x-x_previous| for power iterations");
   params.addParam<unsigned int>(
@@ -96,16 +97,16 @@ InversePowerMethod::takeStep()
 
   preSolve();
   Real initial_res;
-  inversePowerIteration(_min_iter,
-                        _max_iter,
-                        _pfactor,
-                        _cheb_on,
-                        _eig_check_tol,
-                        true,
-                        _solution_diff_name,
-                        _sol_check_tol,
-                        _eigenvalue,
-                        initial_res);
+  _last_solve_converged = inversePowerIteration(_min_iter,
+                                                _max_iter,
+                                                _pfactor,
+                                                _cheb_on,
+                                                _eig_check_tol,
+                                                true,
+                                                _solution_diff_name,
+                                                _sol_check_tol,
+                                                _eigenvalue,
+                                                initial_res);
   postSolve();
 
   if (lastSolveConverged())

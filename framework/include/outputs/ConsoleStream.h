@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CONSOLESTREAM_H
-#define CONSOLESTREAM_H
+#pragma once
 
 // C++ includes
 #include <iostream>
@@ -54,6 +53,11 @@ public:
    */
   const ConsoleStream & operator<<(StandardEndLine manip) const;
 
+  /**
+   * Unset format flags
+   */
+  void unsetf(std::ios_base::fmtflags mask) const;
+
 private:
   /// Reference to the OutputWarhouse that contains the Console output objects
   OutputWarehouse & _output_warehouse;
@@ -70,4 +74,3 @@ ConsoleStream::operator<<(const StreamType & s) const
   return *this;
 }
 
-#endif // CONSOLESTREAM_H

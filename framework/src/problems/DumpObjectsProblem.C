@@ -35,9 +35,10 @@ DumpObjectsProblem::DumpObjectsProblem(const InputParameters & parameters)
   _nl = _nl_sys;
   _aux = std::make_shared<AuxiliarySystem>(*this, "aux0");
   newAssemblyArray(*_nl_sys);
-}
 
-DumpObjectsProblem::~DumpObjectsProblem() { FEProblemBase::deleteAssemblyArray(); }
+  // Create extra vectors and matrices if any
+  createTagVectors();
+}
 
 void
 DumpObjectsProblem::addVariable(const std::string & var_name,

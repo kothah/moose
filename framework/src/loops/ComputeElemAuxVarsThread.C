@@ -17,46 +17,55 @@
 
 #include "libmesh/threads.h"
 
-ComputeElemAuxVarsThread::ComputeElemAuxVarsThread(FEProblemBase & problem,
-                                                   const MooseObjectWarehouse<AuxKernel> & storage,
-                                                   bool need_materials)
+template <typename AuxKernelType>
+ComputeElemAuxVarsThread<AuxKernelType>::ComputeElemAuxVarsThread(
+    FEProblemBase & problem,
+    const MooseObjectWarehouse<AuxKernelType> & storage,
+    const std::vector<std::vector<MooseVariableFEBase *>> & vars,
+    bool need_materials)
   : ThreadedElementLoop<ConstElemRange>(problem),
     _aux_sys(problem.getAuxiliarySystem()),
     _aux_kernels(storage),
+    _aux_vars(vars),
     _need_materials(need_materials)
 {
 }
 
 // Splitting Constructor
-ComputeElemAuxVarsThread::ComputeElemAuxVarsThread(ComputeElemAuxVarsThread & x,
-                                                   Threads::split /*split*/)
+template <typename AuxKernelType>
+ComputeElemAuxVarsThread<AuxKernelType>::ComputeElemAuxVarsThread(ComputeElemAuxVarsThread & x,
+                                                                  Threads::split /*split*/)
   : ThreadedElementLoop<ConstElemRange>(x._fe_problem),
     _aux_sys(x._aux_sys),
     _aux_kernels(x._aux_kernels),
+    _aux_vars(x._aux_vars),
     _need_materials(x._need_materials)
 {
 }
 
-ComputeElemAuxVarsThread::~ComputeElemAuxVarsThread() {}
+template <typename AuxKernelType>
+ComputeElemAuxVarsThread<AuxKernelType>::~ComputeElemAuxVarsThread()
+{
+}
 
+template <typename AuxKernelType>
 void
-ComputeElemAuxVarsThread::subdomainChanged()
+ComputeElemAuxVarsThread<AuxKernelType>::subdomainChanged()
 {
   _fe_problem.subdomainSetup(_subdomain, _tid);
 
   // prepare variables
-  for (const auto & it : _aux_sys._elem_vars[_tid])
-  {
-    MooseVariable * var = it.second;
+  for (auto * var : _aux_vars[_tid])
     var->prepareAux();
-  }
 
   std::set<MooseVariableFEBase *> needed_moose_vars;
   std::set<unsigned int> needed_mat_props;
+  std::set<TagID> needed_fe_var_matrix_tags;
+  std::set<TagID> needed_fe_var_vector_tags;
 
   if (_aux_kernels.hasActiveBlockObjects(_subdomain, _tid))
   {
-    const std::vector<std::shared_ptr<AuxKernel>> & kernels =
+    const std::vector<std::shared_ptr<AuxKernelType>> & kernels =
         _aux_kernels.getActiveBlockObjects(_subdomain, _tid);
     for (const auto & aux : kernels)
     {
@@ -65,20 +74,29 @@ ComputeElemAuxVarsThread::subdomainChanged()
       const std::set<unsigned int> & mp_deps = aux->getMatPropDependencies();
       needed_moose_vars.insert(mv_deps.begin(), mv_deps.end());
       needed_mat_props.insert(mp_deps.begin(), mp_deps.end());
+
+      auto & fe_var_coup_vtags = aux->getFEVariableCoupleableVectorTags();
+      needed_fe_var_vector_tags.insert(fe_var_coup_vtags.begin(), fe_var_coup_vtags.end());
+
+      auto & fe_var_coup_mtags = aux->getFEVariableCoupleableMatrixTags();
+      needed_fe_var_matrix_tags.insert(fe_var_coup_mtags.begin(), fe_var_coup_mtags.end());
     }
   }
 
   _fe_problem.setActiveElementalMooseVariables(needed_moose_vars, _tid);
   _fe_problem.setActiveMaterialProperties(needed_mat_props, _tid);
   _fe_problem.prepareMaterials(_subdomain, _tid);
+  _fe_problem.setActiveFEVariableCoupleableMatrixTags(needed_fe_var_matrix_tags, _tid);
+  _fe_problem.setActiveFEVariableCoupleableVectorTags(needed_fe_var_vector_tags, _tid);
 }
 
+template <typename AuxKernelType>
 void
-ComputeElemAuxVarsThread::onElement(const Elem * elem)
+ComputeElemAuxVarsThread<AuxKernelType>::onElement(const Elem * elem)
 {
   if (_aux_kernels.hasActiveBlockObjects(_subdomain, _tid))
   {
-    const std::vector<std::shared_ptr<AuxKernel>> & kernels =
+    const std::vector<std::shared_ptr<AuxKernelType>> & kernels =
         _aux_kernels.getActiveBlockObjects(_subdomain, _tid);
     _fe_problem.prepare(elem, _tid);
     _fe_problem.reinitElem(elem, _tid);
@@ -96,23 +114,28 @@ ComputeElemAuxVarsThread::onElement(const Elem * elem)
     // update the solution vector
     {
       Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
-      for (const auto & it : _aux_sys._elem_vars[_tid])
-      {
-        MooseVariable * var = it.second;
+      for (auto * var : _aux_vars[_tid])
         var->insert(_aux_sys.solution());
-      }
     }
   }
 }
 
+template <typename AuxKernelType>
 void
-ComputeElemAuxVarsThread::post()
+ComputeElemAuxVarsThread<AuxKernelType>::post()
 {
   _fe_problem.clearActiveElementalMooseVariables(_tid);
   _fe_problem.clearActiveMaterialProperties(_tid);
+
+  _fe_problem.clearActiveFEVariableCoupleableVectorTags(_tid);
+  _fe_problem.clearActiveFEVariableCoupleableMatrixTags(_tid);
 }
 
+template <typename AuxKernelType>
 void
-ComputeElemAuxVarsThread::join(const ComputeElemAuxVarsThread & /*y*/)
+ComputeElemAuxVarsThread<AuxKernelType>::join(const ComputeElemAuxVarsThread & /*y*/)
 {
 }
+
+template class ComputeElemAuxVarsThread<AuxKernel>;
+template class ComputeElemAuxVarsThread<VectorAuxKernel>;

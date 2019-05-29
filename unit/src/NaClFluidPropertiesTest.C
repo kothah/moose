@@ -8,7 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "NaClFluidPropertiesTest.h"
-#include "SinglePhaseFluidPropertiesPTUtils.h"
+#include "SinglePhaseFluidPropertiesTestUtils.h"
 
 /**
  * Verify that critical properties are correctly returned
@@ -69,24 +69,24 @@ TEST_F(NaClFluidPropertiesTest, halite)
   T1 = 500.0;
   T2 = 700.0;
 
-  REL_TEST(_fp->rho(p0, T0), 2167.88, tol);
-  REL_TEST(_fp->rho(p1, T1), 2116.0, tol);
-  REL_TEST(_fp->rho(p2, T2), 2056.8, tol);
-  REL_TEST(_fp->cp(p0, T0), 0.865e3, 40.0 * tol);
-  REL_TEST(_fp->cp(p1, T1), 0.922e3, 40.0 * tol);
-  REL_TEST(_fp->cp(p2, T2), 0.979e3, 40.0 * tol);
+  REL_TEST(_fp->rho_from_p_T(p0, T0), 2167.88, tol);
+  REL_TEST(_fp->rho_from_p_T(p1, T1), 2116.0, tol);
+  REL_TEST(_fp->rho_from_p_T(p2, T2), 2056.8, tol);
+  REL_TEST(_fp->cp_from_p_T(p0, T0), 0.865e3, 40.0 * tol);
+  REL_TEST(_fp->cp_from_p_T(p1, T1), 0.922e3, 40.0 * tol);
+  REL_TEST(_fp->cp_from_p_T(p2, T2), 0.979e3, 40.0 * tol);
 
   // Test enthalpy at the triple point pressure of water
   Real pt = 611.657;
 
-  ABS_TEST(_fp->h(pt, 273.16), 0.0, tol);
-  REL_TEST(_fp->h(pt, 573.15), 271.13e3, tol);
-  REL_TEST(_fp->h(pt, 673.15), 366.55e3, tol);
+  ABS_TEST(_fp->h_from_p_T(pt, 273.16), 0.0, tol);
+  REL_TEST(_fp->h_from_p_T(pt, 573.15), 271.13e3, tol);
+  REL_TEST(_fp->h_from_p_T(pt, 673.15), 366.55e3, tol);
 
   // Thermal conductivity (function of T only)
-  REL_TEST(_fp->k(p0, 323.15), 5.488, 10.0 * tol);
-  REL_TEST(_fp->k(p0, 423.15), 3.911, 10.0 * tol);
-  REL_TEST(_fp->k(p0, 523.15), 3.024, 20.0 * tol);
+  REL_TEST(_fp->k_from_p_T(p0, 323.15), 5.488, 10.0 * tol);
+  REL_TEST(_fp->k_from_p_T(p0, 423.15), 3.911, 10.0 * tol);
+  REL_TEST(_fp->k_from_p_T(p0, 523.15), 3.024, 20.0 * tol);
 }
 
 /**
@@ -100,10 +100,10 @@ TEST_F(NaClFluidPropertiesTest, derivatives)
   const Real p = 30.0e6;
   const Real T = 300.0;
 
-  DERIV_TEST(_fp->rho, _fp->rho_dpT, p, T, tol);
-  DERIV_TEST(_fp->e, _fp->e_dpT, p, T, tol);
-  DERIV_TEST(_fp->h, _fp->h_dpT, p, T, tol);
-  DERIV_TEST(_fp->k, _fp->k_dpT, p, T, tol);
+  DERIV_TEST(_fp->rho_from_p_T, p, T, tol);
+  DERIV_TEST(_fp->e_from_p_T, p, T, tol);
+  DERIV_TEST(_fp->h_from_p_T, p, T, tol);
+  DERIV_TEST(_fp->k_from_p_T, p, T, tol);
 }
 
 /**
@@ -118,13 +118,13 @@ TEST_F(NaClFluidPropertiesTest, combined)
 
   // Single property methods
   Real rho, drho_dp, drho_dT;
-  _fp->rho_dpT(p, T, rho, drho_dp, drho_dT);
+  _fp->rho_from_p_T(p, T, rho, drho_dp, drho_dT);
   Real e, de_dp, de_dT;
-  _fp->e_dpT(p, T, e, de_dp, de_dT);
+  _fp->e_from_p_T(p, T, e, de_dp, de_dT);
 
   // Combined property methods
   Real rho2, drho2_dp, drho2_dT, e2, de2_dp, de2_dT;
-  _fp->rho_e_dpT(p, T, rho2, drho2_dp, drho2_dT, e2, de2_dp, de2_dT);
+  _fp->rho_e_from_p_T(p, T, rho2, drho2_dp, drho2_dT, e2, de2_dp, de2_dT);
   ABS_TEST(rho, rho2, tol);
   ABS_TEST(drho_dp, drho2_dp, tol);
   ABS_TEST(drho_dT, drho2_dT, tol);

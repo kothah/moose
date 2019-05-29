@@ -93,7 +93,6 @@
   [../]
 []
 
-
 [PorousFlowUnsaturated]
   porepressure = pp
   gravity = '0 0 0'
@@ -108,15 +107,6 @@
   [./poro]
     type = PorousFlowPorosityConst
     porosity = 0.3
-  [../]
-  [./poro_nodal]
-    type = PorousFlowPorosityConst
-    at_nodes = true
-    porosity = 0.3
-  [../]
-  [./massfrac_qp]
-     type = PorousFlowMassFraction
-     mass_fraction_vars = massfrac0
   [../]
   [./diff]
     type = PorousFlowDiffusivityConst
@@ -154,6 +144,8 @@
 []
 
 [Outputs]
-  csv = true
-  execute_on = 'final'
+  [./out]
+    type = CSV
+    execute_on = final
+  [../]
 []

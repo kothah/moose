@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWBASICTHM_H
-#define POROUSFLOWBASICTHM_H
+#pragma once
 
 #include "PorousFlowSinglePhaseBase.h"
 
@@ -28,11 +27,12 @@ class PorousFlowBasicTHM : public PorousFlowSinglePhaseBase
 public:
   PorousFlowBasicTHM(const InputParameters & params);
 
-  virtual void act() override;
-
 protected:
-  // whether to multiply the fluid kernels by the fluid density
+  virtual void addKernels() override;
+  virtual void addMaterialDependencies() override;
+  virtual void addMaterials() override;
+
+  // Whether to multiply the fluid kernels by the fluid density
   const bool _multiply_by_density;
 };
 
-#endif // POROUSFLOWBASICTHM_H

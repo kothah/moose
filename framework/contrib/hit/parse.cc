@@ -337,6 +337,7 @@ Node::findInner(const std::string & path, const std::string & prefix)
     else
       fullpath = prefix + "/" + child->path();
 
+    fullpath = pathNorm(fullpath);
     if (fullpath == path)
       return child;
     else if (path.find(fullpath) == std::string::npos)
@@ -480,6 +481,10 @@ Field::render(int indent, const std::string & indent_text, int maxlen)
       s += quote + unquoted.substr(pos, std::string::npos) + quote;
     }
   }
+  else if (_val.size() == 0)
+    s += "''";
+  else if (quote == "" && _val.find_first_of("\n\r \t") != std::string::npos)
+    s += "'" + _val + "'";
   else
     s += _val;
 
@@ -856,8 +861,10 @@ parseField(Parser * p, Node * n)
       field = p->emit(new Field(fieldtok.val, Field::Kind::String, strval));
     }
   }
+  else if (valtok.type == TokType::Error)
+    p->error(valtok, valtok.val);
   else
-    p->error(valtok, "malformed field value");
+    p->error(valtok, "missing value for field '" + fieldtok.val + "' - found '" + valtok.val + "'");
   n->addChild(field);
 }
 

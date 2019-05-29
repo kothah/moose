@@ -1,10 +1,23 @@
-###############################################################################
-############################ COMMON MODULES ###################################
-###############################################################################
+################################################################################
+############################ COMMON MODULES ####################################
+################################################################################
+
+# When building an individual module, you should define MODULE_NAME (lower case)
+# to the module you want to build before including this file. When doing that,
+# there is no need to duplicate the dependencies in the individual module's
+# Makefile.
+
+ifneq (,$(MODULE_NAME))
+  # Exec will automatically be built for the given MODULE_NAME
+  SKIP_LOADER := yes
+  UC_APP = $(shell echo $(MODULE_NAME) | tr a-z A-Z)
+  $(eval $(UC_APP):=yes)
+endif
 
 ifeq ($(ALL_MODULES),yes)
         CHEMICAL_REACTIONS          := yes
         CONTACT                     := yes
+        EXTERNAL_PETSC_SOLVER       := yes
         FLUID_PROPERTIES            := yes
         FUNCTIONAL_EXPANSION_TOOLS  := yes
         HEAT_CONDUCTION             := yes
@@ -33,11 +46,13 @@ ifeq ($(POROUS_FLOW),yes)
         TENSOR_MECHANICS            := yes
         FLUID_PROPERTIES            := yes
         CHEMICAL_REACTIONS          := yes
+        RDG                         := yes
 endif
 
 ifeq ($(NAVIER_STOKES),yes)
         FLUID_PROPERTIES            := yes
         RDG                         := yes
+        HEAT_CONDUCTION             := yes
 endif
 
 ifeq ($(PHASE_FIELD),yes)
@@ -45,11 +60,11 @@ ifeq ($(PHASE_FIELD),yes)
 endif
 
 # The master list of all moose modules
-MODULE_NAMES := "chemical_reactions contact fluid_properties functional_expansion_tools heat_conduction level_set misc navier_stokes phase_field porous_flow rdg richards solid_mechanics stochastic_tools tensor_mechanics xfem"
+MODULE_NAMES := "chemical_reactions contact fluid_properties functional_expansion_tools heat_conduction level_set misc navier_stokes phase_field porous_flow rdg richards solid_mechanics stochastic_tools tensor_mechanics xfem external_petsc_solver"
 
-###############################################################################
-########################## MODULE REGISTRATION ################################
-###############################################################################
+################################################################################
+########################## MODULE REGISTRATION #################################
+################################################################################
 GEN_REVISION  := no
 
 ifeq ($(CHEMICAL_REACTIONS),yes)
@@ -101,12 +116,19 @@ ifeq ($(MISC),yes)
   include $(FRAMEWORK_DIR)/app.mk
 endif
 
+ifeq ($(RDG),yes)
+  APPLICATION_DIR    := $(MOOSE_DIR)/modules/rdg
+  APPLICATION_NAME   := rdg
+  SUFFIX             := rdg
+  include $(FRAMEWORK_DIR)/app.mk
+endif
+
 ifeq ($(NAVIER_STOKES),yes)
   APPLICATION_DIR    := $(MOOSE_DIR)/modules/navier_stokes
   APPLICATION_NAME   := navier_stokes
 
   # Dependency on fluid properties and rdg
-  DEPEND_MODULES     := fluid_properties rdg
+  DEPEND_MODULES     := fluid_properties rdg heat_conduction
   SUFFIX             := ns
   include $(FRAMEWORK_DIR)/app.mk
 endif
@@ -133,16 +155,8 @@ ifeq ($(POROUS_FLOW),yes)
   APPLICATION_DIR    := $(MOOSE_DIR)/modules/porous_flow
   APPLICATION_NAME   := porous_flow
 
-  #Dependency on tensor_mechanics, fluid_properties and chemical_reactions
-  DEPEND_MODULES     := tensor_mechanics fluid_properties chemical_reactions
+  DEPEND_MODULES     := tensor_mechanics fluid_properties chemical_reactions rdg
   SUFFIX             := pflow
-  include $(FRAMEWORK_DIR)/app.mk
-endif
-
-ifeq ($(RDG),yes)
-  APPLICATION_DIR    := $(MOOSE_DIR)/modules/rdg
-  APPLICATION_NAME   := rdg
-  SUFFIX             := rdg
   include $(FRAMEWORK_DIR)/app.mk
 endif
 
@@ -177,6 +191,14 @@ ifeq ($(XFEM),yes)
   #Dependency on solid_mechanics
   DEPEND_MODULES     := solid_mechanics
   SUFFIX             := xfem
+  include $(FRAMEWORK_DIR)/app.mk
+endif
+
+ifeq ($(EXTERNAL_PETSC_SOLVER),yes)
+  APPLICATION_NAME   := external_petsc_solver
+  APPLICATION_DIR    := $(MOOSE_DIR)/modules/${APPLICATION_NAME}
+
+  SUFFIX             := eps
   include $(FRAMEWORK_DIR)/app.mk
 endif
 

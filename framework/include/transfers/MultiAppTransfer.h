@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MULTIAPPTRANSFER_H
-#define MULTIAPPTRANSFER_H
+#pragma once
 
 // MOOSE includes
 #include "Transfer.h"
@@ -66,7 +65,7 @@ protected:
   std::shared_ptr<MultiApp> _multi_app;
 
   /// Whether we're transferring to or from the MultiApp
-  MooseEnum _direction;
+  const MooseEnum _direction;
 
   /**
    * This method will fill information into the convenience member variables
@@ -88,11 +87,16 @@ protected:
   /// True if displaced mesh is used for the target mesh, otherwise false
   bool _displaced_target_mesh;
 
+  ///@{
   /**
-   * Return the bounding boxes of all the "from" domains, including all the
-   * domains not local to this processor.
+   * Return the bounding boxes of all the "from" domains, including all the domains not local to
+   * this processor. The is a boundary restricted version which will return a degenerate minimum
+   * boundary box (min, min, min, min, min, min) in the case where the source domain doesn't
+   * have any active nodes on the boundary.
    */
   std::vector<BoundingBox> getFromBoundingBoxes();
+  std::vector<BoundingBox> getFromBoundingBoxes(BoundaryID boundary_id);
+  ///@}
 
   /**
    * Return the number of "from" domains that each processor owns.
@@ -107,6 +111,12 @@ protected:
 
   // Given local app index, returns global app index.
   std::vector<unsigned int> _local2global_map;
-};
 
-#endif /* MULTIAPPTRANSFER_H */
+  /**
+   * Helper method for checking the 'check_multiapp_execute_on' flag.
+   *
+   * This method was added to allow the check to be delayed by child classes,
+   * see StochasticToolsTransfer for an example.
+   */
+  void checkMultiAppExecuteOn();
+};

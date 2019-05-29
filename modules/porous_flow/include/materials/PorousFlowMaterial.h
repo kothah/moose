@@ -7,14 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWMATERIAL_H
-#define POROUSFLOWMATERIAL_H
+#pragma once
 
 #include "Material.h"
 #include "MaterialData.h"
 #include "PorousFlowDictator.h"
 
-// Forward Declarations
 class PorousFlowMaterial;
 
 template <>
@@ -45,17 +43,11 @@ public:
   PorousFlowMaterial(const InputParameters & parameters);
 
 protected:
-  /// correctly sizes nodal materials, then initialises using Material::initStatefulProperties
+  /// Correctly sizes nodal materials, then initialises using Material::initStatefulProperties
   virtual void initStatefulProperties(unsigned int n_points) override;
 
-  /// correctly sizes nodal materials, then computes using Material::computeProperties
+  /// Correctly sizes nodal materials, then computes using Material::computeProperties
   virtual void computeProperties() override;
-
-  /// whether the derived class holds nodal values
-  const bool _nodal_material;
-
-  /// The variable names UserObject for the PorousFlow variables
-  const PorousFlowDictator & _dictator;
 
   /**
    * Makes property with name prop_name to be size equal to
@@ -76,6 +68,18 @@ protected:
    * @return the nearest quadpoint
    */
   unsigned nearestQP(unsigned nodenum) const;
+
+  /// Whether the derived class holds nodal values
+  const bool _nodal_material;
+
+  /// The variable names UserObject for the PorousFlow variables
+  const PorousFlowDictator & _dictator;
+
+  /// Names of variables used to declare/get derivatives in the
+  /// DerivativeMaterialInterface to ensure consistency
+  const VariableName _pressure_variable_name;
+  const VariableName _saturation_variable_name;
+  const VariableName _temperature_variable_name;
+  const VariableName _mass_fraction_variable_name;
 };
 
-#endif // POROUSFLOWMATERIAL_H

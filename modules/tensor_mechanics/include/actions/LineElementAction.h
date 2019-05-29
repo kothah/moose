@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef LINEELEMENTACTION_H
-#define LINEELEMENTACTION_H
+#pragma once
 
 #include "Action.h"
 
@@ -130,6 +129,13 @@ protected:
   bool _use_displaced_mesh;
 
   /**
+   * Set to true to set up translational and acceleration AuxVariables and
+   * the corresponding AuxKernels using the action when the dynamic kernels
+   * or nodal kernels are not set by the action.
+   **/
+  bool _add_dynamic_variables;
+
+  /**
    * Set to true to use consistent mass and inertia matrices to calculate
    * inertial forces/torques in dynamic beam simulations
    **/
@@ -151,4 +157,3 @@ protected:
   bool _truss;
 };
 
-#endif // LINEELEMENTACTION_H

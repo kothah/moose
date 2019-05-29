@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWBRINECO2TEST_H
-#define POROUSFLOWBRINECO2TEST_H
+#pragma once
 
 #include "MooseObjectUnitTest.h"
 #include "PorousFlowCapillaryPressureVG.h"
@@ -21,23 +20,9 @@
 class PorousFlowBrineCO2Test : public MooseObjectUnitTest
 {
 public:
-  PorousFlowBrineCO2Test() : MooseObjectUnitTest("MooseUnitApp")
-  {
-    registerObjects(_factory);
-    buildObjects();
-  }
+  PorousFlowBrineCO2Test() : MooseObjectUnitTest("MooseUnitApp") { buildObjects(); }
 
 protected:
-  void registerObjects(Factory & factory)
-  {
-    registerUserObject(PorousFlowCapillaryPressureVG);
-    registerUserObject(BrineFluidProperties);
-    registerUserObject(Water97FluidProperties);
-    registerUserObject(NaClFluidProperties);
-    registerUserObject(CO2FluidProperties);
-    registerUserObject(PorousFlowBrineCO2);
-  }
-
   void buildObjects()
   {
     InputParameters pc_params = _factory.getValidParams("PorousFlowCapillaryPressureVG");
@@ -73,4 +58,3 @@ protected:
   const CO2FluidProperties * _co2_fp;
 };
 
-#endif // POROUSFLOWBRINECO2TEST_H

@@ -41,6 +41,7 @@
   [../]
   [./h+]
     initial_condition = 1.0e-7
+    scaling = 1e6
   [../]
   [./hco3-]
   [../]
@@ -260,6 +261,6 @@
 []
 
 [Outputs]
-  print_perf_log = true
+  perf_graph = true
   exodus = true
 []

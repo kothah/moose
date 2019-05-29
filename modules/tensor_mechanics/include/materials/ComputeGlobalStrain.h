@@ -7,15 +7,16 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEGLOBALSTRAIN_H
-#define COMPUTEGLOBALSTRAIN_H
+#pragma once
 
 #include "Material.h"
 
 // Forward Declarations
 class ComputeGlobalStrain;
-class GlobalStrainUserObject;
-class RankTwoTensor;
+class GlobalStrainUserObjectInterface;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 template <>
 InputParameters validParams<ComputeGlobalStrain>();
@@ -28,20 +29,20 @@ class ComputeGlobalStrain : public Material
 public:
   ComputeGlobalStrain(const InputParameters & parameters);
 
+  virtual void computeProperties();
+
 protected:
   virtual void initQpStatefulProperties();
-  virtual void computeProperties();
 
   ///Base name prepended to material property name
   std::string _base_name;
   const VariableValue & _scalar_global_strain;
   MaterialProperty<RankTwoTensor> & _global_strain;
 
-  const GlobalStrainUserObject & _pst;
+  const GlobalStrainUserObjectInterface & _pst;
   const VectorValue<bool> & _periodic_dir;
 
   const unsigned int _dim;
   const unsigned int _ndisp;
 };
 
-#endif // COMPUTEGLOBALSTRAIN_H

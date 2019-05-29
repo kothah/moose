@@ -26,10 +26,10 @@
 [UserObjects]
   [./square_cut_uo]
     type = RectangleCutUserObject
-    cut_data = ' -0.001 0.3 -0.001
-                  1 0.7 -0.001
-                  1 0.7  0.2
-                 -0.001 0.3  0.2'
+    cut_data = ' -1.0 -0.1 -1.0
+                  2.0  1.1 -1.0
+                  2.0  1.1  1.0
+                 -1.0 -0.1  1.0'
   [../]
 []
 
@@ -98,7 +98,6 @@
   exodus = true
   [./console]
     type = Console
-    perf_log = true
     output_linear = true
   [../]
 []

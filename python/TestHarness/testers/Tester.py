@@ -7,9 +7,9 @@
 #* Licensed under LGPL 2.1, please see LICENSE for details
 #* https://www.gnu.org/licenses/lgpl-2.1.html
 
-import platform, re, os
+import platform, re, os, pkgutil
 from TestHarness import util
-from TestHarness.StatusSystem import TestStatus
+from TestHarness.StatusSystem import StatusSystem
 from FactorySystem.MooseObject import MooseObject
 from tempfile import TemporaryFile
 import subprocess
@@ -41,6 +41,8 @@ class Tester(MooseObject):
 
         params.addParam('valgrind', 'NONE', "Set to (NONE, NORMAL, HEAVY) to determine which configurations where valgrind will run.")
         params.addParam('tags',      [], "A list of strings")
+        params.addParam('max_buffer_size', None, "Bytes allowed in stdout/stderr before it is subjected to being trimmed. Set to -1 to ignore output size restrictions. "
+                                                 "If 'max_buffer_size' is not set, the default value of 'None' triggers a reasonable value (e.g. 100 kB)")
 
         # Test Filters
         params.addParam('platform',      ['ALL'], "A list of platforms for which this test will run on. ('ALL', 'DARWIN', 'LINUX', 'SL', 'LION', 'ML')")
@@ -59,8 +61,12 @@ class Tester(MooseObject):
         params.addParam('dof_id_bytes',  ['ALL'], "A test that runs only if libmesh is configured --with-dof-id-bytes = a specific number, e.g. '4', '8'")
         params.addParam('petsc_debug',   ['ALL'], "{False,True} -> test only runs when PETSc is configured with --with-debugging={0,1}, otherwise test always runs.")
         params.addParam('curl',          ['ALL'], "A test that runs only if CURL is detected ('ALL', 'TRUE', 'FALSE')")
-        params.addParam('tbb',           ['ALL'], "A test that runs only if TBB is available ('ALL', 'TRUE', 'FALSE')")
+        params.addParam('threading',     ['ALL'], "A list of threading models ths tests runs with ('ALL', 'TBB', 'OPENMP', 'PTHREADS', 'NONE')")
         params.addParam('superlu',       ['ALL'], "A test that runs only if SuperLU is available via PETSc ('ALL', 'TRUE', 'FALSE')")
+        params.addParam('chaco',         ['ALL'], "A test that runs only if Chaco (partitioner) is available via PETSc ('ALL', 'TRUE', 'FALSE')")
+        params.addParam('parmetis',      ['ALL'], "A test that runs only if Parmetis (partitioner) is available via PETSc ('ALL', 'TRUE', 'FALSE')")
+        params.addParam('party',         ['ALL'], "A test that runs only if Party (partitioner) is available via PETSc ('ALL', 'TRUE', 'FALSE')")
+        params.addParam('ptscotch',      ['ALL'], "A test that runs only if PTScotch (partitioner) is available via PETSc ('ALL', 'TRUE', 'FALSE')")
         params.addParam('slepc',         ['ALL'], "A test that runs only if SLEPc is available ('ALL', 'TRUE', 'FALSE')")
         params.addParam('unique_id',     ['ALL'], "A test that runs only if libmesh is configured with --enable-unique-id ('ALL', 'TRUE', 'FALSE')")
         params.addParam('cxx11',         ['ALL'], "A test that runs only if CXX11 is available ('ALL', 'TRUE', 'FALSE')")
@@ -75,13 +81,15 @@ class Tester(MooseObject):
         params.addParam('check_input',    False, "Check for correct input file syntax")
         params.addParam('display_required', False, "The test requires and active display for rendering (i.e., ImageDiff tests).")
         params.addParam('timing',         True, "If True, the test will be allowed to run with the timing flag (i.e. Manually turning on performance logging).")
-        params.addParam('boost',         ['ALL'], "A test that runs only if BOOT is detected ('ALL', 'TRUE', 'FALSE')")
+        params.addParam('boost',         ['ALL'], "A test that runs only if BOOST is detected ('ALL', 'TRUE', 'FALSE')")
+        params.addParam('sympy', False, "If True, sympy is required.")
 
         # SQA
         params.addParam("requirement", None, "The SQA requirement that this test satisfies (e.g., 'The Marker system shall provide means to mark elements for refinement within a box region.')")
         params.addParam("design", [], "The list of markdown files that contain the design(s) associated with this test (e.g., '/Markers/index.md /BoxMarker.md').")
         params.addParam("issues", [], "The list of github issues associated with this test (e.g., '#1234 #4321')")
-
+        params.addParam("validation", False, "Set to True to mark test as a validation problem.")
+        params.addParam("verification", False, "Set to True to mark test as a verification problem.")
         return params
 
     # This is what will be checked for when we look for valid testers
@@ -98,6 +106,10 @@ class Tester(MooseObject):
         self.tags = params['tags']
         self.__caveats = set([])
 
+        # Alternate text we want to print as part of our status instead of the
+        # pre-formatted status text (SYNTAX PASS instead of OK for example)
+        self.__tester_message = ''
+
         # Bool if test can run
         self._runnable = None
 
@@ -108,72 +120,50 @@ class Tester(MooseObject):
         if self.specs["allow_test_objects"]:
             self.specs["cli_args"].append("--allow-test-objects")
 
-    def initStatusSystem(self, options):
-        """ Initialize the tester status system """
-        self.status = TestStatus(options)
+        ### Enumerate the tester statuses we want to use
+        self.test_status = StatusSystem()
+        self.no_status = self.test_status.no_status
+        self.queued = self.test_status.queued
+        self.skip = self.test_status.skip
+        self.silent = self.test_status.silent
+        self.success = self.test_status.success
+        self.fail = self.test_status.fail
+        self.diff = self.test_status.diff
+        self.deleted = self.test_status.deleted
 
-        ### Enumerate the statuses
-        self.no_status = self.status.no_status
-        self.skip = self.status.skip
-        self.silent = self.status.silent
-        self.success = self.status.success
-        self.fail = self.status.fail
-        self.diff = self.status.diff
-        self.deleted = self.status.deleted
-        self.finished = self.status.finished
-
-        ### Deprecated statuses to be removed upon application fixes
-        self.bucket_initialized        = self.no_status
-        self.bucket_success            = self.success
-        self.bucket_fail               = self.fail
-        self.bucket_diff               = self.diff
-        self.bucket_finished           = self.finished
-        self.bucket_deleted            = self.deleted
-        self.bucket_skip               = self.skip
-        self.bucket_silent             = self.silent
-        self.bucket_pending            = None
-        self.bucket_queued             = None
-        self.bucket_waiting_processing = None
-        ### END Deprecated statuses
+        self.__failed_statuses = [self.fail, self.diff, self.deleted]
+        self.__skipped_statuses = [self.skip, self.silent]
 
     def getStatus(self):
-        return self.status.getStatus()
+        return self.test_status.getStatus()
 
     def setStatus(self, status, message=''):
-        # Support deprecated statuses, alert the user.
-        if type(status) == type(''):
-            self.addCaveats('deprecated status bucket')
-            test_status = self.createStatus()
-            result_status = message.status
-            result_color = message.color
-            new_status = test_status(status=result_status, color=result_color)
-            return self.status.setStatus(new_status)
+        self.__tester_message = message
+        return self.test_status.setStatus(status)
 
-        return self.status.setStatus(status, message)
+    def createStatus(self):
+        return self.test_status.createStatus()
 
     def getStatusMessage(self):
-        return self.status.getStatusMessage()
-    def createStatus(self):
-        return self.status.createStatus()
-    def getColor(self):
-        return self.status.getColor()
+        return self.__tester_message
+
+    # Return a boolean based on current status
     def isNoStatus(self):
-        return self.status.isNoStatus()
+        return self.getStatus() == self.no_status
     def isSkip(self):
-        return self.status.isSkip()
+        return self.getStatus() in self.__skipped_statuses
+    def isQueued(self):
+        return self.getStatus() == self.queued
     def isSilent(self):
-        return self.status.isSilent()
+        return self.getStatus() == self.silent
     def isPass(self):
-        return self.status.isPass()
+        return self.getStatus() == self.success
     def isFail(self):
-        return self.status.isFail()
+        return self.getStatus() in self.__failed_statuses
     def isDiff(self):
-        return self.status.isDiff()
+        return self.getStatus() == self.diff
     def isDeleted(self):
-        return self.status.isDeleted()
-    def isFinished(self):
-        return self.status.isFinished()
-    ### Status System wrapper methods ###
+        return self.getStatus() == self.deleted
 
     def getTestName(self):
         """ return test name """
@@ -308,7 +298,7 @@ class Tester(MooseObject):
         self.errfile.flush()
 
         # store the contents of output, and close the file
-        self.joined_out = util.readOutput(self.outfile, self.errfile, options)
+        self.joined_out = util.readOutput(self.outfile, self.errfile)
         self.outfile.close()
         self.errfile.close()
 
@@ -467,8 +457,8 @@ class Tester(MooseObject):
                 tmp_reason = 'Valgrind==NONE'
             elif self.specs['valgrind'].upper() == 'HEAVY' and options.valgrind_mode.upper() == 'NORMAL':
                 tmp_reason = 'Valgrind==HEAVY'
-            elif int(self.specs['min_parallel']) > 1 or int(self.specs['min_threads']) > 1:
-                tmp_reason = 'Valgrind requires serial'
+            elif int(self.specs['min_threads']) > 1:
+                tmp_reason = 'Valgrind requires non-threaded'
             elif self.specs["check_input"]:
                 tmp_reason = 'check_input==True'
             if tmp_reason != '':
@@ -478,21 +468,22 @@ class Tester(MooseObject):
             reasons['recover'] = 'NO RECOVER'
 
         # Check for PETSc versions
-        (petsc_status, logic_reason, petsc_version) = util.checkPetscVersion(checks, self.specs)
+        (petsc_status, petsc_version) = util.checkPetscVersion(checks, self.specs)
         if not petsc_status:
-            reasons['petsc_version'] = 'using PETSc ' + str(checks['petsc_version']) + ' REQ: ' + logic_reason + ' ' + petsc_version
+            reasons['petsc_version'] = 'using PETSc ' + str(checks['petsc_version']) + ' REQ: ' + petsc_version
 
         # Check for SLEPc versions
-        (slepc_status, logic_reason, slepc_version) = util.checkSlepcVersion(checks, self.specs)
+        (slepc_status, slepc_version) = util.checkSlepcVersion(checks, self.specs)
         if not slepc_status and len(self.specs['slepc_version']) != 0:
             if slepc_version != None:
-                reasons['slepc_version'] = 'using SLEPc ' + str(checks['slepc_version']) + ' REQ: ' + logic_reason + ' ' + slepc_version
+                reasons['slepc_version'] = 'using SLEPc ' + str(checks['slepc_version']) + ' REQ: ' + slepc_version
             elif slepc_version == None:
                 reasons['slepc_version'] = 'SLEPc is not installed'
 
         # PETSc and SLEPc is being explicitly checked above
         local_checks = ['platform', 'compiler', 'mesh_mode', 'method', 'library_mode', 'dtk', 'unique_ids', 'vtk', 'tecplot', \
-                        'petsc_debug', 'curl', 'tbb', 'superlu', 'cxx11', 'asio', 'unique_id', 'slepc', 'petsc_version_release', 'boost', 'fparser_jit']
+                        'petsc_debug', 'curl', 'superlu', 'cxx11', 'asio', 'unique_id', 'slepc', 'petsc_version_release', 'boost', 'fparser_jit',
+                        'parmetis', 'chaco', 'party', 'ptscotch', 'threading']
         for check in local_checks:
             test_platforms = set()
             operator_display = '!='
@@ -566,6 +557,10 @@ class Tester(MooseObject):
         if self.specs['display_required'] and not os.getenv('DISPLAY', False):
             reasons['display_required'] = 'NO DISPLAY'
 
+        # Check for sympy
+        if self.specs['sympy'] and pkgutil.find_loader('sympy') is None:
+            reasons['python_package_required'] = 'NO SYMPY'
+
         # Remove any matching user supplied caveats from accumulated checkRunnable caveats that
         # would normally produce a skipped test.
         caveat_list = set()
@@ -583,7 +578,10 @@ class Tester(MooseObject):
             # If the test is deleted we still need to treat this differently
             self.addCaveats(flat_reason)
             if 'deleted' in reasons.keys():
-                self.setStatus(self.deleted)
+                if options.extra_info:
+                    self.setStatus(self.deleted)
+                else:
+                    self.setStatus(self.silent)
             else:
                 self.setStatus(self.skip)
             return False

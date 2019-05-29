@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWNEARESTQP_QP
-#define POROUSFLOWNEARESTQP_QP
+#pragma once
 
 #include "PorousFlowMaterial.h"
 
-// Forward Declarations
 class PorousFlowNearestQp;
 
 template <>
@@ -30,8 +28,6 @@ public:
 protected:
   virtual void computeQpProperties() override;
 
-  /// the nearest quadpoint
+  /// The nearest quadpoint
   MaterialProperty<unsigned int> & _nearest_qp;
 };
-
-#endif // POROUSFLOWNEARESTQP_H

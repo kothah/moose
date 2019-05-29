@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef UNIFORMDISTRIBUTION_H
-#define UNIFORMDISTRIBUTION_H
+#pragma once
 
 #include "Distribution.h"
 
@@ -24,9 +23,13 @@ class UniformDistribution : public Distribution
 public:
   UniformDistribution(const InputParameters & parameters);
 
-  virtual Real pdf(const Real & x) override;
-  virtual Real cdf(const Real & x) override;
-  virtual Real quantile(const Real & y) override;
+  Real pdf(const Real & x, const Real & lower_bound, const Real & upper_bound) const;
+  Real cdf(const Real & x, const Real & lower_bound, const Real & upper_bound) const;
+  Real quantile(const Real & y, const Real & lower_bound, const Real & upper_bound) const;
+
+  virtual Real pdf(const Real & x) const override;
+  virtual Real cdf(const Real & x) const override;
+  virtual Real quantile(const Real & y) const override;
 
 protected:
   /// The lower bound for the uniform distribution
@@ -36,4 +39,3 @@ protected:
   const Real & _upper_bound;
 };
 
-#endif /* UNIFORMDISTRIBUTION_H */

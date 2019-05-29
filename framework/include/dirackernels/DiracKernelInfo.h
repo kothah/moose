@@ -7,13 +7,9 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef DIRACKERNELINFO_H
-#define DIRACKERNELINFO_H
+#pragma once
 
 #include "Moose.h"
-
-// libMesh
-#include "libmesh/point.h"
 
 #include <set>
 #include <map>
@@ -26,6 +22,7 @@ namespace libMesh
 {
 class Elem;
 class PointLocatorBase;
+class Point;
 }
 
 /**
@@ -105,4 +102,3 @@ protected:
   const Real _point_equal_distance_sq;
 };
 
-#endif // DIRACKERNELINFO_H

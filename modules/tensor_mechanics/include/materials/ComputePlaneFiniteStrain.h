@@ -7,10 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEPLANEFINITESTRAIN_H
-#define COMPUTEPLANEFINITESTRAIN_H
+#pragma once
 
 #include "Compute2DFiniteStrain.h"
+#include "SubblockIndexProvider.h"
 
 class ComputePlaneFiniteStrain;
 
@@ -30,13 +30,21 @@ protected:
   virtual Real computeOutOfPlaneGradDisp() override;
   virtual Real computeOutOfPlaneGradDispOld() override;
 
+  /// gets its subblock index for current element
+  unsigned int getCurrentSubblockIndex() const
+  {
+    return _subblock_id_provider ? _subblock_id_provider->getSubblockIndex(*_current_elem) : 0;
+  };
+
+  const SubblockIndexProvider * _subblock_id_provider;
+
   const bool _scalar_out_of_plane_strain_coupled;
-  const VariableValue & _scalar_out_of_plane_strain;
-  const VariableValue & _scalar_out_of_plane_strain_old;
+  unsigned int _nscalar_strains;
+  std::vector<const VariableValue *> _scalar_out_of_plane_strain;
+  std::vector<const VariableValue *> _scalar_out_of_plane_strain_old;
 
   const bool _out_of_plane_strain_coupled;
   const VariableValue & _out_of_plane_strain;
   const VariableValue & _out_of_plane_strain_old;
 };
 
-#endif // COMPUTEPLANEFINITESTRAIN_H

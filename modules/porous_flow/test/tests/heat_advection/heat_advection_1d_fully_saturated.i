@@ -10,6 +10,7 @@
 
 [GlobalParams]
   PorousFlowDictator = dictator
+  gravity = '0 0 0'
 []
 
 [Variables]
@@ -64,7 +65,6 @@
   [./advection]
     type = PorousFlowFullySaturatedDarcyBase
     variable = pp
-    gravity = '0 0 0'
   [../]
   [./energy_dot]
     type = PorousFlowEnergyTimeDerivative
@@ -73,7 +73,6 @@
   [./convection]
     type = PorousFlowFullySaturatedHeatAdvection
     variable = temp
-    gravity = '0 0 0'
   [../]
 []
 
@@ -102,16 +101,10 @@
 [Materials]
   [./temperature]
     type = PorousFlowTemperature
-    at_nodes = true
-    temperature = temp
-  [../]
-  [./temperature_nodal]
-    type = PorousFlowTemperature
     temperature = temp
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
-    at_nodes = true
     porosity = 0.2
   [../]
   [./rock_heat]
@@ -123,12 +116,6 @@
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid
     phase = 0
-    at_nodes = true
-  [../]
-  [./simple_fluid_qp]
-    type = PorousFlowSingleComponentFluid
-    fp = simple_fluid
-    phase = 0
   [../]
   [./permeability]
     type = PorousFlowPermeabilityConst
@@ -136,14 +123,8 @@
   [../]
   [./massfrac]
     type = PorousFlowMassFraction
-    at_nodes = true
   [../]
   [./PS]
-    type = PorousFlow1PhaseFullySaturated
-    at_nodes = true
-    porepressure = pp
-  [../]
-  [./PS_qp]
     type = PorousFlow1PhaseFullySaturated
     porepressure = pp
   [../]
@@ -165,8 +146,22 @@
   end_time = 0.6
 []
 
+[VectorPostprocessors]
+  [./T]
+    type = LineValueSampler
+    start_point = '0 0 0'
+    end_point = '1 0 0'
+    num_points = 51
+    sort_by = x
+    variable = temp
+  [../]
+[]
+
 [Outputs]
   file_base = heat_advection_1d_fully_saturated
-  exodus = true
-  interval = 10
+  [./csv]
+    type = CSV
+    sync_times = '0.1 0.6'
+    sync_only = true
+  [../]
 []

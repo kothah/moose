@@ -7,13 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef BOOSTDISTRIBUTION_H
-#define BOOSTDISTRIBUTION_H
+#pragma once
 
 #include "Distribution.h"
 
 #ifdef LIBMESH_HAVE_EXTERNAL_BOOST
 #include "libmesh/ignore_warnings.h"
+#pragma GCC diagnostic ignored "-Wparentheses"
 #include <boost/math/distributions.hpp>
 #include "libmesh/restore_warnings.h"
 #else
@@ -50,10 +50,10 @@ class BoostDistribution : public Distribution
 public:
   BoostDistribution(const InputParameters & parameters);
 
-  virtual Real pdf(const Real & x) override;
-  virtual Real cdf(const Real & x) override;
-  virtual Real quantile(const Real & y) override;
-  virtual Real median() override;
+  virtual Real pdf(const Real & x) const override;
+  virtual Real cdf(const Real & x) const override;
+  virtual Real quantile(const Real & y) const override;
+  virtual Real median() const override;
 
 protected:
   /// This must be defined by the child class in the constructor
@@ -76,7 +76,7 @@ BoostDistribution<T>::BoostDistribution(const InputParameters & parameters)
 
 template <typename T>
 Real
-BoostDistribution<T>::pdf(const Real & x)
+BoostDistribution<T>::pdf(const Real & x) const
 {
 #ifdef LIBMESH_HAVE_EXTERNAL_BOOST
   mooseAssert(_distribution_unique_ptr, "Boost distribution pointer not defined.");
@@ -88,7 +88,7 @@ BoostDistribution<T>::pdf(const Real & x)
 
 template <typename T>
 Real
-BoostDistribution<T>::cdf(const Real & x)
+BoostDistribution<T>::cdf(const Real & x) const
 {
 #ifdef LIBMESH_HAVE_EXTERNAL_BOOST
   mooseAssert(_distribution_unique_ptr, "Boost distribution pointer not defined.");
@@ -100,7 +100,7 @@ BoostDistribution<T>::cdf(const Real & x)
 
 template <typename T>
 Real
-BoostDistribution<T>::quantile(const Real & y)
+BoostDistribution<T>::quantile(const Real & y) const
 {
 #ifdef LIBMESH_HAVE_EXTERNAL_BOOST
   mooseAssert(_distribution_unique_ptr, "Boost distribution pointer not defined.");
@@ -112,7 +112,7 @@ BoostDistribution<T>::quantile(const Real & y)
 
 template <typename T>
 Real
-BoostDistribution<T>::median()
+BoostDistribution<T>::median() const
 {
 #ifdef LIBMESH_HAVE_EXTERNAL_BOOST
   mooseAssert(_distribution_unique_ptr, "Boost distribution pointer not defined.");
@@ -122,4 +122,3 @@ BoostDistribution<T>::median()
 #endif
 }
 
-#endif // BOOSTDISTRIBUTION_H

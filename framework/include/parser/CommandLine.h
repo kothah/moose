@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMMANDLINE_H
-#define COMMANDLINE_H
+#pragma once
 
 // Moose Includes
 #include "MooseError.h"
@@ -52,6 +51,14 @@ public:
   CommandLine(int argc, char * argv[]);
   virtual ~CommandLine();
 
+  void addArguments(int argc, char * argv[]);
+  void addArgument(std::string);
+
+  /**
+   * Return the raw argv arguments as a vector.
+   */
+  const std::vector<std::string> & getArguments() { return _argv; }
+
   void addCommandLineOptionsFromParams(InputParameters & params);
 
   void populateInputParams(InputParameters & params);
@@ -72,9 +79,6 @@ public:
    * Print the usage info for this command line
    */
   void printUsage() const;
-
-  int argc() { return _argc; }
-  char ** argv() { return _argv; }
 
   // this needs to be tracked here because CommandLine has a global shared instance across all
   // multiapps/subapps - and we need to track used/unused CLI hit params globally so we know
@@ -112,8 +116,10 @@ protected:
 private:
   std::set<int> _used_hiti;
   std::set<int> _hiti;
-  int _argc = 0;
-  char ** _argv = nullptr;
+
+  /// Storage for the raw argv
+  std::vector<std::string> _argv;
+
   std::vector<std::string> _args;
 };
 
@@ -170,4 +176,3 @@ CommandLine::search(const std::string & option_name, T & argument)
   mooseError("Unrecognized option name");
 }
 
-#endif // COMMANDLINE_H

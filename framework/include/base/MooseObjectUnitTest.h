@@ -1,5 +1,13 @@
-#ifndef MOOSEOBJECTUNITTEST_H
-#define MOOSEOBJECTUNITTEST_H
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#pragma once
 
 #include "gtest/gtest.h"
 
@@ -75,13 +83,17 @@ protected:
   {
     InputParameters mesh_params = _factory.getValidParams("GeneratedMesh");
     mesh_params.set<std::string>("_object_name") = "name1";
+    mesh_params.set<std::string>("_type") = "GeneratedMesh";
     mesh_params.set<MooseEnum>("dim") = "3";
     _mesh = libmesh_make_unique<GeneratedMesh>(mesh_params);
+    _mesh->setMeshBase(_mesh->buildMeshBaseObject());
 
     InputParameters problem_params = _factory.getValidParams("FEProblem");
     problem_params.set<MooseMesh *>("mesh") = _mesh.get();
     problem_params.set<std::string>("_object_name") = "name2";
     _fe_problem = _factory.create<FEProblem>("FEProblem", "problem", problem_params);
+
+    _fe_problem->createQRules(QGAUSS, FIRST, FIRST, FIRST);
   }
 
   std::unique_ptr<MooseMesh> _mesh;
@@ -90,4 +102,3 @@ protected:
   std::shared_ptr<FEProblem> _fe_problem;
 };
 
-#endif

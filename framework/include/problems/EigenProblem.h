@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef EIGENPROBLEM_H
-#define EIGENPROBLEM_H
+#pragma once
 
 // MOOSE Includes
 #include "FEProblemBase.h"
@@ -27,8 +26,6 @@ class EigenProblem : public FEProblemBase
 {
 public:
   EigenProblem(const InputParameters & parameters);
-
-  virtual ~EigenProblem();
 
   virtual void solve() override;
 
@@ -88,6 +85,12 @@ protected:
   unsigned int _n_eigen_pairs_required;
   bool _generalized_eigenvalue_problem;
   std::shared_ptr<NonlinearEigenSystem> _nl_eigen;
+
+  /// Timers
+  PerfID _compute_jacobian_tag_timer;
+  PerfID _compute_jacobian_ab_timer;
+  PerfID _compute_residual_tag_timer;
+  PerfID _compute_residual_ab_timer;
+  PerfID _solve_timer;
 };
 
-#endif /* EIGENPROBLEM_H */

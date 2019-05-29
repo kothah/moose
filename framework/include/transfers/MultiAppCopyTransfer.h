@@ -7,14 +7,17 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MULTIAPPCOPYTRANSFER_H
-#define MULTIAPPCOPYTRANSFER_H
+#pragma once
 
 #include "MultiAppTransfer.h"
 
 // Forward declarations
 class MultiAppCopyTransfer;
 class MooseVariableFEBase;
+namespace libMesh
+{
+class DofObject;
+}
 
 template <>
 InputParameters validParams<MultiAppCopyTransfer>();
@@ -58,4 +61,3 @@ protected:
   const VariableName & _from_var_name;
 };
 
-#endif // MULTIAPPCOPYTRANSFER_H

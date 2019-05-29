@@ -7,10 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MATERIAL_H
-#define MATERIAL_H
+#pragma once
 
 // MOOOSE includes
+#include "MaterialProperty.h"
 #include "MooseObject.h"
 #include "BlockRestrictable.h"
 #include "BoundaryRestrictable.h"
@@ -30,7 +30,6 @@
 #include "MeshChangedInterface.h"
 #include "OutputInterface.h"
 #include "RandomInterface.h"
-#include "MaterialProperty.h"
 
 // forward declarations
 class Material;
@@ -102,6 +101,8 @@ public:
   template <typename T>
   const MaterialProperty<T> & getMaterialProperty(const std::string & name);
   template <typename T>
+  const ADMaterialPropertyObject<T> & getADMaterialProperty(const std::string & name);
+  template <typename T>
   const MaterialProperty<T> & getMaterialPropertyOld(const std::string & name);
   template <typename T>
   const MaterialProperty<T> & getMaterialPropertyOlder(const std::string & name);
@@ -113,6 +114,8 @@ public:
    */
   template <typename T>
   const MaterialProperty<T> & getMaterialPropertyByName(const std::string & prop_name);
+  template <typename T>
+  const ADMaterialPropertyObject<T> & getADMaterialPropertyByName(const std::string & prop_name);
   template <typename T>
   const MaterialProperty<T> & getMaterialPropertyOldByName(const std::string & prop_name);
   template <typename T>
@@ -201,6 +204,12 @@ protected:
    */
   virtual void initQpStatefulProperties();
 
+  /**
+   * Copies dual number values from ADMaterials into Real property values for Material<->ADMaterial
+   * interoperability.
+   */
+  void copyDualNumbersToValues();
+
   SubProblem & _subproblem;
 
   FEProblemBase & _fe_problem;
@@ -212,19 +221,19 @@ protected:
 
   unsigned int _qp;
 
-  QBase *& _qrule;
+  const QBase * const & _qrule;
   const MooseArray<Real> & _JxW;
   const MooseArray<Real> & _coord;
   const MooseArray<Point> & _q_point;
   /// normals at quadrature points (valid only in boundary materials)
   const MooseArray<Point> & _normals;
 
-  const Elem *& _current_elem;
+  const Elem * const & _current_elem;
 
   const SubdomainID & _current_subdomain_id;
 
   /// current side of the current element
-  unsigned int & _current_side;
+  const unsigned int & _current_side;
 
   MooseMesh & _mesh;
 
@@ -245,6 +254,12 @@ protected:
   /// Material::computeProperties() without looking up the ids from
   /// the name strings each time.
   std::set<unsigned int> _supplied_prop_ids;
+
+  /// The set of supplied regular property ids
+  std::set<unsigned int> _supplied_regular_prop_ids;
+
+  /// The set of supplied automatic differentiation property ids
+  std::set<unsigned int> _supplied_ad_prop_ids;
 
   /// If False MOOSE does not compute this property
   const bool _compute;
@@ -273,10 +288,16 @@ protected:
   };
   std::map<std::string, int> _props_to_flags;
 
-private:
   /// Small helper function to call store{Subdomain,Boundary}MatPropName
-  void registerPropName(std::string prop_name, bool is_get, Prop_State state);
+  void registerPropName(std::string prop_name,
+                        bool is_get,
+                        Prop_State state,
+                        bool is_declared_ad = false);
 
+  /// Displacement ids
+  std::vector<unsigned int> _displacements;
+
+private:
   /// Check and throw an error if the execution has progerssed past the construction stage
   void checkExecutionStage();
 
@@ -298,6 +319,21 @@ Material::getMaterialProperty(const std::string & name)
     return *default_property;
 
   return getMaterialPropertyByName<T>(prop_name);
+}
+
+template <typename T>
+const ADMaterialPropertyObject<T> &
+Material::getADMaterialProperty(const std::string & name)
+{
+  // Check if the supplied parameter is a valid imput parameter key
+  std::string prop_name = deducePropertyName(name);
+
+  // Check if it's just a constant.
+  const ADMaterialPropertyObject<T> * default_property = defaultADMaterialProperty<T>(prop_name);
+  if (default_property)
+    return *default_property;
+
+  return getADMaterialPropertyByName<T>(prop_name);
 }
 
 template <typename T>
@@ -340,6 +376,18 @@ Material::getMaterialPropertyByName(const std::string & prop_name)
   _requested_props.insert(prop_name);
   registerPropName(prop_name, true, Material::CURRENT);
   return MaterialPropertyInterface::getMaterialPropertyByName<T>(prop_name);
+}
+
+template <typename T>
+const ADMaterialPropertyObject<T> &
+Material::getADMaterialPropertyByName(const std::string & prop_name)
+{
+  checkExecutionStage();
+  // The property may not exist yet, so declare it (declare/getADMaterialProperty are referencing
+  // the same memory)
+  _requested_props.insert(prop_name);
+  registerPropName(prop_name, true, Material::CURRENT);
+  return MaterialPropertyInterface::getADMaterialPropertyByName<T>(prop_name);
 }
 
 template <typename T>
@@ -418,4 +466,3 @@ Material::getZeroMaterialProperty(const std::string & prop_name)
   return preload_with_zero;
 }
 
-#endif // MATERIAL_H

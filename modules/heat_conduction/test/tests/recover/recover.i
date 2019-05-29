@@ -33,7 +33,7 @@
     type = BodyForce
     variable = temp
     block = pellet_type_1
-    value = 1e-2
+    value = 1e3
     function = 't'
   [../]
 []
@@ -128,19 +128,12 @@
     variable = temp
     boundary = 5
     diffusivity = thermal_conductivity
-    execute_on = timestep_end
   [../]
   [./_dt]
     type = TimestepSize
-    execute_on = timestep_end
   [../]
 []
 
 [Outputs]
   exodus = true
-  [./console]
-    type = Console
-    perf_log = true
-    max_rows = 25
-  [../]
 []

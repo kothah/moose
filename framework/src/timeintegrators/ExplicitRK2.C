@@ -26,6 +26,9 @@ ExplicitRK2::ExplicitRK2(const InputParameters & parameters)
     _stage(1),
     _residual_old(_nl.addVector("residual_old", false, GHOSTED))
 {
+  mooseInfo("ExplicitRK2-derived TimeIntegrators (ExplicitMidpoint, Heun, Ralston) and other "
+            "multistage TimeIntegrators are known not to work with "
+            "Materials/AuxKernels that accumulate 'state' and should be used with caution.");
 }
 
 void
@@ -43,15 +46,22 @@ ExplicitRK2::computeTimeDerivatives()
   // Since advanceState() is called in between stages 2 and 3, this
   // changes the meaning of "_solution_old".  In the second stage,
   // "_solution_older" is actually the original _solution_old.
-  _u_dot = *_solution;
-  if (_stage < 3)
-    _u_dot -= _solution_old;
-  else
-    _u_dot -= _solution_older;
+  if (!_sys.solutionUDot())
+    mooseError("ExplicitRK2: Time derivative of solution (`u_dot`) is not stored. Please set "
+               "uDotRequested() to true in FEProblemBase befor requesting `u_dot`.");
 
-  _u_dot *= 1. / _dt;
+  NumericVector<Number> & u_dot = *_sys.solutionUDot();
+  u_dot = *_solution;
+  computeTimeDerivativeHelper(u_dot, _solution_old, _solution_older);
+
   _du_dot_du = 1. / _dt;
-  _u_dot.close();
+  u_dot.close();
+}
+
+void
+ExplicitRK2::computeADTimeDerivatives(DualReal & ad_u_dot, const dof_id_type & dof) const
+{
+  computeTimeDerivativeHelper(ad_u_dot, _solution_old(dof), _solution_older(dof));
 }
 
 void
@@ -77,6 +87,10 @@ ExplicitRK2::solve()
   _fe_problem.getNonlinearSystemBase().system().solve();
   _n_nonlinear_iterations += getNumNonlinearIterationsLastSolve();
   _n_linear_iterations += getNumLinearIterationsLastSolve();
+
+  // Abort time step immediately on stage failure - see TimeIntegrator doc page
+  if (!_fe_problem.converged())
+    return;
 
   // Advance solutions old->older, current->old.  Also moves Material
   // properties and other associated state forward in time.

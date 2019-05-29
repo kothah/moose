@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTE1DSMALLSTRAIN_H
-#define COMPUTE1DSMALLSTRAIN_H
+#pragma once
 
 #include "ComputeSmallStrain.h"
 
@@ -28,16 +27,17 @@ class Compute1DSmallStrain : public ComputeSmallStrain
 public:
   Compute1DSmallStrain(const InputParameters & parameters);
 
-protected:
   void computeProperties() override;
 
-  /// Computes the strain_yy; as a virtual function, this function is
-  /// overwritten for the specific geometries defined by inheriting classes
+protected:
+  /** Computes the strain_yy; as a virtual function, this function is
+   * overwritten for the specific geometries defined by inheriting classes
+   */
   virtual Real computeStrainYY() = 0;
 
-  /// Computes the strain_zz; as a virtual function, this function is
-  /// overwritten for the specific geometries defined by inheriting classes
+  /** Computes the strain_zz; as a virtual function, this function is
+   * overwritten for the specific geometries defined by inheriting classes
+   */
   virtual Real computeStrainZZ() = 0;
 };
 
-#endif // COMPUTE1DSMALLSTRAIN_H

@@ -7,14 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef HOMOGENIZEDELASTICCONSTANTS_H
-#define HOMOGENIZEDELASTICCONSTANTS_H
+#pragma once
 
 #include "ElementAverageValue.h"
 
 // Forward Declarations
 class HomogenizedElasticConstants;
-class ColumnMajorMatrix;
 class SymmElasticityTensor;
 class SymmTensor;
 
@@ -23,7 +21,7 @@ InputParameters validParams<HomogenizedElasticConstants>();
 
 /**
  * This postprocessor computes the average grain area in a polycrystal
-*/
+ */
 class HomogenizedElasticConstants : public ElementAverageValue
 {
 public:
@@ -71,4 +69,3 @@ private:
   Real _integral_value;
 };
 
-#endif // HOMOGENIZEDELASTICCONSTANTS_H

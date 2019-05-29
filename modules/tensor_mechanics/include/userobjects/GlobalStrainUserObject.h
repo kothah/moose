@@ -7,10 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef GLOBALSTRAINUSEROBJECT_H
-#define GLOBALSTRAINUSEROBJECT_H
+#pragma once
 
 #include "ElementUserObject.h"
+#include "GlobalStrainUserObjectInterface.h"
+
 #include "RankTwoTensor.h"
 #include "RankFourTensor.h"
 
@@ -19,7 +20,7 @@ class GlobalStrainUserObject;
 template <>
 InputParameters validParams<GlobalStrainUserObject>();
 
-class GlobalStrainUserObject : public ElementUserObject
+class GlobalStrainUserObject : public ElementUserObject, public GlobalStrainUserObjectInterface
 {
 public:
   GlobalStrainUserObject(const InputParameters & parameters);
@@ -28,9 +29,9 @@ public:
   void execute() override;
   void threadJoin(const UserObject & uo) override;
   void finalize() override;
-  virtual const RankTwoTensor & getResidual() const;
-  virtual const RankFourTensor & getJacobian() const;
-  virtual const VectorValue<bool> & getPeriodicDirections() const;
+  virtual const RankTwoTensor & getResidual() const override;
+  virtual const RankFourTensor & getJacobian() const override;
+  virtual const VectorValue<bool> & getPeriodicDirections() const override;
 
   /**
    * Calculate additional applied stresses
@@ -40,7 +41,7 @@ public:
 protected:
   std::string _base_name;
 
-  const MaterialProperty<RankFourTensor> & _Cijkl;
+  const MaterialProperty<RankFourTensor> & _dstress_dstrain;
   const MaterialProperty<RankTwoTensor> & _stress;
 
   RankTwoTensor _applied_stress_tensor;
@@ -53,4 +54,3 @@ protected:
   VectorValue<bool> _periodic_dir;
 };
 
-#endif // GLOBALSTRAINUSEROBJECT_H

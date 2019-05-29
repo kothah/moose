@@ -7,15 +7,19 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TWOPHASESTRESSMATERIAL_H
-#define TWOPHASESTRESSMATERIAL_H
+#pragma once
 
 #include "Material.h"
+#include "DerivativeMaterialInterface.h"
 
 // Forward Declarations
 class TwoPhaseStressMaterial;
-class RankTwoTensor;
-class RankFourTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
+template <typename>
+class RankFourTensorTempl;
+typedef RankFourTensorTempl<Real> RankFourTensor;
 
 template <>
 InputParameters validParams<TwoPhaseStressMaterial>();
@@ -24,7 +28,7 @@ InputParameters validParams<TwoPhaseStressMaterial>();
  * Construct a global strain from the phase strains in a manner that is consistent
  * with the construction of the global elastic energy by DerivativeTwoPhaseMaterial.
  */
-class TwoPhaseStressMaterial : public Material
+class TwoPhaseStressMaterial : public DerivativeMaterialInterface<Material>
 {
 public:
   TwoPhaseStressMaterial(const InputParameters & parameters);
@@ -49,6 +53,8 @@ protected:
   std::string _base_name;
   MaterialProperty<RankTwoTensor> & _stress;
   MaterialProperty<RankFourTensor> & _dstress_dstrain;
+
+  /// Global extra stress tensor
+  const MaterialProperty<RankTwoTensor> & _global_extra_stress;
 };
 
-#endif // TWOPHASESTRESSMATERIAL_H

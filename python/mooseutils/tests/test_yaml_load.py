@@ -1,4 +1,13 @@
 #!/usr/bin/env python2
+#* This file is part of the MOOSE framework
+#* https://www.mooseframework.org
+#*
+#* All rights reserved, see COPYRIGHT for full restrictions
+#* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+#*
+#* Licensed under LGPL 2.1, please see LICENSE for details
+#* https://www.gnu.org/licenses/lgpl-2.1.html
+
 import unittest
 from mooseutils.yaml_load import yaml_load
 
@@ -31,6 +40,12 @@ class TestYamlLoad(unittest.TestCase):
             yaml_load('foo_error.yml')
         self.assertIn("Unknown include file 'unknown.yml' on line 5 of foo_error.yml",
                       str(e.exception))
+
+    def testIncludeWithKey(self):
+        data = yaml_load('foo.yml')
+        self.assertEqual(data['d'], 1980)
+        self.assertEqual(data['e'], ['Edward', 'Bonnie'])
+        self.assertEqual(data['f'], [1906])
 
 
 if __name__ == '__main__':

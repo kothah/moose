@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MULTIMOOSEENUM_H
-#define MULTIMOOSEENUM_H
+#pragma once
 
 // MOOSE includes
 #include "Moose.h"
@@ -146,7 +145,7 @@ public:
   void clear();
 
   /**
-   * Return the number of items in the MultiMooseEnum
+   * Return the number of active items in the MultiMooseEnum
    */
   unsigned int size() const;
 
@@ -199,4 +198,3 @@ protected:
   MultiMooseEnum(const MooseEnumBase & other_enum);
 };
 
-#endif // MULTIMOOSEENUM_H

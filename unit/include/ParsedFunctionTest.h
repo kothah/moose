@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef USERFUNCTIONTEST_H
-#define USERFUNCTIONTEST_H
+#pragma once
 
 #include "gtest_include.h"
 
@@ -33,11 +32,15 @@ protected:
     InputParameters mesh_params = _factory->getValidParams("GeneratedMesh");
     mesh_params.set<MooseEnum>("dim") = "3";
     mesh_params.set<std::string>("_object_name") = "mesh";
+    mesh_params.set<std::string>("_type") = "GneratedMesh";
+
     _mesh = libmesh_make_unique<GeneratedMesh>(mesh_params);
+    _mesh->setMeshBase(_mesh->buildMeshBaseObject());
 
     InputParameters problem_params = _factory->getValidParams("FEProblem");
     problem_params.set<MooseMesh *>("mesh") = _mesh.get();
     problem_params.set<std::string>("_object_name") = "FEProblem";
+    problem_params.set<std::string>("_type") = "FEProblem";
     _fe_problem = libmesh_make_unique<FEProblem>(problem_params);
   }
 
@@ -52,4 +55,3 @@ protected:
   Factory * _factory;
 };
 
-#endif // USERFUNCTIONTEST_H

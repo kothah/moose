@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef GENERALUSEROBJECT_H
-#define GENERALUSEROBJECT_H
+#pragma once
 
 // MOOSE includes
 #include "UserObject.h"
@@ -46,8 +45,8 @@ public:
   /**
    * This method is not used and should not be used in a custom GeneralUserObject.
    */
-  virtual void threadJoin(const UserObject &) final;
-  virtual void subdomainSetup() final;
+  virtual void threadJoin(const UserObject &) override;
+  virtual void subdomainSetup() override;
   ///@}
 
   ///@{
@@ -77,4 +76,3 @@ protected:
   std::set<std::string> _supplied_vars;
 };
 
-#endif

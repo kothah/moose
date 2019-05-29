@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ACGRGRMULTI_H
-#define ACGRGRMULTI_H
+#pragma once
 
 #include "ACGrGrBase.h"
 
@@ -38,6 +37,13 @@ protected:
 
   /// Values of gammas for each order parameter
   std::vector<const MaterialProperty<Real> *> _prop_gammas;
+
+  const NonlinearVariableName _uname;
+  const MaterialProperty<Real> & _dmudu;
+  const std::vector<VariableName> _vname;
+  std::vector<const MaterialProperty<Real> *> _dmudEtaj;
+
+private:
+  Real computedF0du();
 };
 
-#endif // ACGRGRMULTI_H

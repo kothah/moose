@@ -1,19 +1,13 @@
-/****************************************************************/
-/*               DO NOT MODIFY THIS HEADER                      */
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*           (c) 2010 Battelle Energy Alliance, LLC             */
-/*                   ALL RIGHTS RESERVED                        */
-/*                                                              */
-/*          Prepared by Battelle Energy Alliance, LLC           */
-/*            Under Contract No. DE-AC07-05ID14517              */
-/*            With the U. S. Department of Energy               */
-/*                                                              */
-/*            See COPYRIGHT for full restrictions               */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef VECTORINTEGRATEDBC_H
-#define VECTORINTEGRATEDBC_H
+#pragma once
 
 #include "IntegratedBCBase.h"
 #include "MooseVariableInterface.h"
@@ -47,6 +41,11 @@ public:
   void computeJacobianBlockScalar(unsigned int jvar) override;
 
 protected:
+  /**
+   * method for computing the residual at quadrature points
+   */
+  virtual Real computeQpResidual() = 0;
+
   VectorMooseVariable & _var;
 
   /// normals at quadrature points
@@ -56,22 +55,15 @@ protected:
 
   /// shape function values (in QPs)
   const VectorVariablePhiValue & _phi;
-  /// curls of shape functions (in QPs)
-  const VectorVariablePhiCurl & _curl_phi;
 
   // test functions
 
   /// test function values (in QPs)
   const VectorVariableTestValue & _test;
-  /// curls of test functions  (in QPs)
-  const VectorVariableTestCurl & _curl_test;
 
   // solution variable
 
   /// the values of the unknown variable this BC is acting on
   const VectorVariableValue & _u;
-  /// the curl of the unknown variable this BC is acting on
-  const VectorVariableCurl & _curl_u;
 };
 
-#endif /* VECTORINTEGRATEDBC_H */

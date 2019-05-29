@@ -30,7 +30,9 @@ validParams<MooseObject>()
       "control_tags",
       "Adds user-defined labels for accessing object parameters via control logic.");
   params.addParamNamesToGroup("enable control_tags", "Advanced");
-  params.addPrivateParam<std::string>("_object_name"); // the name passed to Factory::create
+  params.addPrivateParam<std::string>("_type");        // The name of the class being built
+  params.addPrivateParam<std::string>("_object_name"); // The name passed to Factory::create
+  params.addPrivateParam<std::string>("_unique_name"); // The unique name generated in the warehouse
   params.addPrivateParam<FEProblem *>("_fe_problem");
   params.addPrivateParam<FEProblemBase *>("_fe_problem_base");
   params.addPrivateParam<EigenProblem *>("_eigen_problem");
@@ -48,6 +50,7 @@ MooseObject::MooseObject(const InputParameters & parameters)
     ParallelObject(*parameters.getCheckedPointerParam<MooseApp *>("_moose_app")),
     _pars(parameters),
     _app(*getCheckedPointerParam<MooseApp *>("_moose_app")),
+    _type(getParam<std::string>("_type")),
     _name(getParam<std::string>("_object_name")),
     _enabled(getParam<bool>("enable")){}
 

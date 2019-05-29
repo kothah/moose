@@ -252,7 +252,7 @@
     iteration_window = 9
     growth_factor = 2.0
     cutback_factor = 0.5
-    postprocessor_dtlim = matl_ts_min
+    timestep_limiting_postprocessor = matl_ts_min
   [../]
 
 []
@@ -340,7 +340,7 @@
 
 [Outputs]
   print_linear_residuals = true
-  print_perf_log = true
+  perf_graph = true
   csv = true
   [./out]
     type = Exodus

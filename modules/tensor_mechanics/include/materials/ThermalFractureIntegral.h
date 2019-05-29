@@ -7,13 +7,14 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef THERMALFRACTUREINTEGRAL_H
-#define THERMALFRACTUREINTEGRAL_H
+#pragma once
 
 #include "Material.h"
 #include "DerivativeMaterialInterface.h"
 
-class RankTwoTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 class ThermalFractureIntegral;
 
@@ -38,4 +39,3 @@ protected:
   MaterialProperty<RankTwoTensor> & _total_deigenstrain_dT;
 };
 
-#endif // THERMALFRACTUREINTEGRAL_H

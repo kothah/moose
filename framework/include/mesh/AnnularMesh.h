@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ANNULARMESH_H
-#define ANNULARMESH_H
+#pragma once
 
 #include "MooseMesh.h"
 
@@ -34,6 +33,7 @@ public:
   virtual void buildMesh() override;
   virtual Real getMinInDimension(unsigned int component) const override;
   virtual Real getMaxInDimension(unsigned int component) const override;
+  virtual void prepared(bool state) override;
 
 protected:
   /// Number of elements in radial direction
@@ -68,6 +68,8 @@ protected:
 
   /// Subdomain ID of created tri elements (that only exist if rmin=0)
   const SubdomainID _tri_subdomain_id;
+
+  /// Boolean to indicate that dimensions may have changed
+  bool _dims_may_have_changed;
 };
 
-#endif /* ANNULARMESH_H */

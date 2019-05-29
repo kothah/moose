@@ -7,22 +7,25 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEMESH_H
-#define MOOSEMESH_H
+#pragma once
 
 #include "MooseObject.h"
 #include "BndNode.h"
 #include "BndElement.h"
 #include "Restartable.h"
 #include "MooseEnum.h"
+#include "PerfGraphInterface.h"
 
 #include <memory> //std::unique_ptr
+#include <unordered_map>
+#include <unordered_set>
 
 // libMesh
-#include "libmesh/bounding_box.h"
 #include "libmesh/elem_range.h"
 #include "libmesh/mesh_base.h"
 #include "libmesh/node_range.h"
+#include "libmesh/nanoflann.hpp"
+#include "libmesh/vector_value.h"
 
 // forward declaration
 class MooseMesh;
@@ -37,6 +40,7 @@ class QBase;
 class PeriodicBoundaries;
 class Partitioner;
 class GhostingFunctor;
+class BoundingBox;
 }
 
 // Useful typedefs
@@ -67,7 +71,7 @@ public:
  * MooseMesh wraps a libMesh::Mesh object and enhances its capabilities
  * by caching additional data and storing more state.
  */
-class MooseMesh : public MooseObject, public Restartable
+class MooseMesh : public MooseObject, public Restartable, public PerfGraphInterface
 {
 public:
   /**
@@ -76,10 +80,15 @@ public:
   MooseMesh(const InputParameters & parameters);
   MooseMesh(const MooseMesh & other_mesh);
 
-  /**
-   * Destructor
-   */
   virtual ~MooseMesh();
+
+  // The type of libMesh::MeshBase that will be used
+  enum class ParallelType
+  {
+    DEFAULT,
+    REPLICATED,
+    DISTRIBUTED
+  };
 
   /**
    * Clone method.  Allocates memory you are responsible to clean up.
@@ -92,6 +101,18 @@ public:
    * less likely that the caller will leak the memory in question.
    */
   virtual std::unique_ptr<MooseMesh> safeClone() const = 0;
+
+  /**
+   * Method to construct a libMesh::MeshBase object that is normally set and used by the MooseMesh
+   * object during the "init()" phase.
+   */
+  std::unique_ptr<MeshBase> buildMeshBaseObject(ParallelType override_type = ParallelType::DEFAULT);
+
+  /**
+   * Method to set the mesh_base object. If this method is NOT called prior to calling init(), a
+   * MeshBase object will be automatically constructed and set.
+   */
+  void setMeshBase(std::unique_ptr<MeshBase> mesh_base);
 
   /**
    * Initialize the Mesh object.  Most of the time this will turn around
@@ -114,6 +135,13 @@ public:
    * object.
    */
   virtual unsigned int dimension() const;
+
+  /**
+   * Returns the effective spatial dimension determined by the coordinates actually used by the
+   * mesh. This means that a 1D mesh that has non-zero z or y coordinates is actually a 2D or 3D
+   * mesh, respectively. Likewise a 2D mesh that has non-zero z coordinates is actually 3D mesh.
+   */
+  virtual unsigned int effectiveSpatialDimension() const;
 
   /**
    * Returns a vector of boundary IDs for the requested element on the
@@ -259,7 +287,7 @@ public:
    * Setter/getter for the _is_prepared flag.
    */
   bool prepared() const;
-  void prepared(bool state);
+  virtual void prepared(bool state);
 
   /**
    * If this method is called, we will call libMesh's prepare_for_use method when we
@@ -322,8 +350,9 @@ public:
    * @param node Node pointer
    * @return true is the node is semi-local, false otherwise
    */
-  bool isSemiLocal(Node * node);
+  bool isSemiLocal(Node * const node) const;
 
+  ///@{
   /**
    * Return pointers to range objects for various types of ranges
    * (local nodes, boundary elems, etc.).
@@ -334,6 +363,13 @@ public:
   ConstNodeRange * getLocalNodeRange();
   StoredRange<MooseMesh::const_bnd_node_iterator, const BndNode *> * getBoundaryNodeRange();
   StoredRange<MooseMesh::const_bnd_elem_iterator, const BndElement *> * getBoundaryElementRange();
+  ///@}
+
+  /**
+   * Returns a map of boundaries to elements.
+   */
+  const std::unordered_map<boundary_id_type, std::unordered_set<dof_id_type>> &
+  getBoundariesToElems() const;
 
   /**
    * Returns a read-only reference to the set of subdomains currently
@@ -767,32 +803,6 @@ public:
    */
   void allowRecovery(bool allow) { _allow_recovery = allow; }
 
-  class MortarInterface
-  {
-  public:
-    /// The name of the interface
-    std::string _name;
-    /// subdomain ID of elements in this interface
-    SubdomainID _id;
-    /// List of elements on this interface
-    std::vector<Elem *> _elems;
-    /// master and slave ID of the interface
-    BoundaryName _master, _slave;
-  };
-
-  void addMortarInterface(const std::string & name,
-                          BoundaryName master,
-                          BoundaryName slave,
-                          SubdomainName domain_id);
-
-  std::vector<std::unique_ptr<MooseMesh::MortarInterface>> & getMortarInterfaces()
-  {
-    return _mortar_interface;
-  }
-
-  MooseMesh::MortarInterface * getMortarInterfaceByName(const std::string name);
-  MooseMesh::MortarInterface * getMortarInterface(BoundaryID master, BoundaryID slave);
-
   /**
    * Setter for custom partitioner
    */
@@ -824,6 +834,19 @@ public:
    */
   virtual std::string getFileName() const { return ""; }
 
+  /// Helper type for building periodic node maps
+  using PeriodicNodeInfo = std::pair<const Node *, BoundaryID>;
+
+  /**
+   * Set whether we need to delete remote elements
+   */
+  void needsRemoteElemDeletion(bool need_delete) { _need_delete = need_delete; }
+
+  /**
+   * Whether we need to delete remote elements
+   */
+  bool needsRemoteElemDeletion() const { return _need_delete; }
+
 protected:
   /// Deprecated (DO NOT USE)
   std::vector<std::unique_ptr<GhostingFunctor>> _ghosting_functors;
@@ -833,7 +856,7 @@ protected:
 
   /// Can be set to DISTRIBUTED, REPLICATED, or DEFAULT.  Determines whether
   /// the underlying libMesh mesh is a ReplicatedMesh or DistributedMesh.
-  MooseEnum _mesh_parallel_type;
+  ParallelType _parallel_type;
 
   /// False by default.  Final value is determined by several factors
   /// including the 'distribution' setting in the input file, and whether
@@ -949,8 +972,9 @@ protected:
   std::vector<BndElement *> _bnd_elems;
   typedef std::vector<BndElement *>::iterator bnd_elem_iterator_imp;
   typedef std::vector<BndElement *>::const_iterator const_bnd_elem_iterator_imp;
+
   /// Map of set of elem IDs connected to each boundary
-  std::map<boundary_id_type, std::set<dof_id_type>> _bnd_elem_ids;
+  std::unordered_map<boundary_id_type, std::unordered_set<dof_id_type>> _bnd_elem_ids;
 
   std::map<dof_id_type, Node *> _quadrature_nodes;
   std::map<dof_id_type, std::map<unsigned int, std::map<dof_id_type, Node *>>>
@@ -989,12 +1013,6 @@ protected:
 
   /// A vector holding the paired boundaries for a regular orthogonal mesh
   std::vector<std::pair<BoundaryID, BoundaryID>> _paired_boundary;
-
-  /// Mortar interfaces mapped through their names
-  std::map<std::string, MortarInterface *> _mortar_interface_by_name;
-  std::vector<std::unique_ptr<MortarInterface>> _mortar_interface;
-  /// Mortar interfaces mapped though master, slave IDs pairs
-  std::map<std::pair<BoundaryID, BoundaryID>, MortarInterface *> _mortar_interface_by_ids;
 
   void cacheInfo();
   void freeBndNodes();
@@ -1113,6 +1131,38 @@ private:
 
   /// Whether or not to allow generation of nodesets from sidesets
   bool _construct_node_list_from_side_list;
+
+  /// Timers
+  PerfID _prepare_timer;
+  PerfID _update_timer;
+  PerfID _mesh_changed_timer;
+  PerfID _cache_changed_lists_timer;
+  PerfID _update_active_semi_local_node_range_timer;
+  PerfID _build_node_list_timer;
+  PerfID _build_bnd_elem_list_timer;
+  PerfID _node_to_elem_map_timer;
+  PerfID _node_to_active_semilocal_elem_map_timer;
+  PerfID _get_active_local_element_range_timer;
+  PerfID _get_active_node_range_timer;
+  PerfID _get_local_node_range_timer;
+  PerfID _get_boundary_node_range_timer;
+  PerfID _get_boundary_element_range_timer;
+  PerfID _cache_info_timer;
+  PerfID _build_periodic_node_map_timer;
+  PerfID _build_periodic_node_sets_timer;
+  PerfID _detect_orthogonal_dim_ranges_timer;
+  PerfID _detect_paired_sidesets_timer;
+  PerfID _build_refinement_map_timer;
+  PerfID _build_coarsening_map_timer;
+  PerfID _find_adaptivity_qp_maps_timer;
+  PerfID _build_refinement_and_coarsening_maps_timer;
+  PerfID _change_boundary_id_timer;
+  PerfID _init_timer;
+  PerfID _read_recovered_mesh_timer;
+  PerfID _ghost_ghosted_boundaries_timer;
+
+  /// Whether we need to delete remote elements after init'ing the EquationSystems
+  bool _need_delete;
 };
 
 /**
@@ -1208,4 +1258,3 @@ struct MooseMesh::const_bnd_elem_iterator : variant_filter_iterator<MeshBase::Pr
 typedef StoredRange<MooseMesh::const_bnd_node_iterator, const BndNode *> ConstBndNodeRange;
 typedef StoredRange<MooseMesh::const_bnd_elem_iterator, const BndElement *> ConstBndElemRange;
 
-#endif /* MOOSEMESH_H */

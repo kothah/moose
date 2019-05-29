@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef EXAMPLEAPP_H
-#define EXAMPLEAPP_H
+#pragma once
 
 #include "MooseApp.h"
 
@@ -23,8 +22,6 @@ public:
   ExampleApp(InputParameters parameters);
 
   static void registerApps();
-  static void registerObjects(Factory & factory);
-  static void associateSyntax(Syntax & syntax, ActionFactory & action_factory);
+  static void registerAll(Factory & f, ActionFactory & af, Syntax & s);
 };
 
-#endif /* EXAMPLEAPP_H */

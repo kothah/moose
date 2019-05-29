@@ -7,10 +7,9 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWFLUIDSTATEBRINECO2IC_H
-#define POROUSFLOWFLUIDSTATEBRINECO2IC_H
+#pragma once
 
-#include "PorousFlowFluidStateICBase.h"
+#include "PorousFlowFluidStateIC.h"
 
 class PorousFlowBrineCO2;
 class PorousFlowFluidStateBrineCO2IC;
@@ -23,18 +22,9 @@ InputParameters validParams<PorousFlowFluidStateBrineCO2IC>();
  * the total mass fraction of a component summed over all
  * phases, z, for brine and CO2
  */
-class PorousFlowFluidStateBrineCO2IC : public PorousFlowFluidStateICBase
+class PorousFlowFluidStateBrineCO2IC : public PorousFlowFluidStateIC
 {
 public:
   PorousFlowFluidStateBrineCO2IC(const InputParameters & parameters);
-
-  virtual Real value(const Point & p) override;
-
-private:
-  /// NaCl mass fraction (kg/kg)
-  const VariableValue & _xnacl;
-  /// FluidState UserObject
-  const PorousFlowBrineCO2 & _fs_uo;
 };
 
-#endif // POROUSFLOWFLUIDSTATEBRINECO2IC_H

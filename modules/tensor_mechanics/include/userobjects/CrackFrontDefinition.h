@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CRACKFRONTDEFINITION_H
-#define CRACKFRONTDEFINITION_H
+#pragma once
 
 #include "GeneralUserObject.h"
 #include "CrackFrontPointsProvider.h"
@@ -17,7 +16,9 @@
 
 class CrackFrontDefinition;
 class AuxiliarySystem;
-class RankTwoTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 // libMesh forward declarations
 namespace libMesh
@@ -197,4 +198,3 @@ protected:
                              const Node * const current_node) const;
 };
 
-#endif /* CRACKFRONTDEFINITION_H */

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef EXAMPLECONVECTION_H
-#define EXAMPLECONVECTION_H
+#pragma once
 
 #include "Kernel.h"
 
@@ -28,7 +27,7 @@ protected:
   virtual Real computeQpJacobian() override;
 
 private:
+  // we will store a material property instead of VariableGradient (like example 3):
   const MaterialProperty<RealGradient> & _velocity;
 };
 
-#endif // EXAMPLECONVECTION_H

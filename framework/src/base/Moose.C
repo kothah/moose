@@ -9,6 +9,9 @@
 
 #include "libmesh/petsc_macro.h"
 #include "libmesh/libmesh_config.h"
+#include "libmesh/petsc_vector.h"
+#include "libmesh/petsc_matrix.h"
+#include <petscsnes.h>
 
 #include "Moose.h"
 #include "MooseApp.h"
@@ -19,6 +22,7 @@
 #include "Factory.h"
 #include "PetscSupport.h"
 #include "Syntax.h"
+#include "MooseSyntax.h"
 
 #include <unistd.h>
 
@@ -38,14 +42,43 @@ const ExecFlagType EXEC_FORCED("FORCED", 0x40);                 // 64
 const ExecFlagType EXEC_FAILED("FAILED", 0x80);                 // 128
 const ExecFlagType EXEC_CUSTOM("CUSTOM", 0x100);                // 256
 const ExecFlagType EXEC_SUBDOMAIN("SUBDOMAIN", 0x200);          // 512
+const ExecFlagType EXEC_PRE_DISPLACE("PRE_DISPLACE");
 const ExecFlagType EXEC_SAME_AS_MULTIAPP("SAME_AS_MULTIAPP");
+const ExecFlagType EXEC_PRE_MULTIAPP_SETUP("PRE_MULTIAPP_SETUP");
+const ExecFlagType EXEC_TRANSFER("TRANSFER");
+
+void
+MooseVecView(NumericVector<Number> & vector)
+{
+  PetscVector<Number> & petsc_vec = static_cast<PetscVector<Number> &>(vector);
+  VecView(petsc_vec.vec(), 0);
+}
+
+void
+MooseMatView(SparseMatrix<Number> & mat)
+{
+  PetscMatrix<Number> & petsc_mat = static_cast<PetscMatrix<Number> &>(mat);
+  MatView(petsc_mat.mat(), 0);
+}
 
 namespace Moose
 {
 
+void associateSyntaxInner(Syntax & syntax, ActionFactory & action_factory);
+
+void
+registerAll(Factory & f, ActionFactory & af, Syntax & s)
+{
+  registerObjects(f, {"MooseApp"});
+  associateSyntaxInner(s, af);
+  registerActions(s, af, {"MooseApp"});
+  registerExecFlags(f);
+}
+
 void
 registerObjects(Factory & factory)
 {
+  mooseDeprecated("use registerAll instead of registerObjects");
   registerObjects(factory, {"MooseApp"});
 }
 
@@ -59,9 +92,11 @@ void
 addActionTypes(Syntax & syntax)
 {
   /**
-   * The last param here indicates whether the task must be satisfied or not for a successful run.
-   * If set to true, then the ActionWarehouse will attempt to create "Action"s automatically if they
-   * have not been explicitly created by the parser or some other mechanism.
+   * The (optional) last param here indicates whether the task should trigger an Action auto-build.
+   * If a task is marked as "true". Then MOOSE will attempt to build the associated Action if one is
+   * not supplied by some other means (usually through the input file or custom Action). Only
+   * Actions that do not have required parameters and have defaults for all optional parameters can
+   * be built automatically (See ActionWarehouse.C).
    *
    * Note: Many of the actions in the "Minimal Problem" section are marked as false.  However, we
    * can generally force creation of these "Action"s as needed by registering them to syntax that we
@@ -73,15 +108,17 @@ addActionTypes(Syntax & syntax)
   /**** Register Actions ****/
   /**************************/
   registerMooseObjectTask("create_problem",               Problem,                false);
-  registerMooseObjectTask("setup_executioner",            Executioner,            true);
+  registerMooseObjectTask("setup_executioner",            Executioner,            false);
 
   // This task does not construct an object, but it needs all of the parameters that
   // would normally be used to construct an object.
   registerMooseObjectTask("determine_system_type",        Executioner,            true);
 
   registerMooseObjectTask("setup_mesh",                   MooseMesh,              false);
+  registerMooseObjectTask("set_mesh_base",                MooseMesh,              false);
   registerMooseObjectTask("init_mesh",                    MooseMesh,              false);
   registerMooseObjectTask("add_mesh_modifier",            MeshModifier,           false);
+  registerMooseObjectTask("add_mesh_generator",           MeshGenerator,          false);
 
   registerMooseObjectTask("add_kernel",                   Kernel,                 false);
   appendMooseObjectTask  ("add_kernel",                   EigenKernel);
@@ -91,11 +128,13 @@ addActionTypes(Syntax & syntax)
 
   registerMooseObjectTask("add_material",                 Material,               false);
   registerMooseObjectTask("add_bc",                       BoundaryCondition,      false);
+
   registerMooseObjectTask("add_function",                 Function,               false);
   registerMooseObjectTask("add_distribution",             Distribution,           false);
   registerMooseObjectTask("add_sampler",                  Sampler,                false);
 
   registerMooseObjectTask("add_aux_kernel",               AuxKernel,              false);
+  appendMooseObjectTask  ("add_aux_kernel",               VectorAuxKernel);
   registerMooseObjectTask("add_elemental_field_variable", AuxKernel,              false);
 
   registerMooseObjectTask("add_scalar_kernel",            ScalarKernel,           false);
@@ -103,6 +142,7 @@ addActionTypes(Syntax & syntax)
   registerMooseObjectTask("add_dirac_kernel",             DiracKernel,            false);
   registerMooseObjectTask("add_dg_kernel",                DGKernel,               false);
   registerMooseObjectTask("add_interface_kernel",         InterfaceKernel,        false);
+  appendMooseObjectTask  ("add_interface_kernel",         VectorInterfaceKernel);
   registerMooseObjectTask("add_constraint",               Constraint,             false);
 
   registerMooseObjectTask("add_ic",                       InitialCondition,       false);
@@ -142,17 +182,22 @@ addActionTypes(Syntax & syntax)
   registerTask("add_bounds_vectors", false);
   registerTask("add_periodic_bc", false);
   registerTask("add_aux_variable", false);
+  registerTask("add_external_aux_variables", true);
   registerTask("add_variable", false);
 
   registerTask("execute_mesh_modifiers", false);
+  registerTask("execute_mesh_generators", true);
   registerTask("uniform_refine_mesh", false);
   registerTask("prepare_mesh", false);
-  registerTask("add_geometric_rm", true);
-  registerTask("setup_mesh_complete", false); // calls prepare
+  registerTask("delete_remote_elements_post_equation_systems_init", false);
+  registerTask("setup_mesh_complete", true); // calls prepare
+  registerTask("add_geometric_rm", false);
+  registerTask("attach_geometric_rm", true);
 
   registerTask("init_displaced_problem", false);
 
-  registerTask("add_algebraic_rm", true);
+  registerTask("add_algebraic_rm", false);
+  registerTask("attach_algebraic_rm", true);
   registerTask("init_problem", true);
   registerTask("check_copy_nodal_vars", true);
   registerTask("copy_nodal_vars", true);
@@ -161,6 +206,7 @@ addActionTypes(Syntax & syntax)
 
   registerTask("setup_dampers", true);
   registerTask("check_integrity", true);
+  registerTask("check_integrity_early", true);
   registerTask("setup_quadrature", true);
 
   /// Additional Actions
@@ -168,7 +214,6 @@ addActionTypes(Syntax & syntax)
   registerTask("set_global_params", false);
   registerTask("setup_adaptivity", false);
   registerTask("meta_action", false);
-  registerTask("setup_debug", false);
   registerTask("setup_residual_debug", false);
   registerTask("setup_oversampling", false);
   registerTask("deprecated_block", false);
@@ -179,10 +224,17 @@ addActionTypes(Syntax & syntax)
   registerTask("setup_function_complete", false);
   registerTask("setup_variable_complete", false);
   registerTask("ready_to_init", true);
+  appendMooseObjectTask("ready_to_init", InterfaceKernel);
+  appendMooseObjectTask("ready_to_init", VectorInterfaceKernel);
+  appendMooseObjectTask("ready_to_init", DGKernel);
 
   // Output related actions
-  registerTask("setup_material_output", true);
+  registerTask("add_output_aux_variables", true);
   registerTask("check_output", true);
+
+  registerTask("create_problem_default", true);
+  registerTask("create_problem_custom", false);
+  registerTask("create_problem_complete", false);
 
   /**************************/
   /****** Dependencies ******/
@@ -201,10 +253,14 @@ addActionTypes(Syntax & syntax)
                            "(common_output)"
                            "(set_global_params)"
                            "(setup_recover_file_base)"
-                           "(check_copy_nodal_vars)"
                            "(setup_mesh)"
+                           "(add_mesh_generator)"
+                           "(execute_mesh_generators)"
+                           "(set_mesh_base)"
+                           "(check_copy_nodal_vars)"
                            "(add_partitioner)"
                            "(add_geometric_rm)"
+                           "(attach_geometric_rm)"
                            "(init_mesh)"
                            "(prepare_mesh)"
                            "(add_mesh_modifier)"
@@ -214,12 +270,17 @@ addActionTypes(Syntax & syntax)
                            "(setup_mesh_complete)"
                            "(determine_system_type)"
                            "(create_problem)"
+                           "(create_problem_custom)"
+                           "(create_problem_default)"
+                           "(create_problem_complete)"
                            "(setup_postprocessor_data)"
                            "(setup_time_integrator)"
                            "(setup_executioner)"
+                           "(check_integrity_early)"
                            "(setup_predictor)"
                            "(init_displaced_problem)"
-                           "(add_aux_variable, add_variable, add_elemental_field_variable)"
+                           "(add_aux_variable, add_variable, add_elemental_field_variable,"
+                           " add_external_aux_variables)"
                            "(setup_variable_complete)"
                            "(setup_quadrature)"
                            "(add_function)"
@@ -242,17 +303,18 @@ addActionTypes(Syntax & syntax)
                            "(add_transfer)"
                            "(copy_nodal_vars, copy_nodal_aux_vars)"
                            "(add_material)"
-                           "(setup_material_output)"
+                           "(add_output_aux_variables)"
                            "(add_algebraic_rm)"
+                           "(attach_algebraic_rm)"
                            "(init_problem)"
-                           "(setup_debug)"
+                           "(delete_remote_elements_post_equation_systems_init)"
                            "(add_output)"
                            "(add_postprocessor)"
                            "(add_vector_postprocessor)" // MaterialVectorPostprocessor requires this
                                                         // to be after material objects are created.
-                           "(add_aux_kernel, add_bc, add_damper, add_dirac_kernel, add_kernel, "
-                           "add_nodal_kernel, add_dg_kernel, add_interface_kernel, "
-                           "add_scalar_kernel, add_aux_scalar_kernel, add_indicator, add_marker)"
+                           "(add_aux_kernel, add_bc, add_damper, add_dirac_kernel, add_kernel,"
+                           " add_nodal_kernel, add_dg_kernel, add_interface_kernel,"
+                           " add_scalar_kernel, add_aux_scalar_kernel, add_indicator, add_marker)"
                            "(add_control)"
                            "(check_output)"
                            "(check_integrity)");
@@ -289,6 +351,7 @@ addActionTypes(Syntax & syntax)
 void
 registerActions(Syntax & syntax, ActionFactory & action_factory)
 {
+  mooseDeprecated("use registerAll instead of registerActions");
   registerActions(syntax, action_factory, {"MooseApp"});
 }
 
@@ -316,8 +379,158 @@ registerExecFlags(Factory & factory)
   registerExecFlag(EXEC_FORCED);
   registerExecFlag(EXEC_FAILED);
   registerExecFlag(EXEC_CUSTOM);
+  registerExecFlag(EXEC_TRANSFER);
   registerExecFlag(EXEC_SUBDOMAIN);
+  registerExecFlag(EXEC_PRE_DISPLACE);
   registerExecFlag(EXEC_SAME_AS_MULTIAPP);
+  registerExecFlag(EXEC_PRE_MULTIAPP_SETUP);
+}
+
+void
+associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
+{
+  /**
+   * Note: the optional third parameter is used to differentiate which task is
+   * satisfied based on the syntax encountered for classes which are registered
+   * to satisfy more than one task
+   */
+  registerSyntaxTask("CopyNodalVarsAction", "Variables/*", "check_copy_nodal_vars");
+  registerSyntaxTask("CopyNodalVarsAction", "Variables/*", "copy_nodal_vars");
+  registerSyntaxTask("CopyNodalVarsAction", "AuxVariables/*", "check_copy_nodal_vars");
+  registerSyntaxTask("CopyNodalVarsAction", "AuxVariables/*", "copy_nodal_aux_vars");
+
+  registerSyntaxTask("AddKernelAction", "Kernels/*", "add_kernel");
+  registerSyntaxTask("AddNodalKernelAction", "NodalKernels/*", "add_nodal_kernel");
+  registerSyntaxTask("AddKernelAction", "AuxKernels/*", "add_aux_kernel");
+  registerSyntaxTask("AddKernelAction", "Bounds/*", "add_aux_kernel");
+
+  registerSyntaxTask("AddScalarKernelAction", "ScalarKernels/*", "add_scalar_kernel");
+  registerSyntaxTask("AddScalarKernelAction", "AuxScalarKernels/*", "add_aux_scalar_kernel");
+
+  registerSyntaxTask("AddBCAction", "BCs/*", "add_bc");
+
+  registerSyntax("CreateProblemAction", "Problem");
+  registerSyntax("DynamicObjectRegistrationAction", "Problem");
+
+  registerSyntax("SetupMeshAction", "Mesh");
+  registerSyntax("SetupMeshCompleteAction", "Mesh");
+  registerSyntax("CreateDisplacedProblemAction", "Mesh");
+  registerSyntax("DisplayGhostingAction", "Mesh");
+
+  registerSyntax("AddMeshModifierAction", "MeshModifiers/*");
+  registerSyntax("AddMeshGeneratorAction", "MeshGenerators/*");
+
+  registerSyntax("AddFunctionAction", "Functions/*");
+  syntax.registerSyntaxType("Functions/*", "FunctionName");
+
+  registerSyntax("GlobalParamsAction", "GlobalParams");
+
+  registerSyntax("AddDistributionAction", "Distributions/*");
+  registerSyntax("AddSamplerAction", "Samplers/*");
+
+  registerSyntax("SetupDebugAction", "Debug");
+  registerSyntax("SetupResidualDebugAction", "Debug");
+
+  /// Variable/AuxVariable Actions
+  registerSyntax("AddVariableAction", "Variables/*");
+  syntax.registerSyntaxType("Variables/*", "VariableName");
+  syntax.registerSyntaxType("Variables/*", "NonlinearVariableName");
+
+  registerSyntax("AddICAction", "Variables/*/InitialCondition");
+
+  registerSyntax("AddAuxVariableAction", "AuxVariables/*");
+  syntax.registerSyntaxType("AuxVariables/*", "VariableName");
+  syntax.registerSyntaxType("AuxVariables/*", "AuxVariableName");
+
+  registerSyntax("AddICAction", "AuxVariables/*/InitialCondition");
+
+  registerSyntaxTask("EmptyAction", "BCs/Periodic", "no_action"); // placeholder
+  registerSyntax("AddPeriodicBCAction", "BCs/Periodic/*");
+
+  registerSyntaxTask("AddInitialConditionAction", "ICs/*", "add_ic");
+
+  registerSyntax("AddMaterialAction", "Materials/*");
+
+  registerSyntax("SetupPostprocessorDataAction", "Postprocessors/*");
+  registerSyntax("AddPostprocessorAction", "Postprocessors/*");
+  syntax.registerSyntaxType("Postprocessors/*", "PostprocessorName");
+  syntax.registerSyntaxType("Postprocessors/*", "UserObjectName");
+
+  registerSyntax("AddVectorPostprocessorAction", "VectorPostprocessors/*");
+  syntax.registerSyntaxType("VectorPostprocessors/*", "VectorPostprocessorName");
+
+  registerSyntax("AddDamperAction", "Dampers/*");
+
+  registerSyntax("AddOutputAction", "Outputs/*");
+  registerSyntax("CommonOutputAction", "Outputs");
+  syntax.registerSyntaxType("Outputs/*", "OutputName");
+
+  // Note: Preconditioner Actions will be built by this setup action
+  registerSyntax("SetupPreconditionerAction", "Preconditioning/*");
+  registerSyntax("AddFieldSplitAction", "Preconditioning/*/*");
+
+  registerSyntax("CreateExecutionerAction", "Executioner");
+  registerSyntax("SetupTimeStepperAction", "Executioner/TimeStepper");
+  registerSyntax("SetupTimeIntegratorAction", "Executioner/TimeIntegrator");
+
+  registerSyntax("SetupQuadratureAction", "Executioner/Quadrature");
+  registerSyntax("SetupPredictorAction", "Executioner/Predictor");
+#ifdef LIBMESH_ENABLE_AMR
+  registerSyntax("AdaptivityAction", "Executioner/Adaptivity");
+#endif
+
+  registerSyntax("PartitionerAction", "Mesh/Partitioner");
+
+  registerSyntax("AddDiracKernelAction", "DiracKernels/*");
+
+  registerSyntax("AddDGKernelAction", "DGKernels/*");
+
+  registerSyntax("AddInterfaceKernelAction", "InterfaceKernels/*");
+
+  registerSyntax("AddConstraintAction", "Constraints/*");
+
+  registerSyntax("AddUserObjectAction", "UserObjects/*");
+  syntax.registerSyntaxType("UserObjects/*", "UserObjectName");
+  registerSyntax("AddControlAction", "Controls/*");
+  registerSyntax("AddBoundsVectorsAction", "Bounds");
+
+  registerSyntax("AddNodalNormalsAction", "NodalNormals");
+
+  // Indicator
+  registerSyntax("AddElementalFieldAction", "Adaptivity/Indicators/*");
+  registerSyntax("AddIndicatorAction", "Adaptivity/Indicators/*");
+  syntax.registerSyntaxType("Adaptivity/Indicators/*", "IndicatorName");
+
+  // Marker
+  registerSyntax("AddElementalFieldAction", "Adaptivity/Markers/*");
+  registerSyntax("AddMarkerAction", "Adaptivity/Markers/*");
+  syntax.registerSyntaxType("Adaptivity/Markers/*", "MarkerName");
+
+  // New Adaptivity System
+  registerSyntax("SetAdaptivityOptionsAction", "Adaptivity");
+
+  // Deprecated Block
+  registerSyntax("DeprecatedBlockAction", "DeprecatedBlock");
+
+  // Multi Apps
+  registerSyntax("AddMultiAppAction", "MultiApps/*");
+  syntax.registerSyntaxType("MultiApps/*", "MultiAppName");
+
+  // Transfers
+  registerSyntax("AddTransferAction", "Transfers/*");
+
+  // Material derivative test
+  registerSyntaxTask("EmptyAction", "Debug/MaterialDerivativeTest", "no_action"); // placeholder
+  registerSyntax("MaterialDerivativeTestAction", "Debug/MaterialDerivativeTest/*");
+
+  addActionTypes(syntax);
+}
+
+void
+associateSyntax(Syntax & syntax, ActionFactory & action_factory)
+{
+  associateSyntaxInner(syntax, action_factory);
+  registerActions(syntax, action_factory);
 }
 
 void

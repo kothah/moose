@@ -23,6 +23,7 @@ validParams<PorousFlowMassFraction>()
                        "N=num_components and P=num_phases, and it is assumed that "
                        "f_ph^cN=1-sum(f_ph^c,{c,0,N-1}) so that f_ph^cN need not be given.  If no "
                        "variables are provided then num_phases=1=num_components.");
+  params.addPrivateParam<std::string>("pf_material_type", "mass_fraction");
   params.addClassDescription("This Material forms a std::vector<std::vector ...> of mass-fractions "
                              "out of the individual mass fractions");
   return params;
@@ -65,7 +66,7 @@ PorousFlowMassFraction::PorousFlowMassFraction(const InputParameters & parameter
   for (unsigned i = 0; i < _num_passed_mf_vars; ++i)
   {
     _mf_vars_num[i] = coupled("mass_fraction_vars", i);
-    _mf_vars[i] = (_nodal_material ? &coupledNodalValue("mass_fraction_vars", i)
+    _mf_vars[i] = (_nodal_material ? &coupledDofValues("mass_fraction_vars", i)
                                    : &coupledValue("mass_fraction_vars", i));
     _grad_mf_vars[i] = &coupledGradient("mass_fraction_vars", i);
   }

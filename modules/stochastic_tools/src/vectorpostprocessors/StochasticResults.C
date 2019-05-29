@@ -39,13 +39,14 @@ StochasticResults::initialize()
   // Resize and zero vectors to the correct size, this allows the SamplerPostprocessorTransfer
   // to set values in the vector directly.
   std::vector<DenseMatrix<Real>> data = _sampler->getSamples();
-  for (auto i = beginIndex(data); i < data.size(); ++i)
+  for (MooseIndex(data) i = 0; i < data.size(); ++i)
     _sample_vectors[i]->resize(data[i].m(), 0);
 }
 
 VectorPostprocessorValue &
 StochasticResults::getVectorPostprocessorValueByGroup(unsigned int group)
 {
+  StochasticResults::initialize();
   if (group >= _sample_vectors.size())
     mooseError("The supplied sample index ", group, " does not exist.");
   return *_sample_vectors[group];
@@ -55,8 +56,10 @@ void
 StochasticResults::init(Sampler & sampler)
 {
   _sampler = &sampler;
+  /* TODO: getSamples must be called to initialized the names, this shouldn't be the case */
+  std::vector<DenseMatrix<Real>> data = _sampler->getSamples();
   const std::vector<std::string> & names = _sampler->getSampleNames();
   _sample_vectors.resize(names.size());
-  for (auto i = beginIndex(names); i < names.size(); ++i)
+  for (MooseIndex(names) i = 0; i < names.size(); ++i)
     _sample_vectors[i] = &declareVector(names[i]);
 }

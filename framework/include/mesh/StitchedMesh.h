@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef STITCHEDMESH_H
-#define STITCHEDMESH_H
+#pragma once
 
 #include "MooseMesh.h"
 
@@ -32,8 +31,6 @@ class StitchedMesh : public MooseMesh
 public:
   StitchedMesh(const InputParameters & parameters);
   StitchedMesh(const StitchedMesh & other_mesh);
-
-  virtual ~StitchedMesh();
 
   virtual std::unique_ptr<MooseMesh> safeClone() const override;
 
@@ -59,4 +56,3 @@ protected:
   std::vector<std::unique_ptr<ReplicatedMesh>> _meshes;
 };
 
-#endif /* STITCHEDMESH_H */

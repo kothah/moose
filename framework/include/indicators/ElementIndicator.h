@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ELEMENTINDICATOR_H
-#define ELEMENTINDICATOR_H
+#pragma once
 
 #include "Indicator.h"
 #include "TransientInterface.h"
@@ -39,15 +38,15 @@ public:
   ElementIndicator(const InputParameters & parameters);
 
 protected:
-  MooseVariableFEBase & _field_var;
+  MooseVariable & _field_var;
 
-  const Elem *& _current_elem;
+  const Elem * const & _current_elem;
   /// Volume of the current element
   const Real & _current_elem_volume;
 
   unsigned int _qp;
   const MooseArray<Point> & _q_point;
-  QBase *& _qrule;
+  const QBase * const & _qrule;
   const MooseArray<Real> & _JxW;
   const MooseArray<Real> & _coord;
 
@@ -59,14 +58,7 @@ protected:
   /// Holds the solution gradient at the current quadrature points
   const VariableGradient & _grad_u;
 
-  /// Time derivative of u
-  const VariableValue & _u_dot;
-
-  /// Derivative of u_dot wrt u
-  const VariableValue & _du_dot_du;
-
   /// Holds local indicator entries as their accumulated by this ElementIndicator
   DenseVector<Number> _local_indtr;
 };
 
-#endif /* ELEMENTINDICATOR_H */

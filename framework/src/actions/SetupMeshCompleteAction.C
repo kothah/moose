@@ -15,6 +15,10 @@
 
 registerMooseAction("MooseApp", SetupMeshCompleteAction, "prepare_mesh");
 
+registerMooseAction("MooseApp",
+                    SetupMeshCompleteAction,
+                    "delete_remote_elements_post_equation_systems_init");
+
 registerMooseAction("MooseApp", SetupMeshCompleteAction, "execute_mesh_modifiers");
 
 registerMooseAction("MooseApp", SetupMeshCompleteAction, "uniform_refine_mesh");
@@ -29,7 +33,10 @@ validParams<SetupMeshCompleteAction>()
   return params;
 }
 
-SetupMeshCompleteAction::SetupMeshCompleteAction(InputParameters params) : Action(params) {}
+SetupMeshCompleteAction::SetupMeshCompleteAction(InputParameters params)
+  : Action(params), _uniform_refine_timer(registerTimedSection("uniformRefine", 2))
+{
+}
 
 bool
 SetupMeshCompleteAction::completeSetup(MooseMesh * mesh)
@@ -54,10 +61,19 @@ SetupMeshCompleteAction::act()
 
   if (_current_task == "execute_mesh_modifiers")
   {
+    // we don't need to run mesh modifiers *again* after they ran already during the mesh
+    // splitting process
+    if (_app.isUseSplit())
+      return;
     _app.executeMeshModifiers();
   }
   else if (_current_task == "uniform_refine_mesh")
   {
+    // we don't need to run mesh modifiers *again* after they ran already during the mesh
+    // splitting process
+    if (_app.isUseSplit())
+      return;
+
     /**
      * If possible we'd like to refine the mesh here before the equation systems
      * are setup to avoid doing expensive projections. If however we are doing a
@@ -66,10 +82,24 @@ SetupMeshCompleteAction::act()
      */
     if (_app.setFileRestart() == false && _app.isRecovering() == false)
     {
-      Adaptivity::uniformRefine(_mesh.get());
+      if (_mesh->uniformRefineLevel())
+      {
+        TIME_SECTION(_uniform_refine_timer);
 
+        Adaptivity::uniformRefine(_mesh.get());
+
+        if (_displaced_mesh)
+          Adaptivity::uniformRefine(_displaced_mesh.get());
+      }
+    }
+  }
+  else if (_current_task == "delete_remote_elements_post_equation_systems_init")
+  {
+    if (_mesh->needsRemoteElemDeletion())
+    {
+      _mesh->getMesh().delete_remote_elements();
       if (_displaced_mesh)
-        Adaptivity::uniformRefine(_displaced_mesh.get());
+        _displaced_mesh->getMesh().delete_remote_elements();
     }
   }
   else

@@ -7,12 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWWATERNCG_H
-#define POROUSFLOWWATERNCG_H
+#pragma once
 
-#include "PorousFlowFluidStateBase.h"
+#include "PorousFlowFluidStateMultiComponentBase.h"
 
-class SinglePhaseFluidPropertiesPT;
+class SinglePhaseFluidProperties;
 class PorousFlowWaterNCG;
 
 template <>
@@ -30,30 +29,19 @@ InputParameters validParams<PorousFlowWaterNCG>();
  * Yk: mass fraction of component k in the gas phase
  * Xk: mass fraction of component k in the liquid phase
  */
-class PorousFlowWaterNCG : public PorousFlowFluidStateBase
+class PorousFlowWaterNCG : public PorousFlowFluidStateMultiComponentBase
 {
 public:
   PorousFlowWaterNCG(const InputParameters & parameters);
 
-  /**
-   * Name of FluidState
-   * @return water-ncg
-   */
-  virtual std::string fluidStateName() const;
+  virtual std::string fluidStateName() const override;
 
-  /**
-   * Determines the complete thermophysical state of the system for a given set of
-   * primary variables
-   *
-   * @param pressure gas phase pressure (Pa)
-   * @param temperature fluid temperature (K)
-   * @param Z total mass fraction of NCG component
-   * @param[out] fsp the FluidStateProperties struct containing all properties
-   */
   void thermophysicalProperties(Real pressure,
                                 Real temperature,
+                                Real Xnacl,
                                 Real Z,
-                                std::vector<FluidStateProperties> & fsp) const;
+                                unsigned int qp,
+                                std::vector<FluidStateProperties> & fsp) const override;
   /**
    * Mass fractions of NCG in liquid phase and H2O in gas phase at thermodynamic
    * equilibrium. Calculated using Henry's law (for NCG component), and Raoult's
@@ -137,15 +125,8 @@ public:
    */
   void enthalpyOfDissolution(Real temperature, Real & hdis, Real & dhdis_dT) const;
 
-  /**
-   * Total mass fraction of NCG summed over all phases in the two-phase state
-   *
-   * @param pressure gas pressure (Pa)
-   * @param temperature temperature (K)
-   * @param saturation gas saturation (-)
-   * @return total mass fraction Z (-)
-   */
-  Real totalMassFraction(Real pressure, Real temperature, Real saturation) const;
+  virtual Real totalMassFraction(
+      Real pressure, Real temperature, Real Xnacl, Real saturation, unsigned int qp) const override;
 
 protected:
   /**
@@ -162,9 +143,9 @@ protected:
   void checkVariables(Real temperature) const;
 
   /// Fluid properties UserObject for water
-  const SinglePhaseFluidPropertiesPT & _water_fp;
+  const SinglePhaseFluidProperties & _water_fp;
   /// Fluid properties UserObject for the NCG
-  const SinglePhaseFluidPropertiesPT & _ncg_fp;
+  const SinglePhaseFluidProperties & _ncg_fp;
   /// Molar mass of water (kg/mol)
   const Real _Mh2o;
   /// Molar mass of non-condensable gas (kg/mol)
@@ -175,4 +156,3 @@ protected:
   const Real _water_critical_temperature;
 };
 
-#endif // POROUSFLOWWATERNCG_H

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEVARIABLEEIGENSTRAIN_H
-#define COMPUTEVARIABLEEIGENSTRAIN_H
+#pragma once
 
 #include "ComputeEigenstrain.h"
 #include "DerivativeMaterialInterface.h"
@@ -19,8 +18,8 @@ template <>
 InputParameters validParams<ComputeVariableEigenstrain>();
 
 /**
- * ComputeVariableEigenstrain computes an Eigenstrain that is a function of a single
- * variable defined by a base tensor and a scalar function defined in a Derivative Material.
+ * ComputeVariableEigenstrain computes an Eigenstrain that is a function of
+ * variables defined by a base tensor and a scalar function defined in a Derivative Material.
  */
 class ComputeVariableEigenstrain : public DerivativeMaterialInterface<ComputeEigenstrain>
 {
@@ -44,4 +43,3 @@ protected:
   std::vector<std::vector<MaterialProperty<RankTwoTensor> *>> _d2elastic_strain;
 };
 
-#endif // COMPUTEVARIABLEEIGENSTRAIN_H

@@ -24,6 +24,7 @@
 #include "UserObject.h"
 #include "CommandLine.h"
 #include "Conversion.h"
+#include "NonlinearSystemBase.h"
 
 #include "libmesh/mesh_tools.h"
 #include "libmesh/numeric_vector.h"
@@ -112,6 +113,11 @@ validParams<MultiApp>()
       false,
       "If true this will cause the output from the MultiApp to be 'moved' by its position vector");
 
+  params.addParam<Real>("global_time_offset",
+                        0,
+                        "The time offset relative to the master application for the purpose of "
+                        "starting a subapp at different time from the master application. The "
+                        "global time will be ahead by the offset specified here.");
   params.addParam<Real>("reset_time",
                         std::numeric_limits<Real>::max(),
                         "The time at which to reset Apps given by the 'reset_apps' parameter.  "
@@ -138,9 +144,25 @@ validParams<MultiApp>()
   params.addParam<std::vector<Point>>("move_positions",
                                       "The positions corresponding to each move_app.");
 
+  params.addParam<std::vector<std::string>>(
+      "cli_args",
+      std::vector<std::string>(),
+      "Additional command line arguments to pass to the sub apps. If one set is provided the "
+      "arguments are applied to all, otherwise there must be a set for each sub app.");
+
+  params.addRangeCheckedParam<Real>("relaxation_factor",
+                                    1.0,
+                                    "relaxation_factor>0 & relaxation_factor<2",
+                                    "Fraction of newly computed value to keep."
+                                    "Set between 0 and 2.");
+  params.addParam<std::vector<std::string>>("relaxed_variables",
+                                            std::vector<std::string>(),
+                                            "List of variables to relax during Picard Iteration");
+
   params.addPrivateParam<std::shared_ptr<CommandLine>>("_command_line");
   params.addPrivateParam<bool>("use_positions", true);
   params.declareControllable("enable");
+  params.declareControllable("cli_args", {EXEC_PRE_MULTIAPP_SETUP});
   params.registerBase("MultiApp");
 
   return params;
@@ -158,13 +180,15 @@ MultiApp::MultiApp(const InputParameters & parameters)
     _total_num_apps(0),
     _my_num_apps(0),
     _first_local_app(0),
-    _orig_comm(getParam<MPI_Comm>("_mpi_comm")),
-    _my_comm(MPI_COMM_SELF),
+    _orig_comm(_communicator.get()),
+    _my_communicator(),
+    _my_comm(_my_communicator.get()),
     _my_rank(0),
     _inflation(getParam<Real>("bounding_box_inflation")),
     _bounding_box_padding(getParam<Point>("bounding_box_padding")),
     _max_procs_per_app(getParam<unsigned int>("max_procs_per_app")),
     _output_in_position(getParam<bool>("output_in_position")),
+    _global_time_offset(getParam<Real>("global_time_offset")),
     _reset_time(getParam<Real>("reset_time")),
     _reset_apps(getParam<std::vector<unsigned int>>("reset_apps")),
     _reset_happened(false),
@@ -173,7 +197,8 @@ MultiApp::MultiApp(const InputParameters & parameters)
     _move_positions(getParam<std::vector<Point>>("move_positions")),
     _move_happened(false),
     _has_an_app(true),
-    _backups(declareRestartableDataWithContext<SubAppBackups>("backups", this))
+    _backups(declareRestartableDataWithContext<SubAppBackups>("backups", this)),
+    _cli_args(getParam<std::vector<std::string>>("cli_args"))
 {
 }
 
@@ -188,6 +213,10 @@ MultiApp::init(unsigned int num)
 
   _has_bounding_box.resize(_my_num_apps, false);
   _bounding_box.resize(_my_num_apps);
+
+  if ((_cli_args.size() > 1) && (_total_num_apps != _cli_args.size()))
+    paramError("cli_args",
+               "The number of items supplied must be 1 or equal to the number of sub apps.");
 }
 
 void
@@ -216,7 +245,7 @@ MultiApp::initialSetup()
         _app_type, getParam<std::string>("library_path"), getParam<std::string>("library_name"));
 
   for (unsigned int i = 0; i < _my_num_apps; i++)
-    createApp(i, _app.getGlobalTimeOffset());
+    createApp(i, _global_time_offset);
 }
 
 void
@@ -343,17 +372,37 @@ MultiApp::getExecutioner(unsigned int app)
 }
 
 void
+MultiApp::finalize()
+{
+  for (const auto & app_ptr : _apps)
+  {
+    auto * executioner = app_ptr->getExecutioner();
+    mooseAssert(executioner, "Executioner is nullptr");
+
+    executioner->feProblem().execute(EXEC_FINAL);
+    executioner->feProblem().outputStep(EXEC_FINAL);
+  }
+}
+
+void
 MultiApp::postExecute()
 {
   for (const auto & app_ptr : _apps)
-    app_ptr->getExecutioner()->postExecute();
+  {
+    auto * executioner = app_ptr->getExecutioner();
+    mooseAssert(executioner, "Executioner is nullptr");
+
+    executioner->postExecute();
+  }
 }
 
 void
 MultiApp::backup()
 {
+  _console << "Beginning backing up MultiApp " << name() << std::endl;
   for (unsigned int i = 0; i < _my_num_apps; i++)
     _backups[i] = _apps[i]->backup();
+  _console << "Finished backing up MultiApp " << name() << std::endl;
 }
 
 void
@@ -365,8 +414,10 @@ MultiApp::restore()
   if (_apps.empty())
     return;
 
+  _console << "Begining restoring MultiApp " << name() << std::endl;
   for (unsigned int i = 0; i < _my_num_apps; i++)
     _apps[i]->restore(_backups[i]);
+  _console << "Finished restoring MultiApp " << name() << std::endl;
 }
 
 BoundingBox
@@ -544,7 +595,6 @@ MultiApp::parentOutputPositionChanged()
 void
 MultiApp::createApp(unsigned int i, Real start_time)
 {
-
   // Define the app name
   std::ostringstream multiapp_name;
   std::string full_name;
@@ -560,6 +610,20 @@ MultiApp::createApp(unsigned int i, Real start_time)
   InputParameters app_params = AppFactory::instance().getValidParams(_app_type);
   app_params.set<FEProblemBase *>("_parent_fep") = &_fe_problem;
   app_params.set<std::shared_ptr<CommandLine>>("_command_line") = _app.commandLine();
+
+  if (_cli_args.size() > 0)
+  {
+    for (const std::string & str : MooseUtils::split(getCommandLineArgsParamHelper(i), ";"))
+    {
+      std::ostringstream oss;
+      oss << full_name << ":" << str;
+      app_params.get<std::shared_ptr<CommandLine>>("_command_line")->addArgument(oss.str());
+    }
+  }
+
+  _console << COLOR_CYAN << "Creating MultiApp " << name() << " of type " << _app_type
+           << " of level " << _app.multiAppLevel() + 1 << " and number " << _first_local_app + i
+           << ":" << COLOR_DEFAULT << std::endl;
   app_params.set<unsigned int>("_multiapp_level") = _app.multiAppLevel() + 1;
   app_params.set<unsigned int>("_multiapp_number") = _first_local_app + i;
   _apps[i] = AppFactory::instance().createShared(_app_type, full_name, app_params, _my_comm);
@@ -598,7 +662,7 @@ MultiApp::createApp(unsigned int i, Real start_time)
   // will be cached by the MooseApp object so that it can be used
   // during FEProblemBase::initialSetup() during runInputFile()
   if (_app.isRestarting() || _app.isRecovering())
-    app->restore(_backups[i]);
+    app->setBackupObject(_backups[i]);
 
   if (_use_positions && getParam<bool>("output_in_position"))
     app->setOutputPosition(_app.getOutputPosition() + _positions[_first_local_app + i]);
@@ -607,6 +671,30 @@ MultiApp::createApp(unsigned int i, Real start_time)
   app->setupOptions();
   preRunInputFile();
   app->runInputFile();
+
+  auto & picard_solve = _apps[i]->getExecutioner()->picardSolve();
+  picard_solve.setMultiAppRelaxationFactor(getParam<Real>("relaxation_factor"));
+  picard_solve.setMultiAppRelaxationVariables(
+      getParam<std::vector<std::string>>("relaxed_variables"));
+  if (getParam<Real>("relaxation_factor") != 1.0)
+  {
+    // Store a copy of the previous solution here
+    FEProblemBase & fe_problem_base = _apps[i]->getExecutioner()->feProblem();
+    fe_problem_base.getNonlinearSystemBase().addVector("self_relax_previous", false, PARALLEL);
+  }
+}
+
+std::string
+MultiApp::getCommandLineArgsParamHelper(unsigned int local_app)
+{
+
+  // Single set of "cli_args" to be applied to all sub apps
+  if (_cli_args.size() == 1)
+    return _cli_args[0];
+
+  // Unique set of "cli_args" to be applied to each sub apps
+  else
+    return _cli_args[local_app + _first_local_app];
 }
 
 // void
@@ -712,9 +800,9 @@ MultiApp::buildComm()
 {
   int ierr;
 
-  ierr = MPI_Comm_size(_orig_comm, &_orig_num_procs);
+  ierr = MPI_Comm_size(_communicator.get(), &_orig_num_procs);
   mooseCheckMPIErr(ierr);
-  ierr = MPI_Comm_rank(_orig_comm, &_orig_rank);
+  ierr = MPI_Comm_rank(_communicator.get(), &_orig_rank);
   mooseCheckMPIErr(ierr);
 
   struct utsname sysInfo;
@@ -724,14 +812,57 @@ MultiApp::buildComm()
 
   // In this case we need to divide up the processors that are going to work on each app
   int rank;
-  ierr = MPI_Comm_rank(_orig_comm, &rank);
+  ierr = MPI_Comm_rank(_communicator.get(), &rank);
   mooseCheckMPIErr(ierr);
 
   _first_local_app = _my_num_apps * _orig_rank;
   _my_num_apps = _total_num_apps;
 
+<<<<<<< HEAD
   _my_comm = _orig_comm;
   _my_rank = rank;
+=======
+  if (_max_procs_per_app < procs_per_app)
+    procs_per_app = _max_procs_per_app;
+
+  int my_app = rank / procs_per_app;
+  unsigned int procs_for_my_app = procs_per_app;
+
+  if ((unsigned int)my_app > _total_num_apps - 1 && procs_for_my_app == _max_procs_per_app)
+  {
+    // If we've already hit the max number of procs per app then this processor
+    // won't have an app at all
+    _my_num_apps = 0;
+    _has_an_app = false;
+  }
+  else if ((unsigned int)my_app >=
+           _total_num_apps - 1) // The last app will gain any left-over procs
+  {
+    my_app = _total_num_apps - 1;
+    //    procs_for_my_app += _orig_num_procs % _total_num_apps;
+    _first_local_app = my_app;
+    _my_num_apps = 1;
+  }
+  else
+  {
+    _first_local_app = my_app;
+    _my_num_apps = 1;
+  }
+
+  if (_has_an_app)
+  {
+    _communicator.split(_first_local_app, rank, _my_communicator);
+
+    ierr = MPI_Comm_rank(_my_comm, &_my_rank);
+    mooseCheckMPIErr(ierr);
+  }
+  else
+  {
+    _communicator.split(MPI_UNDEFINED, rank, _my_communicator);
+
+    _my_rank = 0;
+  }
+>>>>>>> 563aff3dc97d39707c08952d9aeb25b4e3d45d7a
 }
 
 unsigned int

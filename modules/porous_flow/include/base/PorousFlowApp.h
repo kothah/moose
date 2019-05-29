@@ -6,8 +6,8 @@
 //*
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
-#ifndef POROUS_FLOWAPP_H
-#define POROUS_FLOWAPP_H
+
+#pragma once
 
 #include "MooseApp.h"
 
@@ -23,6 +23,7 @@ public:
   virtual ~PorousFlowApp();
 
   static void registerApps();
+  static void registerAll(Factory & f, ActionFactory & af, Syntax & s);
   static void registerObjects(Factory & factory);
   static void registerObjectDepends(Factory & factory);
   static void associateSyntaxDepends(Syntax & syntax, ActionFactory & action_factory);
@@ -30,4 +31,3 @@ public:
   static void registerExecFlags(Factory & factory);
 };
 
-#endif /* POROUS_FLOWAPP_H */

@@ -87,27 +87,22 @@
 [Materials]
   [./temperature]
     type = PorousFlowTemperature
-    at_nodes = true
   [../]
   [./ppss]
     type = PorousFlow1PhaseP
-    at_nodes = true
     porepressure = pp
     capillary_pressure = pc
   [../]
   [./massfrac]
     type = PorousFlowMassFraction
-    at_nodes = true
   [../]
   [./simple_fluid]
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid
-    at_nodes = true
     phase = 0
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
-    at_nodes = true
     porosity = 0.125
   [../]
 []
@@ -144,12 +139,8 @@
 
 [Outputs]
   file_base = s10
-  [./console]
-    type = Console
-    execute_on = 'nonlinear linear'
-  [../]
   [./exodus]
     type = Exodus
-    execute_on = 'final'
+    execute_on = 'initial final'
   [../]
 []

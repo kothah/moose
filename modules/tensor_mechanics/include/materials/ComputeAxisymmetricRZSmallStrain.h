@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEAXISYMMETRICRZSMALLSTRAIN_H
-#define COMPUTEAXISYMMETRICRZSMALLSTRAIN_H
+#pragma once
 
 #include "Compute2DSmallStrain.h"
 
@@ -26,9 +25,9 @@ class ComputeAxisymmetricRZSmallStrain : public Compute2DSmallStrain
 public:
   ComputeAxisymmetricRZSmallStrain(const InputParameters & parameters);
 
-protected:
   virtual void initialSetup() override;
+
+protected:
   virtual Real computeOutOfPlaneStrain() override;
 };
 
-#endif // COMPUTEAXISYMMETRICRZSMALLSTRAIN_H

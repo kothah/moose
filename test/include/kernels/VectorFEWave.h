@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef VECTORFEWAVE_H
-#define VECTORFEWAVE_H
+#pragma once
 
 #include "VectorKernel.h"
 #include "MaterialProperty.h"
@@ -28,9 +27,17 @@ protected:
   virtual Real computeQpResidual() override;
   virtual Real computeQpJacobian() override;
 
+  /// curl of the test function
+  const VectorVariableTestCurl & _curl_test;
+
+  /// curl of the shape function
+  const VectorVariablePhiCurl & _curl_phi;
+
+  /// Holds the solution curl at the current quadrature points
+  const VectorVariableCurl & _curl_u;
+
   Function & _x_ffn;
   Function & _y_ffn;
   Function & _z_ffn;
 };
 
-#endif // VECTORFEWAVE_H

@@ -7,16 +7,18 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef WATER97FLUIDPROPERTIES_H
-#define WATER97FLUIDPROPERTIES_H
+#pragma once
 
-#include "SinglePhaseFluidPropertiesPT.h"
+#include "SinglePhaseFluidProperties.h"
 #include <array>
 
 class Water97FluidProperties;
 
 template <>
 InputParameters validParams<Water97FluidProperties>();
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
 
 /**
  * Water (H2O) fluid properties as a function of pressure (Pa)
@@ -37,7 +39,7 @@ InputParameters validParams<Water97FluidProperties>();
  * Revised Release on the IAPS Formulation 1985 for the Thermal Conductivity of
  * Ordinary Water Substance
  */
-class Water97FluidProperties : public SinglePhaseFluidPropertiesPT
+class Water97FluidProperties : public SinglePhaseFluidProperties
 {
 public:
   Water97FluidProperties(const InputParameters & parameters);
@@ -57,73 +59,68 @@ public:
 
   virtual Real triplePointTemperature() const override;
 
-  virtual Real rho(Real pressure, Real temperature) const override;
+  virtual Real rho_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual void rho_dpT(
+  virtual void rho_from_p_T(
       Real pressure, Real temperature, Real & rho, Real & drho_dp, Real & drho_dT) const override;
 
-  virtual Real e(Real pressure, Real temperature) const override;
+  virtual Real e_from_p_T(Real pressure, Real temperature) const override;
 
   virtual void
-  e_dpT(Real pressure, Real temperature, Real & e, Real & de_dp, Real & de_dT) const override;
+  e_from_p_T(Real pressure, Real temperature, Real & e, Real & de_dp, Real & de_dT) const override;
 
-  virtual void rho_e_dpT(Real pressure,
-                         Real temperature,
-                         Real & rho,
-                         Real & drho_dp,
-                         Real & drho_dT,
-                         Real & e,
-                         Real & de_dp,
-                         Real & de_dT) const override;
+  virtual Real c_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual Real c(Real pressure, Real temperature) const override;
+  virtual Real cp_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual Real cp(Real pressure, Real temperature) const override;
+  using SinglePhaseFluidProperties::cp_from_p_T;
 
-  virtual Real cv(Real pressure, Real temperature) const override;
+  virtual Real cv_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual Real mu(Real pressure, Real temperature) const override;
+  virtual Real mu_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual void
-  mu_dpT(Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const override;
+  virtual void mu_from_p_T(
+      Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const override;
 
   virtual Real mu_from_rho_T(Real density, Real temperature) const override;
 
-  virtual void mu_drhoT_from_rho_T(Real density,
-                                   Real temperature,
-                                   Real ddensity_dT,
-                                   Real & mu,
-                                   Real & dmu_drho,
-                                   Real & dmu_dT) const override;
-
-  virtual void rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const override;
-
-  virtual void rho_mu_dpT(Real pressure,
-                          Real temperature,
-                          Real & rho,
-                          Real & drho_dp,
-                          Real & drho_dT,
-                          Real & mu,
-                          Real & dmu_dp,
-                          Real & dmu_dT) const override;
-
-  virtual Real k(Real pressure, Real temperature) const override;
+  virtual void mu_from_rho_T(Real density,
+                             Real temperature,
+                             Real ddensity_dT,
+                             Real & mu,
+                             Real & dmu_drho,
+                             Real & dmu_dT) const override;
 
   virtual void
-  k_dpT(Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const override;
+  rho_mu_from_p_T(Real pressure, Real temperature, Real & rho, Real & mu) const override;
+
+  virtual void rho_mu_from_p_T(Real pressure,
+                               Real temperature,
+                               Real & rho,
+                               Real & drho_dp,
+                               Real & drho_dT,
+                               Real & mu,
+                               Real & dmu_dp,
+                               Real & dmu_dT) const override;
+
+  virtual Real k_from_p_T(Real pressure, Real temperature) const override;
+
+  virtual void
+  k_from_p_T(Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const override;
 
   virtual Real k_from_rho_T(Real density, Real temperature) const override;
 
-  virtual Real s(Real pressure, Real temperature) const override;
+  virtual Real s_from_p_T(Real pressure, Real temperature) const override;
+  virtual void s_from_p_T(Real p, Real T, Real & s, Real & ds_dp, Real & ds_dT) const override;
 
-  virtual Real h(Real pressure, Real temperature) const override;
+  virtual Real h_from_p_T(Real pressure, Real temperature) const override;
 
   virtual void
-  h_dpT(Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const override;
+  h_from_p_T(Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const override;
 
   virtual Real vaporPressure(Real temperature) const override;
 
-  virtual void vaporPressure_dT(Real temperature, Real & psat, Real & dpsat_dT) const override;
+  virtual void vaporPressure(Real temperature, Real & psat, Real & dpsat_dT) const override;
 
   /**
    * Saturation temperature as a function of pressure
@@ -137,7 +134,8 @@ public:
    * @param pressure water pressure (Pa)
    * @return saturation temperature (K)
    */
-  Real vaporTemperature(Real pressure) const;
+  Real vaporTemperature(Real pressure) const override;
+  virtual void vaporTemperature(Real pressure, Real & Tsat, Real & dTsat_dp) const override;
 
   /**
    * Auxillary equation for the boundary between regions 2 and 3
@@ -222,7 +220,8 @@ public:
    * @param enthalpy water enthalpy (J/kg)
    * @return temperature water temperature (K)
    */
-  virtual Real temperature_from_ph(Real pressure, Real enthalpy) const;
+  virtual Real T_from_p_h(Real pressure, Real enthalpy) const override;
+  virtual void T_from_p_h(Real p, Real h, Real & T, Real & dT_dp, Real & dT_dh) const override;
 
   /**
    * Boundary between subregions b and c in region 2.
@@ -546,6 +545,17 @@ protected:
   unsigned int subregion3ph(Real pressure, Real enthalpy) const;
 
   /**
+   * AD version of backwards equation T(p, h) (used internally)
+   * From Revised Release on the IAPWS Industrial Formulation 1997 for the
+   * Thermodynamic Properties of Water and Steam
+   *
+   * @param pressure water pressure (Pa)
+   * @param enthalpy water enthalpy (J/kg)
+   * @return temperature water temperature (K)
+   */
+  FPDualReal T_from_p_h_ad(const FPDualReal & pressure, const FPDualReal & enthalpy) const;
+
+  /**
    * Backwards equation T(p, h) in Region 1
    * Eq. (11) from Revised Release on the IAPWS Industrial
    * Formulation 1997 for the Thermodynamic Properties of Water
@@ -555,7 +565,7 @@ protected:
    * @param enthalpy water enthalpy (J/kg)
    * @return temperature water temperature (K)
    */
-  Real temperature_from_ph1(Real pressure, Real enthalpy) const;
+  FPDualReal temperature_from_ph1(const FPDualReal & pressure, const FPDualReal & enthalpy) const;
 
   /**
    * Backwards equation T(p, h) in Region 2a
@@ -567,7 +577,7 @@ protected:
    * @param enthalpy water enthalpy (J/kg)
    * @return temperature water temperature (K)
    */
-  Real temperature_from_ph2a(Real pressure, Real enthalpy) const;
+  FPDualReal temperature_from_ph2a(const FPDualReal & pressure, const FPDualReal & enthalpy) const;
 
   /**
    * Backwards equation T(p, h) in Region 2b
@@ -579,7 +589,7 @@ protected:
    * @param enthalpy water enthalpy (J/kg)
    * @return temperature water temperature (K)
    */
-  Real temperature_from_ph2b(Real pressure, Real enthalpy) const;
+  FPDualReal temperature_from_ph2b(const FPDualReal & pressure, const FPDualReal & enthalpy) const;
 
   /**
    * Backwards equation T(p, h) in Region 2c
@@ -591,7 +601,7 @@ protected:
    * @param enthalpy water enthalpy (J/kg)
    * @return temperature water temperature (K)
    */
-  Real temperature_from_ph2c(Real pressure, Real enthalpy) const;
+  FPDualReal temperature_from_ph2c(const FPDualReal & pressure, const FPDualReal & enthalpy) const;
 
   /**
    * Backwards equation T(p, h) in Region 3a
@@ -604,7 +614,7 @@ protected:
    * @param enthalpy water enthalpy (J/kg)
    * @return temperature water temperature (K)
    */
-  Real temperature_from_ph3a(Real pressure, Real enthalpy) const;
+  FPDualReal temperature_from_ph3a(const FPDualReal & pressure, const FPDualReal & enthalpy) const;
 
   /**
    * Backwards equation T(p, h) in Region 3b
@@ -617,7 +627,21 @@ protected:
    * @param enthalpy water enthalpy (J/kg)
    * @return temperature water temperature (K)
    */
-  Real temperature_from_ph3b(Real pressure, Real enthalpy) const;
+  FPDualReal temperature_from_ph3b(const FPDualReal & pressure, const FPDualReal & enthalpy) const;
+
+  /**
+   * AD version of saturation temperature as a function of pressure (used internally)
+   *
+   * Eq. (31) from Revised Release on the IAPWS Industrial
+   * Formulation 1997 for the Thermodynamic Properties of Water
+   * and Steam
+   *
+   * Valid for 611.213 Pa <= p <= 22.064 MPa
+   *
+   * @param pressure water pressure (Pa)
+   * @return saturation temperature (K)
+   */
+  FPDualReal vaporTemperature_ad(const FPDualReal & pressure) const;
 
   /// Water molar mass (kg/mol)
   const Real _Mh2o;
@@ -1301,4 +1325,5 @@ protected:
   const std::array<Real, 5> _p_star{{16.53e6, 1.0e6, 1.0e6, 1.0e6, 1.0e6}};
 };
 
-#endif /* WATER97FLUIDPROPERTIES_H */
+#pragma GCC diagnostic pop
+

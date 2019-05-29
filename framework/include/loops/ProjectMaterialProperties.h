@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PROJECTMATERIALPROPERTIES_H
-#define PROJECTMATERIALPROPERTIES_H
+#pragma once
 
 // MOOSE includes
 #include "ThreadedElementLoop.h"
@@ -31,7 +30,7 @@ public:
                             std::vector<std::shared_ptr<MaterialData>> & bnd_material_data,
                             MaterialPropertyStorage & material_props,
                             MaterialPropertyStorage & bnd_material_props,
-                            std::vector<Assembly *> & assembly);
+                            std::vector<std::unique_ptr<Assembly>> & assembly);
 
   // Splitting Constructor
   ProjectMaterialProperties(ProjectMaterialProperties & x, Threads::split split);
@@ -54,8 +53,7 @@ protected:
   std::vector<std::shared_ptr<MaterialData>> & _bnd_material_data;
   MaterialPropertyStorage & _material_props;
   MaterialPropertyStorage & _bnd_material_props;
-  std::vector<Assembly *> & _assembly;
+  std::vector<std::unique_ptr<Assembly>> & _assembly;
   bool _need_internal_side_material;
 };
 
-#endif // PROJECTMATERIALPROPERTIES_H

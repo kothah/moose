@@ -144,26 +144,6 @@
 []
 
 [Postprocessors]
-  [./bot_react_x]
-    type = NodalSum
-    variable = saved_x
-    boundary = 1
-  [../]
-  [./bot_react_y]
-    type = NodalSum
-    variable = saved_y
-    boundary = 1
-  [../]
-  [./top_react_x]
-    type = NodalSum
-    variable = saved_x
-    boundary = 4
-  [../]
-  [./top_react_y]
-    type = NodalSum
-    variable = saved_y
-    boundary = 4
-  [../]
   [./disp_x]
     type = NodalVariableValue
     nodeid = 5
@@ -221,7 +201,7 @@
 [Outputs]
   exodus = true
   print_linear_residuals = true
-  print_perf_log = true
+  perf_graph = true
   csv = true
   [./console]
     type = Console

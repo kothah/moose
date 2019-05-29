@@ -7,10 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PROBLEM_H
-#define PROBLEM_H
+#pragma once
 
 #include "MooseObject.h"
+#include "PerfGraphInterface.h"
 
 class TimePeriodOld;
 class Problem;
@@ -21,7 +21,7 @@ InputParameters validParams<Problem>();
 /**
  * Class that hold the whole problem being solved.
  */
-class Problem : public MooseObject
+class Problem : public MooseObject, public PerfGraphInterface
 {
 public:
   Problem(const InputParameters & parameters);
@@ -56,4 +56,3 @@ protected:
   bool _termination_requested;
 };
 
-#endif /* PROBLEM_H */

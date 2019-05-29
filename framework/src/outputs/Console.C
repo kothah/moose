@@ -34,6 +34,8 @@ validParams<Console>()
 
   // Get the parameters from the base class
   InputParameters params = validParams<TableOutput>();
+  params.addClassDescription("Object for screen output.");
+
   params += TableOutput::enableOutputTypes("system_information scalar postprocessor input");
 
   // Screen and file output toggles
@@ -66,15 +68,21 @@ validParams<Console>()
       "The number of significant digits that are printed on time related outputs");
 
   // Performance Logging
-  params.addParam<bool>("perf_log",
-                        false,
-                        "If true, all performance logs will be printed. The "
-                        "individual log settings will override this option.");
-  params.addParam<unsigned int>(
-      "perf_log_interval", 0, "If set, the performance log will be printed every n time steps");
+  params.addDeprecatedParam<bool>("perf_log",
+                                  false,
+                                  "If true, all performance logs will be printed. The "
+                                  "individual log settings will override this option.",
+                                  "Use PerfGraphOutput");
+  params.addDeprecatedParam<unsigned int>(
+      "perf_log_interval",
+      0,
+      "If set, the performance log will be printed every n time steps",
+      "Use PerfGraphOutput instead");
   params.addParam<bool>("solve_log", "Toggles the printing of the 'Moose Test Performance' log");
-  params.addParam<bool>(
-      "perf_header", "Print the libMesh performance log header (requires that 'perf_log = true')");
+  params.addDeprecatedParam<bool>(
+      "perf_header",
+      "Print the libMesh performance log header (requires that 'perf_log = true')",
+      "Use PerfGraphOutput instead");
 
   params.addParam<bool>(
       "libmesh_log",
@@ -158,7 +166,7 @@ Console::Console(const InputParameters & parameters)
     _write_file(getParam<bool>("output_file")),
     _write_screen(getParam<bool>("output_screen")),
     _verbose(getParam<bool>("verbose")),
-    _perf_log(getParam<bool>("perf_log") || _app.getParam<bool>("timing")),
+    _perf_log(getParam<bool>("perf_log")),
     _perf_log_interval(getParam<unsigned int>("perf_log_interval")),
     _solve_log(isParamValid("solve_log") ? getParam<bool>("solve_log") : _perf_log),
     _libmesh_log(getParam<bool>("libmesh_log")),
@@ -195,14 +203,6 @@ Console::Console(const InputParameters & parameters)
     _solve_log = true;
   }
 
-  if (_app.name() != "main" &&
-      (_pars.isParamSetByUser("perf_log") || _pars.isParamSetByUser("perf_log_interval") ||
-       _pars.isParamSetByUser("solve_log") || _pars.isParamSetByUser("perf_header") ||
-       _pars.isParamSetByUser("libmesh_log") ||
-       common_action->parameters().isParamSetByUser("print_perf_log")))
-    mooseWarning("Performance logging cannot currently be controlled from a Multiapp, please set "
-                 "all performance options in the main input file");
-
   // Append the common 'execute_on' to the setting for this object
   // This is unique to the Console object, all other objects inherit from the common options
   const ExecFlagEnum & common_execute_on = common_action->getParam<ExecFlagEnum>("execute_on");
@@ -216,14 +216,6 @@ Console::Console(const InputParameters & parameters)
 
 Console::~Console()
 {
-  // Write the libMesh performance log header
-  if (_perf_header)
-    write(Moose::perf_log.get_info_header(), false);
-
-  // Write the solve log (Moose Test Performance)
-  if (_solve_log)
-    write(Moose::perf_log.get_perf_info(), false);
-
   // Write the libMesh log
   if (_libmesh_log)
     write(libMesh::perflog.get_perf_info(), false);
@@ -242,13 +234,6 @@ Console::initialSetup()
   // Only allow the main app to change the perf_log settings.
   if (_app.name() == "main")
   {
-    if (_perf_log || _solve_log || _perf_header)
-      _app.getOutputWarehouse().setLoggingRequested();
-
-    // Disable performance logging if nobody needs logging
-    if (!_app.getOutputWarehouse().getLoggingRequested())
-      Moose::perf_log.disable_logging();
-
     // Disable libMesh log
     if (!_libmesh_log)
       libMesh::perflog.disable_logging();
@@ -298,6 +283,12 @@ Console::filename()
 }
 
 void
+Console::timestepSetup()
+{
+  writeTimestepInformation(/*output_dt = */ true);
+}
+
+void
 Console::output(const ExecFlagType & type)
 {
   // Return if the current output is not on the desired interval
@@ -315,9 +306,15 @@ Console::output(const ExecFlagType & type)
     outputInput();
 
   // Write the timestep information ("Time Step 0 ..."), this is controlled with "execute_on"
-  if (type == EXEC_TIMESTEP_BEGIN || (type == EXEC_INITIAL && _execute_on.contains(EXEC_INITIAL)) ||
-      (type == EXEC_FINAL && _execute_on.contains(EXEC_FINAL)))
-    writeTimestepInformation();
+  // We only write the initial and final here. All of the intermediate outputs will be written
+  // through timestepSetup.
+  if (type == EXEC_INITIAL && _execute_on.contains(EXEC_INITIAL))
+    writeTimestepInformation(/*output_dt = */ false);
+  else if (type == EXEC_FINAL && _execute_on.contains(EXEC_FINAL))
+  {
+    if (wantOutput("postprocessors", type) || wantOutput("scalars", type))
+      _console << "\nFINAL:\n";
+  }
 
   // Print Non-linear Residual (control with "execute_on")
   if (type == EXEC_NONLINEAR && _execute_on.contains(EXEC_NONLINEAR))
@@ -325,7 +322,7 @@ Console::output(const ExecFlagType & type)
     if (_nonlinear_iter == 0)
       _old_nonlinear_norm = std::numeric_limits<Real>::max();
 
-    _console << std::setw(2) << _nonlinear_iter
+    _console << std::right << std::setw(2) << _nonlinear_iter
              << " Nonlinear |R| = " << outputNorm(_old_nonlinear_norm, _norm) << '\n';
 
     _old_nonlinear_norm = _norm;
@@ -337,7 +334,7 @@ Console::output(const ExecFlagType & type)
     if (_linear_iter == 0)
       _old_linear_norm = std::numeric_limits<Real>::max();
 
-    _console << std::setw(7) << _linear_iter
+    _console << std::right << std::setw(7) << _linear_iter
              << " Linear |R| = " << outputNorm(_old_linear_norm, _norm) << '\n';
 
     _old_linear_norm = _norm;
@@ -390,7 +387,7 @@ Console::writeStreamToFile(bool append)
 }
 
 void
-Console::writeTimestepInformation()
+Console::writeTimestepInformation(bool output_dt)
 {
   // Stream to build the time step information
   std::stringstream oss;
@@ -398,15 +395,8 @@ Console::writeTimestepInformation()
   // Write timestep data for transient executioners
   if (_transient)
   {
-    // Get the length of the time step string
-    std::ostringstream time_step_string;
-    time_step_string << timeStep();
-    unsigned int n = time_step_string.str().size();
-    if (n < 2)
-      n = 2;
-
     // Write time step and time information
-    oss << std::endl << "Time Step " << std::setw(n) << timeStep();
+    oss << "\nTime Step " << timeStep();
 
     // Set precision
     if (_precision > 0)
@@ -418,23 +408,36 @@ Console::writeTimestepInformation()
       oss << std::scientific;
 
     // Print the time
-    oss << ", time = " << time() << std::endl;
+    oss << ", time = " << time();
 
-    // Show old time information, if desired
-    if (_verbose)
-      oss << std::right << std::setw(21) << std::setfill(' ') << "old time = " << std::left
-          << timeOld() << '\n';
+    if (output_dt)
+    {
+      if (!_verbose)
+        // Show the time delta information
+        oss << ", dt = " << std::left << dt();
 
-    // Show the time delta information
-    oss << std::right << std::setw(21) << std::setfill(' ') << "dt = " << std::left << dt() << '\n';
+      // Show old time information, if desired on separate lines
+      else
+      {
+        oss << '\n'
+            << std::right << std::setw(21) << std::setfill(' ') << "old time = " << std::left
+            << timeOld() << '\n';
 
-    // Show the old time delta information, if desired
-    if (_verbose)
-      oss << std::right << std::setw(21) << std::setfill(' ') << "old dt = " << _dt_old << '\n';
+        // Show the time delta information
+        oss << std::right << std::setw(21) << std::setfill(' ') << "dt = " << std::left << dt()
+            << '\n';
+
+        // Show the old time delta information, if desired
+        if (_verbose)
+          oss << std::right << std::setw(21) << std::setfill(' ') << "old dt = " << _dt_old << '\n';
+      }
+    }
+
+    oss << '\n';
+
+    // Output to the screen
+    _console << oss.str() << std::flush;
   }
-
-  // Output to the screen
-  _console << oss.str();
 }
 
 void
@@ -618,8 +621,6 @@ Console::outputSystemInformation()
 
   if (_system_info_flags.contains("output"))
     _console << ConsoleUtils::outputOutputInformation(_app);
-
-  _console << "\n\n";
 }
 
 void

@@ -8,7 +8,6 @@
 - /Adaptivity/Indicators/ValueJumpIndicator
 - /Adaptivity/Markers/AddElementalFieldAction
 - /Adaptivity/Markers/AddMarkerAction
-- /AuxKernels
 - /AuxKernels/AddKernelAction
 - /AuxKernels/BoundsAux
 - /AuxKernels/DebugResidualAux
@@ -32,7 +31,6 @@
 - /AuxScalarKernels/ConstantScalarAux
 - /AuxScalarKernels/FunctionScalarAux
 - /AuxScalarKernels/QuotientScalarAux
-- /AuxVariables
 - /AuxVariables/AddAuxVariableAction
 - /AuxVariables/CopyNodalVarsAction
 - /AuxVariables/InitialCondition
@@ -88,7 +86,7 @@
 - /DiracKernels/FunctionDiracSource
 - /Distributions/AddDistributionAction
 - /Executioner/CreateExecutionerAction
-- /Executioner/DetermineSystemType
+- /Executioner/CreateProblemDefaultAction
 - /Executioner/InversePowerMethod
 - /Executioner/NonlinearEigen
 - /Executioner/Steady
@@ -133,7 +131,6 @@
 - /Functions/ParsedFunction
 - /Functions/ParsedGradFunction
 - /Functions/ParsedVectorFunction
-- /Functions/PiecewiseMultilinear
 - /Functions/SolutionFunction
 - /Functions/SplineFunction
 - /Functions/VectorPostprocessorFunction
@@ -142,11 +139,9 @@
 - /GlobalParams/GlobalParamsAction
 - /ICs
 - /ICs/AddInitialConditionAction
-- /ICs/BoundingBoxIC
 - /ICs/ConstantIC
 - /ICs/FunctionIC
 - /ICs/FunctionScalarIC
-- /ICs/RandomIC
 - /ICs/ScalarComponentIC
 - /ICs/ScalarConstantIC
 - /InterfaceKernels
@@ -162,8 +157,6 @@
 - /Mesh/CreateDisplacedProblemAction
 - /Mesh/SetupMeshAction
 - /Mesh/SetupMeshCompleteAction
-- /Mesh/MortarInterfaces
-- /Mesh/MortarInterfaces/AddMortarInterfaceAction
 - /Mesh/Partitioner
 - /Mesh/Partitioner/PartitionerAction
 - /Mesh/Partitioner/LibmeshPartitioner
@@ -186,6 +179,7 @@
 - /MultiApps/TransientMultiApp
 - /MultiApps/CentroidMultiApp
 - /Modules
+- /Modules/PhaseField/MortarPeriodicity
 - /NodalKernels
 - /NodalKernels/AddNodalKernelAction
 - /NodalKernels/ConstantRate
@@ -198,7 +192,6 @@
 - /Outputs/AddOutputAction
 - /Outputs/CSV
 - /Outputs/Checkpoint
-- /Outputs/Console
 - /Outputs/ControlOutput
 - /Outputs/DOFMap
 - /Outputs/GMV
@@ -253,7 +246,6 @@
 - /Postprocessors/NumResidualEvaluations
 - /Postprocessors/NumVars
 - /Postprocessors/PercentChangePostprocessor
-- /Postprocessors/PerformanceData
 - /Postprocessors/PointValue
 - /Postprocessors/Receiver
 - /Postprocessors/RelativeSolutionDifferenceNorm
@@ -315,7 +307,6 @@
 - /UserObjects/Terminator
 - /UserObjects/VerifyElementUniqueID
 - /UserObjects/VerifyNodalUniqueID
-- /Variables
 - /Variables/AddVariableAction
 - /Variables/CopyNodalVarsAction
 - /Variables/InitialCondition

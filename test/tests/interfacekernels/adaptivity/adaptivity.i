@@ -62,7 +62,7 @@
 
 [Kernels]
   [./diff]
-    type = MatDiffusion
+    type = MatDiffusionTest
     variable = u
     prop_name = diffusivity
     block = 0
@@ -79,7 +79,7 @@
     block = 0
   [../]
   [./diffn]
-    type = MatDiffusion
+    type = MatDiffusionTest
     variable = u_neighbor
     prop_name = diffusivity
     block = 1
@@ -99,12 +99,11 @@
 
 [InterfaceKernels]
   [./flux_match]
-    type = InterfaceDiffusion
+    type = PenaltyInterfaceDiffusion
     variable = u
     neighbor_var = u_neighbor
     boundary = master0_interface
-    D = 1
-    D_neighbor = 1
+    penalty = 1e6
   [../]
 []
 
@@ -120,12 +119,6 @@
     variable = u_neighbor
     boundary = 'right'
     function = bc_fn
-  [../]
-  [./interface]
-    type = MatchedValueBC
-    variable = u_neighbor
-    v = u
-    boundary = 'master0_interface'
   [../]
 []
 
@@ -145,10 +138,16 @@
   [../]
 []
 
+[Preconditioning]
+  [./smp]
+    type = SMP
+    full = true
+  [../]
+[]
+
 [Executioner]
   type = Steady
-
-  solve_type = 'PJFNK'
+  solve_type = 'NEWTON'
 []
 
 [Adaptivity]

@@ -31,8 +31,9 @@ class TestHarnessTester(TestHarnessTestCase):
                    'DOF_ID_BYTES', 'TECPLOT', 'PETSC_VERSION_RELEASE',
                    'SLEPC_VERSION', 'MESH_MODE', 'METHOD', 'BOOST',
                    'PETSC_DEBUG', 'LIBRARY_MODE', 'PETSC_VERSION',
-                   'CURL', 'TBB', 'SLEPC', 'VTK', 'UNIQUE_ID',
-                   'COMPILER', 'FPARSER_JIT']
+                   'CURL', 'THREADING', 'SLEPC', 'VTK', 'UNIQUE_ID',
+                   'COMPILER', 'FPARSER_JIT', 'PARMETIS', 'CHACO',
+                   'PARTY', 'PTSCOTCH']
 
         # Verify all special TestHarness 'checks' are printed. We
         # will use the --ignore feature to force the test to run

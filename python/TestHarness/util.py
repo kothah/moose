@@ -98,11 +98,35 @@ LIBMESH_OPTIONS = {
                      'default'   : 'FALSE',
                      'options'   : {'TRUE' : '1', 'FALSE' : '0'}
                    },
+  'threads' :      { 're_option' : r'#define\s+LIBMESH_USING_THREADS\s+(\d+)',
+                     'default'   : 'FALSE',
+                     'options'   : {'TRUE' : '1', 'FALSE' : '0'}
+                   },
   'tbb' :          { 're_option' : r'#define\s+LIBMESH_HAVE_TBB_API\s+(\d+)',
                      'default'   : 'FALSE',
                      'options'   : {'TRUE' : '1', 'FALSE' : '0'}
                    },
+  'openmp' :       { 're_option' : r'#define\s+LIBMESH_HAVE_OPENMP\s+(\d+)',
+                     'default'   : 'FALSE',
+                     'options'   : {'TRUE' : '1', 'FALSE' : '0'}
+                   },
   'superlu' :      { 're_option' : r'#define\s+LIBMESH_PETSC_HAVE_SUPERLU_DIST\s+(\d+)',
+                     'default'   : 'FALSE',
+                     'options'   : {'TRUE' : '1', 'FALSE' : '0'}
+                   },
+  'parmetis' :      { 're_option' : r'#define\s+LIBMESH_(?:PETSC_){0,1}HAVE_PARMETIS\s+(\d+)',
+                     'default'   : 'FALSE',
+                     'options'   : {'TRUE' : '1', 'FALSE' : '0'}
+                   },
+  'chaco' :      { 're_option' : r'#define\s+LIBMESH_PETSC_HAVE_CHACO\s+(\d+)',
+                     'default'   : 'FALSE',
+                     'options'   : {'TRUE' : '1', 'FALSE' : '0'}
+                   },
+  'party' :      { 're_option' : r'#define\s+LIBMESH_PETSC_HAVE_PARTY\s+(\d+)',
+                     'default'   : 'FALSE',
+                     'options'   : {'TRUE' : '1', 'FALSE' : '0'}
+                   },
+  'ptscotch' :      { 're_option' : r'#define\s+LIBMESH_PETSC_HAVE_PTSCOTCH\s+(\d+)',
                      'default'   : 'FALSE',
                      'options'   : {'TRUE' : '1', 'FALSE' : '0'}
                    },
@@ -153,34 +177,22 @@ def formatCase(format_key, message, formatted_results):
     elif message:
         formatted_results[format_key] = (message[0], message[1])
 
-def formatStatusMessage(tester, options):
-    # PASS and DRY_RUN fall into this catagory
-    if tester.isPass():
-        result = tester.getStatusMessage()
+def formatStatusMessage(job, status, message, options):
+    # If there is no message, use status as message
+    if not message:
+        message = status
 
-        if options.extra_info:
-            for check in options._checks.keys():
-                if tester.specs.isValid(check) and not 'ALL' in tester.specs[check]:
-                    tester.addCaveats(check)
+    # Add caveats if requested
+    if job.isPass() and options.extra_info:
+        for check in options._checks.keys():
+            if job.specs.isValid(check) and not 'ALL' in job.specs[check]:
+                job.addCaveats(check)
 
-    # FAIL, DIFF and DELETED fall into this catagory
-    elif tester.isFail() or (tester.isDeleted() and options.extra_info):
-        message = tester.getStatusMessage()
-        if message == '':
-            message = tester.getStatus().status
+    # Format the failed message to list a big fat FAILED in front of the status
+    elif job.isFail():
+        return 'FAILED (%s)' % (message)
 
-        result = 'FAILED (%s)' % (message)
-
-    # Some other finished status... skipped, silent, etc
-    else:
-        result = tester.getStatusMessage()
-
-    # No one set a unique status message? In that case, use the name of
-    # the status itself as the status message.
-    if not result:
-        result = tester.getStatus().status
-
-    return result
+    return message
 
 ## print an optionally colorified test result
 #
@@ -190,11 +202,8 @@ def formatStatusMessage(tester, options):
 def formatResult(job, options, result='', color=True, **kwargs):
     # Support only one instance of a format identifier, but obey the order
     terminal_format = list(OrderedDict.fromkeys(list(TERM_FORMAT)))
-    tester = job.getTester()
-    if tester.isNoStatus():
-        status = job.getStatus()
-    else:
-        status = tester.getStatus()
+    status, message, message_color, exit_code = job.getJointStatus()
+
     color_opts = {'code' : options.code, 'colored' : options.colored}
 
     # container for every printable item
@@ -215,21 +224,21 @@ def formatResult(job, options, result='', color=True, **kwargs):
             justification_index = terminal_format[i]
 
         if str(f_key).lower() == 'p':
-            pre_result = ' '*(8-len(status.status)) + status.status
-            formatCase(f_key, (pre_result, status.color), formatted_results)
+            pre_result = ' '*(8-len(status)) + status
+            formatCase(f_key, (pre_result, message_color), formatted_results)
 
         if str(f_key).lower() == 's':
             if not result:
-                result = formatStatusMessage(tester, options)
+                result = formatStatusMessage(job, status, message, options)
 
             # refrain from printing a duplicate pre_result if it will match result
-            if 'p' in [x.lower() for x in terminal_format] and result == status.status:
+            if 'p' in [x.lower() for x in terminal_format] and result == status:
                 formatCase(f_key, None, formatted_results)
             else:
-                formatCase(f_key, (result, status.color), formatted_results)
+                formatCase(f_key, (result, message_color), formatted_results)
 
         if str(f_key).lower() == 'n':
-            formatCase(f_key, (tester.getTestName(), None), formatted_results)
+            formatCase(f_key, (job.getTestName(), None), formatted_results)
 
         # Adjust the precision of time, so we can justify the length. The higher the
         # seconds, the lower the decimal point, ie: [0.000s] - [100.0s]. Max: [99999s]
@@ -241,10 +250,10 @@ def formatResult(job, options, result='', color=True, **kwargs):
             formatCase(f_key, (f_time, None), formatted_results)
 
     # Decorate Caveats
-    if tester.getCaveats() and caveat_index is not None and 'caveats' in kwargs and kwargs['caveats']:
-        caveats = ','.join(tester.getCaveats())
-        caveat_color = status.color
-        if tester.isPass() or tester.isSkip():
+    if job.getCaveats() and caveat_index is not None and 'caveats' in kwargs and kwargs['caveats']:
+        caveats = ','.join(job.getCaveats())
+        caveat_color = message_color
+        if not job.isFail():
             caveat_color = 'CYAN'
 
         f_caveats = '[' + caveats + ']'
@@ -282,8 +291,8 @@ def formatResult(job, options, result='', color=True, **kwargs):
 
             # Do special coloring for first directory
             if format_rule == 'n' and options.color_first_directory:
-                formatted_results[format_rule] = (colorText(tester.specs['first_directory'], 'CYAN', **color_opts) +\
-                                         formatted_results[format_rule][0].replace(tester.specs['first_directory'], '', 1), 'CYAN') # Strip out first occurence only
+                formatted_results[format_rule] = (colorText(job.specs['first_directory'], 'CYAN', **color_opts) +\
+                                         formatted_results[format_rule][0].replace(job.specs['first_directory'], '', 1), 'CYAN') # Strip out first occurence only
 
     # join printable results in the order in which the user asked
     final_results = ' '.join([formatted_results[x][0] for x in terminal_format if formatted_results[x]])
@@ -370,6 +379,22 @@ def getCompilers(libmesh_dir):
 
     return compilers
 
+def getLibMeshThreadingModel(libmesh_dir):
+    threading_models = set(['ALL'])
+    have_threads = 'TRUE' in getLibMeshConfigOption(libmesh_dir, 'threads');
+    if have_threads:
+        have_tbb = 'TRUE' in getLibMeshConfigOption(libmesh_dir, 'tbb')
+        have_openmp = 'TRUE' in getLibMeshConfigOption(libmesh_dir, 'openmp')
+        if have_openmp:
+            threading_models.add("OPENMP")
+        elif have_tbb:
+            threading_models.add("TBB")
+        else:
+            threading_models.add("PTHREADS")
+    else:
+        threading_models.add("NONE")
+    return threading_models
+
 def getPetscVersion(libmesh_dir):
     major_version = getLibMeshConfigOption(libmesh_dir, 'petsc_major')
     minor_version = getLibMeshConfigOption(libmesh_dir, 'petsc_minor')
@@ -389,86 +414,70 @@ def getSlepcVersion(libmesh_dir):
 
     return major_version.pop() + '.' + minor_version.pop() + '.' + subminor_version.pop()
 
-def checkLogicVersionSplits(target, splits, logic_and, package):
-    status, logic_reason, version = [],[],[]
-    for split in splits:
-        (lstatus, lreason, lversion) = checkLogicVersionSingle(target, split, package)
-        status.append(lstatus)
-        logic_reason.append(lreason)
-        version.append(lversion)
-
-    if logic_and:
-        if status[0] and status[1]:
-            return (True, None, version[0])
-        else:
-            return (False, '&&', version[0]+' '+version[1])
-    else:
-        if status[0] or status[1]:
-            return (True, None, version[0])
-        else:
-            return (True, '||', version[0]+ ' '+version[1])
-
-    return (False, None, None)
-
 def checkLogicVersionSingle(checks, iversion, package):
     logic, version = re.search(r'(.*?)(\d\S+)', iversion).groups()
     if logic == '' or logic == '=':
         if version == checks[package]:
-            return (True, None, version)
+            return True
         else:
-            return (False, '!=', version)
+            return False
 
     # Logical match
-    if logic == '>' and checks[package][0:5] > version[0:5]:
-        return (True, None, version)
-    elif logic == '>=' and checks[package][0:5] >= version[0:5]:
-        return (True, None, version)
-    elif logic == '<' and checks[package][0:5] < version[0:5]:
-        return (True, None, version)
-    elif logic == '<=' and checks[package][0:5] <= version[0:5]:
-        return (True, None, version)
+    if logic == '>' and map(int, checks[package].split(".")) > map(int, version.split(".")):
+        return True
+    elif logic == '>=' and map(int, checks[package].split(".")) >= map(int, version.split(".")):
+        return True
+    elif logic == '<' and map(int, checks[package].split(".")) < map(int, version.split(".")):
+        return True
+    elif logic == '<=' and map(int, checks[package].split(".")) <= map(int, version.split(".")):
+        return True
 
-    return (False, logic, version)
+    return False
 
 def checkVersion(checks, test, package):
-    for version in test[package]:
-        logic_and = False
-        if version.find("&&") != -1:
-            logic_and = True
-        splits = re.split('[(&&) | (||)]+', version)
-        if len(splits) == 1:
-            return checkLogicVersionSingle(checks, version, package)
-        elif len(splits) == 2:
-            return checkLogicVersionSplits(checks, splits, logic_and, package)
-        else:
-            print "Invalid expression: " + version
-            exit(1)
+    # This is a cheap tokenizer that will split apart the logic into logic groups separated by && and ||
+    split_versions_and_logic = re.findall(r".*?(?:(?:&&)|(?:\|\|)|(?:\s*$))", test)
 
-    return (False, None, None)
+    for group in split_versions_and_logic:
+        m = re.search(r'\s*([^\d]*[\d.]*)\s*(\S*)', group)
+        if m:
+            version, logic_op = m.group(1, 2)
+            result = checkLogicVersionSingle(checks, version, package)
+
+            if logic_op == '||':
+                if result:
+                    return True
+            elif logic_op == '&&':
+                if not result:
+                    return False
+            else:
+                return result
 
 # Break down petsc version logic in a new define
 # TODO: find a way to eval() logic instead
 def checkPetscVersion(checks, test):
     # If any version of petsc works, return true immediately
     if 'ALL' in set(test['petsc_version']):
-        return (True, None, None)
+        return (True, None)
 
-    return checkVersion(checks, test, 'petsc_version')
+    version_string = ' '.join(test['petsc_version'])
+    return (checkVersion(checks, version_string, 'petsc_version'), version_string)
 
 
 # Break down slepc version logic in a new define
 def checkSlepcVersion(checks, test):
     # User does not require anything
     if len(test['slepc_version']) == 0:
-       return (False, None, None)
+       return (False, None)
     # SLEPc is not installed
     if checks['slepc_version'] == None:
-       return (False, None, None)
+       return (False, None)
     # If any version of SLEPc works, return true immediately
     if 'ALL' in set(test['slepc_version']):
-        return (True, None, None)
+        return (True, None)
 
-    return checkVersion(checks, test, 'slepc_version')
+    version_string = ' '.join(test['slepc_version'])
+    return (checkVersion(checks, version_string, 'slepc_version'), version_string)
 
 def getIfAsioExists(moose_dir):
     option_set = set(['ALL'])
@@ -677,35 +686,38 @@ def getOutputFromFiles(tester, options):
     for file_path in output_files:
         with open(file_path, 'r') as f:
             file_output += "#"*80 + "\nOutput from " + file_path \
-                           + "\n" + "#"*80 + "\n" + readOutput(f, None, options)
+                           + "\n" + "#"*80 + "\n" + readOutput(f, None)
     return file_output
 
-# This function reads output from the file (i.e. the test output)
-# but trims it down to the specified size.  It'll save the first two thirds
-# of the requested size and the last third trimming from the middle
-def readOutput(f, e, options, max_size=100000):
+# Read stdout and stderr file objects, append error and return the string
+def readOutput(stdout, stderr):
+    output = ''
+    if stdout:
+        stdout.seek(0)
+        output += stdout.read()
+    if stderr:
+        stderr.seek(0)
+        output += stderr.read()
+    return output
+
+# Trimming routines for job output
+def trimOutput(job, options):
+    output = job.getOutput()
+    if ((job.isFail() and options.no_trimmed_output_on_error)
+        or (job.specs.isValid('max_buffer_size') and job.specs['max_buffer_size'] == -1)
+        or options.no_trimmed_output):
+        return output
+    elif job.specs.isValid('max_buffer_size'):
+        max_size = job.specs['max_buffer_size']
+    else:
+        max_size = 100000
+
+    if len(output) <= max_size:
+        return output
+
     first_part = int(max_size*(2.0/3.0))
     second_part = int(max_size*(1.0/3.0))
-    output = ''
-
-    f.seek(0)
-    if e:
-        e.seek(0)
-    if options.no_trimmed_output:
-        output += f.read()
-        if e:
-            output += e.read()
-
-    else:
-        output = f.read(first_part)     # Limit the output to 1MB
-        if len(output) == first_part:   # This means we didn't read the whole file yet
-            output += "\n" + "#"*80 + "\n\nOutput trimmed\n\n" + "#"*80 + "\n"
-            f.seek(-second_part, 2)       # Skip the middle part of the file
-
-            if (f.tell() <= first_part):  # Don't re-read some of what you've already read
-                f.seek(first_part+1, 0)
-
-        output += f.read()          # Now read the rest
-        if e:
-            output += e.read()      # Do not trim errors
-    return output
+    return "%s\n%s\n\nOutput trimmed\n\n%s\n%s" % (output[:first_part],
+                                                   "#"*80,
+                                                   "#"*80,
+                                                   output[-second_part:])

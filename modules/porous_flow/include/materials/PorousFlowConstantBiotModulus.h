@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWCONSTANTBIOTMODULUS_H
-#define POROUSFLOWCONSTANTBIOTMODULUS_H
+#pragma once
 
 #include "PorousFlowMaterialVectorBase.h"
 
-// Forward Declarations
 class PorousFlowConstantBiotModulus;
 
 template <>
@@ -56,4 +54,3 @@ protected:
   const MaterialProperty<Real> & _biot_modulus_old;
 };
 
-#endif // POROUSFLOWCONSTANTBIOTMODULUS_H

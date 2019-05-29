@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWCONSTANTTHERMALEXPANSIONCOEFFICIENT_H
-#define POROUSFLOWCONSTANTTHERMALEXPANSIONCOEFFICIENT_H
+#pragma once
 
 #include "PorousFlowMaterialVectorBase.h"
 
-// Forward Declarations
 class PorousFlowConstantThermalExpansionCoefficient;
 
 template <>
@@ -56,4 +54,3 @@ protected:
   const MaterialProperty<Real> & _coeff_old;
 };
 
-#endif // POROUSFLOWCONSTANTTHERMALEXPANSIONCOEFFICIENT_H

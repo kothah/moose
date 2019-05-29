@@ -37,6 +37,11 @@ libmesh_LIBS     := $(shell METHOD=$(METHOD) $(libmesh_config) --libs)
 libmesh_HOST     := $(shell METHOD=$(METHOD) $(libmesh_config) --host)
 libmesh_LDFLAGS  := $(shell METHOD=$(METHOD) $(libmesh_config) --ldflags)
 
+# You can completely disable timing by setting MOOSE_NO_PERF_GRAPH in your environment
+ifneq (x$(MOOSE_NO_PERF_GRAPH), x)
+  libmesh_CXXFLAGS += -DMOOSE_NO_PERF_GRAPH
+endif
+
 # Make.common used to provide an obj-suffix which was related to the
 # machine in question (from config.guess, i.e. @host@ in
 # contrib/utils/Make.common.in) and the $(METHOD).
@@ -172,7 +177,7 @@ endif
 %.$(obj-suffix) : %.f90
 	@echo "Compiling Fortran90 (in "$(METHOD)" mode) "$<"..."
 	@$(libmesh_LIBTOOL) --tag=FC $(LIBTOOLFLAGS) --mode=compile --quiet \
-	  $(libmesh_F90) $(libmesh_FFLAGS) $(libmesh_INCLUDE) -c $< $(module_dir_flag) -o $@
+	  $(libmesh_F90) $(libmesh_FFLAGS) $(app_INCLUDES) $(libmesh_INCLUDE) -c $< $(module_dir_flag) -o $@
 
 # Add method to list of defines passed to the compiler
 libmesh_CXXFLAGS += -DMETHOD=$(METHOD)
@@ -219,6 +224,7 @@ ifeq ($(coverage),true)
 	libmesh_CXXFLAGS += -fprofile-arcs -ftest-coverage
 	ifeq (,$(findstring clang++,$(cxx_compiler)))
 		libmesh_LDFLAGS += -lgcov
+		libmesh_LIBS += -lgcov
 	endif
 endif
 

@@ -9,7 +9,6 @@
 #* https://www.gnu.org/licenses/lgpl-2.1.html
 
 import vtk
-import mooseutils
 from AxisSource import AxisSource
 from .. import base
 from .. import geometric
@@ -64,13 +63,6 @@ class ColorBar(base.ChiggerResult):
         if self.needsInitialize():
             self.initialize()
 
-        # Error if the vtkRenderWindow is not set
-        size = self._vtkrenderer.GetSize()
-        if size == (0, 0):
-            raise mooseutils.MooseException('Calling update() prior to calling '
-                                            'RenderWindow.update() is not supported for this '
-                                            'object.')
-
         # Convenience names for the various sources
         plane, axis0, axis1 = self._sources
 
@@ -87,7 +79,7 @@ class ColorBar(base.ChiggerResult):
         length0 = 0
         length1 = 0
         loc = self.getOption('location')
-        if (loc is 'right') or (loc is 'left'):
+        if (loc == 'right') or (loc == 'left'):
             length0 = self.getOption('width')
             length1 = self.getOption('length')
             plane.setOptions(resolution=[1, n+1])
@@ -118,12 +110,14 @@ class ColorBar(base.ChiggerResult):
         pos = coord.GetComputedViewportValue(self._vtkrenderer)
 
         # Update the bar position
-        plane.setOptions(origin=[pos[0], pos[1], 0], point1=[p0[0], p0[1], 0],
+        plane.setOptions(origin=[pos[0], pos[1], 0],
+                         point1=[p0[0], p0[1], 0],
                          point2=[p1[0], p1[1], 0])
 
         # Set the colormap for the bar
         rng = self.getOption('cmap_range')
         step = (rng[1] - rng[0]) / float(n)
+
         data = vtk.vtkFloatArray()
         data.SetNumberOfTuples(n+1)
         for i in xrange(n+1):

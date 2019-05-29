@@ -7,13 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ISOTROPICTEMPDEPHARDENING_H
-#define ISOTROPICTEMPDEPHARDENING_H
+#pragma once
 
 #include "IsotropicPlasticity.h"
+#include "LinearInterpolation.h"
 
 class PiecewiseLinear;
-class LinearInterpolation;
 
 class IsotropicTempDepHardening;
 
@@ -43,5 +42,3 @@ protected:
   unsigned int _hf_index_hi;
   Real _hf_fraction;
 };
-
-#endif // ISOTROPICTEMPDEPHARDENING_H

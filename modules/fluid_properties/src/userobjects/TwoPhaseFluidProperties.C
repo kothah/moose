@@ -36,7 +36,7 @@ TwoPhaseFluidProperties::TwoPhaseFluidProperties(const InputParameters & paramet
   // is implied that these objects will be created by a derived class. In this
   // case, we need to check that these user objects do not already exist.
   if (!isParamValid("fp_liquid"))
-    if (_fe_problem.hasUserObject(_liquid_name))
+    if (_tid == 0 && _fe_problem.hasUserObject(_liquid_name))
       paramError("fp_liquid",
                  "The two-phase fluid properties object '" + name() + "' is ",
                  "trying to create a single-phase fluid properties object with ",
@@ -45,7 +45,7 @@ TwoPhaseFluidProperties::TwoPhaseFluidProperties(const InputParameters & paramet
                  "', but a single-phase fluid properties ",
                  "object with this name already exists.");
   if (!isParamValid("fp_vapor"))
-    if (_fe_problem.hasUserObject(_vapor_name))
+    if (_tid == 0 && _fe_problem.hasUserObject(_vapor_name))
       paramError("fp_vapor",
                  "The two-phase fluid properties object '" + name() + "' is ",
                  "trying to create a single-phase fluid properties object with ",
@@ -55,20 +55,18 @@ TwoPhaseFluidProperties::TwoPhaseFluidProperties(const InputParameters & paramet
                  "object with this name already exists.");
 }
 
-const UserObjectName &
-TwoPhaseFluidProperties::getLiquidName() const
-{
-  return _liquid_name;
-}
-
-const UserObjectName &
-TwoPhaseFluidProperties::getVaporName() const
-{
-  return _vapor_name;
-}
-
 Real
 TwoPhaseFluidProperties::h_lat(Real p, Real T) const
 {
   return _fp_vapor->h_from_p_T(p, T) - _fp_liquid->h_from_p_T(p, T);
+}
+
+Real TwoPhaseFluidProperties::sigma_from_T(Real /*T*/) const
+{
+  mooseError(name(), ": ", __PRETTY_FUNCTION__, " is not implemented.");
+}
+
+Real TwoPhaseFluidProperties::dsigma_dT_from_T(Real /*T*/) const
+{
+  mooseError(name(), ": ", __PRETTY_FUNCTION__, " is not implemented.");
 }

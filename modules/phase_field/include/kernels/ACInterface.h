@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ACINTERFACE_H
-#define ACINTERFACE_H
+#pragma once
 
 #include "Kernel.h"
 #include "JvarMapInterface.h"
@@ -36,6 +35,9 @@ protected:
 
   RealGradient gradL();
   RealGradient gradKappa();
+
+  /// the \f$ \nabla(L\psi) \f$ term
+  RealGradient nablaLPsi();
 
   /// the \f$ \kappa\nabla(L\psi) \f$ term
   RealGradient kappaNablaLPsi();
@@ -72,4 +74,3 @@ protected:
   std::vector<const VariableGradient *> _gradarg;
 };
 
-#endif // ACINTERFACE_H

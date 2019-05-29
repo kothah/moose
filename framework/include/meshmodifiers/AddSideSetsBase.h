@@ -7,12 +7,16 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ADDSIDESETSBASE_H
-#define ADDSIDESETSBASE_H
+#pragma once
 
 #include "MeshModifier.h"
 
-#include "libmesh/fe_base.h"
+namespace libMesh
+{
+template <typename>
+class FEGenericBase;
+typedef FEGenericBase<Real> FEBase;
+}
 
 // Forward declarations
 class AddSideSetsBase;
@@ -62,4 +66,3 @@ protected:
   std::map<BoundaryID, std::set<const Elem *>> _visited;
 };
 
-#endif /* ADDSIDESETSBASE_H */

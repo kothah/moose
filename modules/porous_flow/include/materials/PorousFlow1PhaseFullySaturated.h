@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOW1PHASEFULLYSATURATED_H
-#define POROUSFLOW1PHASEFULLYSATURATED_H
+#pragma once
 
 #include "PorousFlowVariableBase.h"
 
-// Forward Declarations
 class PorousFlow1PhaseFullySaturated;
 
 template <>
@@ -43,8 +41,7 @@ protected:
   const VariableGradient & _gradp_qp_var;
   /// Moose variable number of the porepressure
   const unsigned int _porepressure_varnum;
-  /// the PorousFlow variable number of the porepressure
+  /// The PorousFlow variable number of the porepressure
   const unsigned int _p_var_num;
 };
 
-#endif // POROUSFLOW1PHASEFULLYSATURATED_H

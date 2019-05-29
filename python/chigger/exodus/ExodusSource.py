@@ -26,7 +26,7 @@ class ExodusSource(base.ChiggerSource):
         **kwargs: see ChiggerSource
     """
     FILTER_TYPES = [filters.ContourFilter, filters.ClipperFilterBase, filters.GeometryFilter,
-                    filters.TransformFilter, filters.TubeFilter]
+                    filters.TransformFilter, filters.TubeFilter, filters.RotationalExtrusionFilter]
 
     @staticmethod
     def getOptions():
@@ -106,21 +106,26 @@ class ExodusSource(base.ChiggerSource):
         bnds = []
         for i in range(self.__vtkextractblock.GetOutput().GetNumberOfBlocks()):
             current = self.__vtkextractblock.GetOutput().GetBlock(i)
-            if isinstance(current, vtk.vtkCommonDataModelPython.vtkUnstructuredGrid):
+            if isinstance(current, vtk.vtkUnstructuredGrid):
                 bnds.append(current.GetBounds())
 
-            elif isinstance(current, vtk.vtkCommonDataModelPython.vtkMultiBlockDataSet):
+            elif isinstance(current, vtk.vtkMultiBlockDataSet):
                 for j in range(current.GetNumberOfBlocks()):
                     bnds.append(current.GetBlock(j).GetBounds())
 
         return utils.get_bounds_min_max(*bnds)
 
-    def getRange(self):
+    def getRange(self, local=False):
         """
         Return range of the active variable and blocks.
         """
         self.checkUpdateState()
-        return self.__getRange()
+        if self.__current_variable is None:
+            return (None, None)
+        elif not local:
+            return self.__getRange()
+        else:
+            return self.__getLocalRange()
 
     def __getRange(self):
         """
@@ -130,18 +135,31 @@ class ExodusSource(base.ChiggerSource):
         pairs = []
         for i in range(self.__vtkextractblock.GetOutput().GetNumberOfBlocks()):
             current = self.__vtkextractblock.GetOutput().GetBlock(i)
-            if isinstance(current, vtk.vtkCommonDataModelPython.vtkUnstructuredGrid):
+            if isinstance(current, vtk.vtkUnstructuredGrid):
                 array = self.__getActiveArray(current)
                 if array:
                     pairs.append(array.GetRange(component))
 
-            elif isinstance(current, vtk.vtkCommonDataModelPython.vtkMultiBlockDataSet):
+            elif isinstance(current, vtk.vtkMultiBlockDataSet):
                 for j in range(current.GetNumberOfBlocks()):
                     array = self.__getActiveArray(current.GetBlock(j))
                     if array:
                         pairs.append(array.GetRange(component))
 
         return utils.get_min_max(*pairs)
+
+    def __getLocalRange(self):
+        """
+        Determine the range of visible items.
+        """
+        component = self.getOption('component')
+        self.getVTKMapper().Update() # required to have up-to-date ranges
+        data = self.getVTKMapper().GetInput()
+        out = self.__getActiveArray(data)
+        if out is not None:
+            return out.GetRange(component)
+        else:
+            return [None, None]
 
     def __getActiveArray(self, data):
         """

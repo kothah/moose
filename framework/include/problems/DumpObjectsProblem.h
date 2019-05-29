@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef DUMPOBJECTSPROBLEM_H
-#define DUMPOBJECTSPROBLEM_H
+#pragma once
 
 #include "FEProblemBase.h"
 
@@ -25,7 +24,6 @@ class DumpObjectsProblem : public FEProblemBase
 {
 public:
   DumpObjectsProblem(const InputParameters & parameters);
-  ~DumpObjectsProblem();
 
   void addVariable(const std::string & var_name,
                    const FEType & type,
@@ -126,4 +124,3 @@ protected:
   std::shared_ptr<DumpObjectsNonlinearSystem> _nl_sys;
 };
 
-#endif // DUMPOBJECTSPROBLEM_H

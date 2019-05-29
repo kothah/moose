@@ -7,16 +7,18 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOMENTBALANCING_H
-#define MOMENTBALANCING_H
+#pragma once
 
 #include "Kernel.h"
 
 // Forward Declarations
 class MomentBalancing;
-class RankFourTensor;
-class RankTwoTensor;
-
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
+template <typename>
+class RankFourTensorTempl;
+typedef RankFourTensorTempl<Real> RankFourTensor;
 template <>
 InputParameters validParams<MomentBalancing>();
 
@@ -65,4 +67,3 @@ protected:
   std::vector<unsigned int> _disp_var;
 };
 
-#endif // MOMENTBALANCING_H

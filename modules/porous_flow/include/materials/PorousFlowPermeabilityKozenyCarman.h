@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWPERMEABILITYKOZENYCARMAN_H
-#define POROUSFLOWPERMEABILITYKOZENYCARMAN_H
+#pragma once
 
 #include "PorousFlowPermeabilityBase.h"
 
-// Forward Declarations
 class PorousFlowPermeabilityKozenyCarman;
 
 template <>
@@ -61,7 +59,7 @@ protected:
   /// Tensor multiplier k_ijk in k = k_ijk * A * phi^n / (1 - phi)^m
   const RealTensorValue _k_anisotropy;
 
-  /// quadpoint porosity
+  /// Quadpoint porosity
   const MaterialProperty<Real> & _porosity_qp;
 
   /// d(quadpoint porosity)/d(PorousFlow variable)
@@ -77,4 +75,3 @@ protected:
   Real _A;
 };
 
-#endif // POROUSFLOWPERMEABILITYKOZENYCARMAN_H

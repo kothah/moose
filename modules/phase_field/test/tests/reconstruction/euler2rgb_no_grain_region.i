@@ -88,6 +88,7 @@
     ebsd_reader = ebsd_reader
     grain_tracker = grain_tracker
     variable = ebsd_numbers
+    phase = 2
     execute_on = 'initial timestep_end'
   [../]
 
@@ -115,6 +116,7 @@
       grain_tracker = grain_tracker
       euler_angle_provider = ebsd_reader
       no_grain_color = '.1 .1 .1'
+      phase = 2
     [../]
   [../]
 []
@@ -148,5 +150,5 @@
   csv = true
   exodus = true
   execute_on = 'INITIAL TIMESTEP_END'
-  print_perf_log = true
+  perf_graph = true
 []

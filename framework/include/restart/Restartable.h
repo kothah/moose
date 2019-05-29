@@ -7,12 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef RESTARTABLE_H
-#define RESTARTABLE_H
+#pragma once
 
 // MOOSE includes
 #include "MooseTypes.h"
 #include "RestartableData.h"
+
+#define adDeclareRestartableData this->template declareRestartableData
 
 // Forward declarations
 class PostprocessorData;
@@ -286,4 +287,3 @@ Restartable::declareRecoverableData(std::string data_name, const T & init_value)
   return declareRestartableDataWithContext<T>(data_name, init_value, nullptr);
 }
 
-#endif // RESTARTABLE

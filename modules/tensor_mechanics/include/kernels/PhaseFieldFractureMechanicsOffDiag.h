@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PHASEFIELDFRACTUREMECHANICSOFFDIAG_H
-#define PHASEFIELDFRACTUREMECHANICSOFFDIAG_H
+#pragma once
 
 #include "Kernel.h"
 #include "RankTwoTensor.h"
@@ -21,7 +20,6 @@
  */
 
 class PhaseFieldFractureMechanicsOffDiag;
-class RankTwoTensor;
 
 template <>
 InputParameters validParams<PhaseFieldFractureMechanicsOffDiag>();
@@ -46,4 +44,3 @@ protected:
   const MaterialProperty<RankTwoTensor> & _d_stress_dc;
 };
 
-#endif // PHASEFIELDFRACTUREMECHANICSOFFDIAG_H

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTELINEARELASTICSTRESS_H
-#define COMPUTELINEARELASTICSTRESS_H
+#pragma once
 
 #include "ComputeStressBase.h"
 
@@ -24,12 +23,14 @@ class ComputeLinearElasticStress : public ComputeStressBase
 {
 public:
   ComputeLinearElasticStress(const InputParameters & parameters);
-  virtual void initialSetup();
+  virtual void initialSetup() override;
 
 protected:
-  virtual void computeQpStress();
+  virtual void computeQpStress() override;
 
-  const MaterialProperty<RankTwoTensor> & _mechanical_strain;
+  /// Name of the elasticity tensor material property
+  const std::string _elasticity_tensor_name;
+  /// Elasticity tensor material property
+  const MaterialProperty<RankFourTensor> & _elasticity_tensor;
 };
 
-#endif // COMPUTELINEARELASTICSTRESS_H

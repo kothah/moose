@@ -20,107 +20,47 @@ template <>
 InputParameters
 validParams<InterfaceKernel>()
 {
-  InputParameters params = validParams<MooseObject>();
-  params += validParams<TransientInterface>();
-  params += validParams<BoundaryRestrictable>();
-  params += validParams<MeshChangedInterface>();
-  params.addRequiredParam<NonlinearVariableName>(
-      "variable", "The name of the variable that this boundary condition applies to");
-  params.addParam<bool>("use_displaced_mesh",
-                        false,
-                        "Whether or not this object should use the "
-                        "displaced mesh for computation. Note that in "
-                        "the case this is true but no displacements "
-                        "are provided in the Mesh block the "
-                        "undisplaced mesh will still be used.");
-  params.addParamNamesToGroup("use_displaced_mesh", "Advanced");
-
-  params.declareControllable("enable");
-  params.addRequiredCoupledVar("neighbor_var", "The variable on the other side of the interface.");
-  params.set<std::string>("_moose_base") = "InterfaceKernel";
-  params.addParam<std::vector<AuxVariableName>>(
-      "save_in",
-      "The name of auxiliary variables to save this Kernel's residual contributions to. "
-      " Everything about that variable must match everything about this variable (the "
-      "type, what blocks it's on, etc.)");
-  params.addParam<std::vector<AuxVariableName>>(
-      "diag_save_in",
-      "The name of auxiliary variables to save this Kernel's diagonal Jacobian "
-      "contributions to. Everything about that variable must match everything "
-      "about this variable (the type, what blocks it's on, etc.)");
-
-  MultiMooseEnum save_in_var_side("m s");
-  params.addParam<MultiMooseEnum>(
-      "save_in_var_side",
-      save_in_var_side,
-      "This parameter must exist if save_in variables are specified and must have the same length "
-      "as save_in. This vector specifies whether the corresponding aux_var should save-in "
-      "residual contributions from the master ('m') or slave side ('s').");
-  params.addParam<MultiMooseEnum>(
-      "diag_save_in_var_side",
-      save_in_var_side,
-      "This parameter must exist if diag_save_in variables are specified and must have the same "
-      "length as diag_save_in. This vector specifies whether the corresponding aux_var should "
-      "save-in jacobian contributions from the master ('m') or slave side ('s').");
-
+  InputParameters params = validParams<InterfaceKernelBase>();
+  params.registerBase("InterfaceKernel");
   return params;
 }
 
-// Static mutex definitions
-Threads::spin_mutex InterfaceKernel::_resid_vars_mutex;
-Threads::spin_mutex InterfaceKernel::_jacoby_vars_mutex;
+template <>
+InputParameters
+validParams<VectorInterfaceKernel>()
+{
+  InputParameters params = validParams<InterfaceKernelBase>();
+  params.registerBase("VectorInterfaceKernel");
+  return params;
+}
 
-InterfaceKernel::InterfaceKernel(const InputParameters & parameters)
-  : MooseObject(parameters),
-    BoundaryRestrictable(this, false), // false for _not_ nodal
-    SetupInterface(this),
-    TransientInterface(this),
-    FunctionInterface(this),
-    UserObjectInterface(this),
-    NeighborCoupleableMooseVariableDependencyIntermediateInterface(this, false, false),
-    NeighborMooseVariableInterface<Real>(
-        this, false, Moose::VarKindType::VAR_NONLINEAR, Moose::VarFieldType::VAR_FIELD_STANDARD),
-    Restartable(this, "InterfaceKernels"),
-    MeshChangedInterface(parameters),
-    TwoMaterialPropertyInterface(this, Moose::EMPTY_BLOCK_IDS, boundaryIDs()),
-    _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
-    _sys(*getCheckedPointerParam<SystemBase *>("_sys")),
-    _tid(parameters.get<THREAD_ID>("_tid")),
-    _assembly(_subproblem.assembly(_tid)),
-    _var(*mooseVariable()),
-    _mesh(_subproblem.mesh()),
-    _current_elem(_assembly.elem()),
-    _current_elem_volume(_assembly.elemVolume()),
-    _neighbor_elem(_assembly.neighbor()),
-    _current_side(_assembly.side()),
-    _current_side_elem(_assembly.sideElem()),
-    _current_side_volume(_assembly.sideElemVolume()),
-    _coord_sys(_assembly.coordSystem()),
-    _q_point(_assembly.qPointsFace()),
-    _qrule(_assembly.qRuleFace()),
-    _JxW(_assembly.JxWFace()),
-    _coord(_assembly.coordTransformation()),
+template <typename T>
+InterfaceKernelTempl<T>::InterfaceKernelTempl(const InputParameters & parameters)
+  : InterfaceKernelBase(parameters),
+    NeighborMooseVariableInterface<T>(this,
+                                      false,
+                                      Moose::VarKindType::VAR_NONLINEAR,
+                                      std::is_same<T, Real>::value
+                                          ? Moose::VarFieldType::VAR_FIELD_STANDARD
+                                          : Moose::VarFieldType::VAR_FIELD_VECTOR),
+    _var(*this->mooseVariable()),
+    _normals(_assembly.normals()),
     _u(_is_implicit ? _var.sln() : _var.slnOld()),
     _grad_u(_is_implicit ? _var.gradSln() : _var.gradSlnOld()),
     _phi(_assembly.phiFace(_var)),
     _grad_phi(_assembly.gradPhiFace(_var)),
     _test(_var.phiFace()),
     _grad_test(_var.gradPhiFace()),
-    _normals(_var.normals()),
-    _neighbor_var(*getVar("neighbor_var", 0)),
-    _neighbor_value(_neighbor_var.slnNeighbor()),
+    _neighbor_var(*getVarHelper<T>("neighbor_var", 0)),
+    _neighbor_value(_is_implicit ? _neighbor_var.slnNeighbor() : _neighbor_var.slnOldNeighbor()),
     _grad_neighbor_value(_neighbor_var.gradSlnNeighbor()),
     _phi_neighbor(_assembly.phiFaceNeighbor(_neighbor_var)),
     _grad_phi_neighbor(_assembly.gradPhiFaceNeighbor(_neighbor_var)),
     _test_neighbor(_neighbor_var.phiFaceNeighbor()),
-    _grad_test_neighbor(_neighbor_var.gradPhiFaceNeighbor()),
-    _save_in_var_side(parameters.get<MultiMooseEnum>("save_in_var_side")),
-    _save_in_strings(parameters.get<std::vector<AuxVariableName>>("save_in")),
-    _diag_save_in_var_side(parameters.get<MultiMooseEnum>("diag_save_in_var_side")),
-    _diag_save_in_strings(parameters.get<std::vector<AuxVariableName>>("diag_save_in"))
+    _grad_test_neighbor(_neighbor_var.gradPhiFaceNeighbor())
 
 {
-  addMooseVariableDependency(mooseVariable());
+  addMooseVariableDependency(this->mooseVariable());
 
   if (!parameters.isParamValid("boundary"))
     mooseError(
@@ -215,8 +155,9 @@ InterfaceKernel::InterfaceKernel(const InputParameters & parameters)
   _has_slave_jacobians_saved_in = _slave_save_in_jacobian_variables.size() > 0;
 }
 
+template <typename T>
 void
-InterfaceKernel::computeElemNeighResidual(Moose::DGResidualType type)
+InterfaceKernelTempl<T>::computeElemNeighResidual(Moose::DGResidualType type)
 {
   bool is_elem;
   if (type == Moose::Element)
@@ -224,18 +165,18 @@ InterfaceKernel::computeElemNeighResidual(Moose::DGResidualType type)
   else
     is_elem = false;
 
-  const VariableTestValue & test_space = is_elem ? _test : _test_neighbor;
-  DenseVector<Number> & re = is_elem ? _assembly.residualBlock(_var.number())
-                                     : _assembly.residualBlockNeighbor(_neighbor_var.number());
+  const TemplateVariableTestValue & test_space = is_elem ? _test : _test_neighbor;
 
-  _local_re.resize(re.size());
-  _local_re.zero();
+  if (is_elem)
+    prepareVectorTag(_assembly, _var.number());
+  else
+    prepareVectorTagNeighbor(_assembly, _neighbor_var.number());
 
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)
     for (_i = 0; _i < test_space.size(); _i++)
       _local_re(_i) += _JxW[_qp] * _coord[_qp] * computeQpResidual(type);
 
-  re += _local_re;
+  accumulateTaggedLocalResidual();
 
   if (_has_master_residuals_saved_in && is_elem)
   {
@@ -253,8 +194,9 @@ InterfaceKernel::computeElemNeighResidual(Moose::DGResidualType type)
   }
 }
 
+template <typename T>
 void
-InterfaceKernel::computeResidual()
+InterfaceKernelTempl<T>::computeResidual()
 {
   // Compute the residual for this element
   computeElemNeighResidual(Moose::Element);
@@ -263,42 +205,53 @@ InterfaceKernel::computeResidual()
   computeElemNeighResidual(Moose::Neighbor);
 }
 
+template <typename T>
 void
-InterfaceKernel::computeElemNeighJacobian(Moose::DGJacobianType type)
+InterfaceKernelTempl<T>::computeElemNeighJacobian(Moose::DGJacobianType type)
 {
-  const VariableTestValue & test_space =
+  const TemplateVariableTestValue & test_space =
       (type == Moose::ElementElement || type == Moose::ElementNeighbor) ? _test : _test_neighbor;
-  const VariableTestValue & loc_phi =
+  const TemplateVariableTestValue & loc_phi =
       (type == Moose::ElementElement || type == Moose::NeighborElement) ? _phi : _phi_neighbor;
-  DenseMatrix<Number> & Kxx =
-      type == Moose::ElementElement
-          ? _assembly.jacobianBlock(_var.number(), _var.number())
-          : type == Moose::ElementNeighbor
-                ? _assembly.jacobianBlockNeighbor(
-                      Moose::ElementNeighbor, _var.number(), _neighbor_var.number())
-                : type == Moose::NeighborElement
-                      ? _assembly.jacobianBlockNeighbor(
-                            Moose::NeighborElement, _neighbor_var.number(), _var.number())
-                      : _assembly.jacobianBlockNeighbor(Moose::NeighborNeighbor,
-                                                        _neighbor_var.number(),
-                                                        _neighbor_var.number());
 
-  _local_kxx.resize(Kxx.m(), Kxx.n());
-  _local_kxx.zero();
+  unsigned int ivar, jvar;
+
+  switch (type)
+  {
+    case Moose::ElementElement:
+      ivar = jvar = _var.number();
+      break;
+    case Moose::ElementNeighbor:
+      ivar = _var.number(), jvar = _neighbor_var.number();
+      break;
+    case Moose::NeighborElement:
+      ivar = _neighbor_var.number(), jvar = _var.number();
+      break;
+    case Moose::NeighborNeighbor:
+      ivar = _neighbor_var.number(), jvar = _neighbor_var.number();
+      break;
+    default:
+      mooseError("Unknown DGJacobianType ", type);
+  }
+
+  if (type == Moose::ElementElement)
+    prepareMatrixTag(_assembly, ivar, jvar);
+  else
+    prepareMatrixTagNeighbor(_assembly, ivar, jvar, type);
 
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)
     for (_i = 0; _i < test_space.size(); _i++)
       for (_j = 0; _j < loc_phi.size(); _j++)
-        _local_kxx(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpJacobian(type);
+        _local_ke(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpJacobian(type);
 
-  Kxx += _local_kxx;
+  accumulateTaggedLocalMatrix();
 
   if (_has_master_jacobians_saved_in && type == Moose::ElementElement)
   {
-    auto rows = _local_kxx.m();
+    auto rows = _local_ke.m();
     DenseVector<Number> diag(rows);
     for (decltype(rows) i = 0; i < rows; i++)
-      diag(i) = _local_kxx(i, i);
+      diag(i) = _local_ke(i, i);
 
     Threads::spin_mutex::scoped_lock lock(_jacoby_vars_mutex);
     for (const auto & var : _master_save_in_jacobian_variables)
@@ -306,10 +259,10 @@ InterfaceKernel::computeElemNeighJacobian(Moose::DGJacobianType type)
   }
   else if (_has_slave_jacobians_saved_in && type == Moose::NeighborNeighbor)
   {
-    auto rows = _local_kxx.m();
+    auto rows = _local_ke.m();
     DenseVector<Number> diag(rows);
     for (decltype(rows) i = 0; i < rows; i++)
-      diag(i) = _local_kxx(i, i);
+      diag(i) = _local_ke(i, i);
 
     Threads::spin_mutex::scoped_lock lock(_jacoby_vars_mutex);
     for (const auto & var : _slave_save_in_jacobian_variables)
@@ -317,41 +270,49 @@ InterfaceKernel::computeElemNeighJacobian(Moose::DGJacobianType type)
   }
 }
 
+template <typename T>
 void
-InterfaceKernel::computeJacobian()
+InterfaceKernelTempl<T>::computeJacobian()
 {
   computeElemNeighJacobian(Moose::ElementElement);
   computeElemNeighJacobian(Moose::NeighborNeighbor);
 }
 
+template <typename T>
 void
-InterfaceKernel::computeOffDiagElemNeighJacobian(Moose::DGJacobianType type, unsigned int jvar)
+InterfaceKernelTempl<T>::computeOffDiagElemNeighJacobian(Moose::DGJacobianType type,
+                                                         unsigned int jvar)
 {
-  const VariableTestValue & test_space =
+  const TemplateVariableTestValue & test_space =
       (type == Moose::ElementElement || type == Moose::ElementNeighbor) ? _test : _test_neighbor;
-  const VariableTestValue & loc_phi =
+  const TemplateVariableTestValue & loc_phi =
       (type == Moose::ElementElement || type == Moose::NeighborElement) ? _phi : _phi_neighbor;
-  DenseMatrix<Number> & Kxx =
-      type == Moose::ElementElement
-          ? _assembly.jacobianBlock(_var.number(), jvar)
-          : type == Moose::ElementNeighbor
-                ? _assembly.jacobianBlockNeighbor(Moose::ElementNeighbor, _var.number(), jvar)
-                : type == Moose::NeighborElement
-                      ? _assembly.jacobianBlockNeighbor(
-                            Moose::NeighborElement, _neighbor_var.number(), jvar)
-                      : _assembly.jacobianBlockNeighbor(
-                            Moose::NeighborNeighbor, _neighbor_var.number(), jvar);
+
+  unsigned int ivar;
+
+  if (type == Moose::ElementElement || type == Moose::ElementNeighbor)
+    ivar = _var.number();
+  else
+    ivar = _neighbor_var.number();
+
+  if (type == Moose::ElementElement)
+    prepareMatrixTag(_assembly, ivar, jvar);
+  else
+    prepareMatrixTagNeighbor(_assembly, ivar, jvar, type);
 
   // Prevent calling of Jacobian computation if jvar doesn't lie in the current block
-  if ((Kxx.m() == test_space.size()) && (Kxx.n() == loc_phi.size()))
+  if ((_local_ke.m() == test_space.size()) && (_local_ke.n() == loc_phi.size()))
     for (_qp = 0; _qp < _qrule->n_points(); _qp++)
       for (_i = 0; _i < test_space.size(); _i++)
         for (_j = 0; _j < loc_phi.size(); _j++)
-          Kxx(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpOffDiagJacobian(type, jvar);
+          _local_ke(_i, _j) += _JxW[_qp] * _coord[_qp] * computeQpOffDiagJacobian(type, jvar);
+
+  accumulateTaggedLocalMatrix();
 }
 
+template <typename T>
 void
-InterfaceKernel::computeElementOffDiagJacobian(unsigned int jvar)
+InterfaceKernelTempl<T>::computeElementOffDiagJacobian(unsigned int jvar)
 {
   bool is_jvar_not_interface_var = true;
   if (jvar == _var.number())
@@ -372,8 +333,9 @@ InterfaceKernel::computeElementOffDiagJacobian(unsigned int jvar)
   }
 }
 
+template <typename T>
 void
-InterfaceKernel::computeNeighborOffDiagJacobian(unsigned int jvar)
+InterfaceKernelTempl<T>::computeNeighborOffDiagJacobian(unsigned int jvar)
 {
   bool is_jvar_not_interface_var = true;
   if (jvar == _var.number())
@@ -394,32 +356,6 @@ InterfaceKernel::computeNeighborOffDiagJacobian(unsigned int jvar)
   }
 }
 
-Real
-InterfaceKernel::computeQpOffDiagJacobian(Moose::DGJacobianType /*type*/, unsigned int /*jvar*/)
-{
-  return 0.;
-}
-
-MooseVariable &
-InterfaceKernel::variable() const
-{
-  return _var;
-}
-
-const MooseVariable &
-InterfaceKernel::neighborVariable() const
-{
-  return _neighbor_var;
-}
-
-SubProblem &
-InterfaceKernel::subProblem()
-{
-  return _subproblem;
-}
-
-const Real &
-InterfaceKernel::getNeighborElemVolume()
-{
-  return _assembly.neighborVolume();
-}
+// Explicitly instantiates the two versions of the InterfaceKernelTempl class
+template class InterfaceKernelTempl<Real>;
+template class InterfaceKernelTempl<RealVectorValue>;

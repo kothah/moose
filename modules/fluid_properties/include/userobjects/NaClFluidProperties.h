@@ -7,15 +7,17 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef NACLFLUIDPROPERTIES_H
-#define NACLFLUIDPROPERTIES_H
+#pragma once
 
-#include "SinglePhaseFluidPropertiesPT.h"
+#include "SinglePhaseFluidProperties.h"
 
 class NaClFluidProperties;
 
 template <>
 InputParameters validParams<NaClFluidProperties>();
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
 
 /**
  * NaCl fluid properties as a function of pressure (Pa) and temperature (K).
@@ -38,7 +40,7 @@ InputParameters validParams<NaClFluidProperties>();
  * From Anderko and Pitzer, Equation of state for pure sodium chloride, Fluid
  * Phase Equil., 79 (1992)
  */
-class NaClFluidProperties : public SinglePhaseFluidPropertiesPT
+class NaClFluidProperties : public SinglePhaseFluidProperties
 {
 public:
   NaClFluidProperties(const InputParameters & parameters);
@@ -58,58 +60,31 @@ public:
 
   virtual Real triplePointTemperature() const override;
 
-  virtual Real rho(Real pressure, Real temperature) const override;
+  virtual Real rho_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual void rho_dpT(
+  virtual void rho_from_p_T(
       Real pressure, Real temperature, Real & rho, Real & drho_dp, Real & drho_dT) const override;
 
-  virtual Real e(Real pressure, Real temperature) const override;
+  virtual Real e_from_p_T(Real pressure, Real temperature) const override;
 
   virtual void
-  e_dpT(Real pressure, Real temperature, Real & e, Real & de_dp, Real & de_dT) const override;
+  e_from_p_T(Real pressure, Real temperature, Real & e, Real & de_dp, Real & de_dT) const override;
 
-  virtual void rho_e_dpT(Real pressure,
-                         Real temperature,
-                         Real & rho,
-                         Real & drho_dp,
-                         Real & drho_dT,
-                         Real & e,
-                         Real & de_dp,
-                         Real & de_dT) const override;
+  virtual Real cp_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual Real c(Real pressure, Real temperature) const override;
+  using SinglePhaseFluidProperties::cp_from_p_T;
 
-  virtual Real cp(Real pressure, Real temperature) const override;
+  virtual Real cv_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual Real cv(Real pressure, Real temperature) const override;
-
-  virtual Real mu(Real pressure, Real temperature) const override;
+  virtual Real k_from_p_T(Real pressure, Real temperature) const override;
 
   virtual void
-  mu_dpT(Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const override;
+  k_from_p_T(Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const override;
 
-  virtual void rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const override;
-
-  virtual void rho_mu_dpT(Real pressure,
-                          Real temperature,
-                          Real & rho,
-                          Real & drho_dp,
-                          Real & drho_dT,
-                          Real & mu,
-                          Real & dmu_dp,
-                          Real & dmu_dT) const override;
-
-  virtual Real k(Real pressure, Real temperature) const override;
+  virtual Real h_from_p_T(Real pressure, Real temperature) const override;
 
   virtual void
-  k_dpT(Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const override;
-
-  virtual Real s(Real pressure, Real temperature) const override;
-
-  virtual Real h(Real pressure, Real temperature) const override;
-
-  virtual void
-  h_dpT(Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const override;
+  h_from_p_T(Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const override;
 
 protected:
   /// NaCl molar mass (kg/mol)
@@ -126,4 +101,5 @@ protected:
   const Real _T_triple;
 };
 
-#endif /* NACLFLUIDPROPERTIES_H */
+#pragma GCC diagnostic pop
+

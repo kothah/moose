@@ -101,8 +101,12 @@ validParams<CommonOutputAction>()
   params.addParam<ExecFlagEnum>("execute_on", exec_enum, exec_enum.getDocString());
 
   // Add special Console flags
+  params.addDeprecatedParam<bool>(
+      "print_perf_log", false, "Use perf_graph instead!", "Use perf_graph instead!");
+
   params.addParam<bool>(
-      "print_perf_log", false, "Enable printing of the performance log to the screen (Console)");
+      "perf_graph", false, "Enable printing of the performance graph to the screen (Console)");
+
   params.addParam<bool>("print_mesh_changed_info",
                         false,
                         "When true, each time the mesh is changed the mesh information is printed");
@@ -186,6 +190,11 @@ CommonOutputAction::act()
   if (getParam<bool>("controls") || _app.getParam<bool>("show_controls"))
     create("ControlOutput");
 
+  if (!_app.getParam<bool>("no_timing") &&
+      (getParam<bool>("perf_graph") || getParam<bool>("print_perf_log") ||
+       _app.getParam<bool>("timing")))
+    create("PerfGraphOutput");
+
   if (!getParam<bool>("color"))
     Moose::setColorConsole(false);
 }
@@ -219,7 +228,10 @@ CommonOutputAction::hasConsole()
        it != _awh.actionBlocksWithActionEnd("add_output");
        it++)
   {
-    MooseObjectAction * moa = static_cast<MooseObjectAction *>(*it);
+    MooseObjectAction * moa = dynamic_cast<MooseObjectAction *>(*it);
+    if (!moa)
+      continue;
+
     const std::string & type = moa->getMooseObjectType();
     InputParameters & params = moa->getObjectParams();
     if (type.compare("Console") == 0 && params.get<bool>("output_screen"))

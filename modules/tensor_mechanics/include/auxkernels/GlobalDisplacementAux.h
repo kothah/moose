@@ -7,15 +7,16 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef GLOBALDISPLACEMENTAUX_H
-#define GLOBALDISPLACEMENTAUX_H
+#pragma once
 
 #include "AuxKernel.h"
 
 // Forward Declarations
 class GlobalDisplacementAux;
-class GlobalStrainUserObject;
-class RankTwoTensor;
+class GlobalStrainUserObjectInterface;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 template <>
 InputParameters validParams<GlobalDisplacementAux>();
@@ -33,11 +34,11 @@ protected:
 
   bool _output_global_disp;
 
-  const GlobalStrainUserObject & _pst;
+  const GlobalStrainUserObjectInterface & _pst;
   const VectorValue<bool> & _periodic_dir;
+  const Point _ref_point;
 
   const unsigned int _dim;
   const unsigned int _ndisp;
   std::vector<const VariableValue *> _disp;
 };
-#endif // GLOBALDISPLACEMENTAUX_H

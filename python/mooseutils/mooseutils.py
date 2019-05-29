@@ -11,10 +11,13 @@ from __future__ import print_function
 import os
 import re
 import collections
-import math
 import difflib
 import multiprocessing
 import subprocess
+import time
+import cProfile as profile
+import pstats
+import StringIO
 
 def colorText(string, color, **kwargs):
     """
@@ -78,7 +81,7 @@ def str2bool(string):
         string[str]: The text to convert (e.g., 'true' or '1')
     """
     string = string.lower()
-    if string is 'true' or string is '1':
+    if string == 'true' or string == '1':
         return True
     else:
         return False
@@ -129,9 +132,39 @@ def find_moose_executable(loc, **kwargs):
         print('ERROR: Unable to locate a valid MOOSE executable in directory:', loc)
     return exe
 
-def runExe(app_path, args):
+def find_moose_executable_recursive(loc=os.getcwd(), **kwargs):
+    """
+    Locate a moose executable in the current directory or any parent directory.
+
+    Inputs: see 'find_moose_executable'
+    """
+    loc = loc.split(os.path.sep)
+    for i in xrange(len(loc), 0, -1):
+        current = os.path.sep + os.path.join(*loc[0:i])
+        executable = find_moose_executable(current, show_error=False)
+        if executable is not None:
+            break
+    return executable
+
+def run_executable(app_path, args, mpi=None, suppress_output=False):
     """
     A function for running an application.
+    """
+    import subprocess
+    if mpi and isinstance(mpi, int):
+        cmd = ['mpiexec', '-n', str(mpi), app_path]
+    else:
+        cmd = [app_path]
+    cmd += args
+
+    if suppress_output:
+        return subprocess.check_output(cmd)
+    else:
+        return subprocess.call(cmd)
+
+def runExe(app_path, args):
+    """
+    A function for running an application (w/o output).
 
     Args:
         app_path[str]: The application to execute.
@@ -216,39 +249,8 @@ def make_chunks(local, num=multiprocessing.cpu_count()):
         local[list]: A list of objects to break into chunks.
         num[int]: The number of chunks (defaults to number of threads available)
     """
-    num = int(math.ceil(len(local)/float(num)))
-    for i in range(0, len(local), num):
-        yield local[i:i + num]
-
-def check_file_size(base=os.getcwd(), size=1, ignore=None):
-    """
-    Check the supplied directory for files greater then a prescribed size.
-
-    Input:
-        base[str]: The root directory to recursively search
-        size[int]: The size in MiB to check against
-        ignore[pattern]: A glob pattern to ignore
-    """
-
-    # Define the size in bytes
-    size = size * 1024.**2
-
-    # Define ignore sets
-    if ignore is None:
-        ignore = set()
-
-    # Search for files that are too large
-    FileInfo = collections.namedtuple('FileInfo', 'name size')
-    output = []
-    for root, _, files in os.walk(base, topdown=False):
-        for name in files:
-            filename = os.path.join(root, name)
-            if filename in ignore:
-                continue
-            result = os.stat(filename)
-            if result.st_size > size:
-                output.append(FileInfo(name=filename, size=result.st_size/(1024.**2)))
-    return output
+    k, m = divmod(len(local), num)
+    return (local[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in xrange(num))
 
 def camel_to_space(text):
     """
@@ -284,6 +286,60 @@ def text_diff(text, gold):
          .format('~'*n, '\n'.join(result).encode('utf-8'))
     return msg
 
+def unidiff(out, gold, **kwargs):
+    """
+    Perform a 'unified' style diff between the two supplied files.
+
+    Inputs:
+        out[str]: The name of the file in question.
+        gold[str]: The "gold" standard for the supplied file.
+        color[bool]: When True color is applied to the diff.
+        num_lines[int]: The number of lines to include with the diff (default: 3).
+    """
+
+    with open(out, 'r') as fid:
+        out_content = fid.read()
+    with open(gold, 'r') as fid:
+        gold_content = fid.read()
+
+    return text_unidiff(out_content, gold_content, out_fname=out, gold_fname=gold, **kwargs)
+
+def text_unidiff(out_content, gold_content, out_fname=None, gold_fname=None, color=True, num_lines=3):
+    """
+    Perform a 'unified' style diff between the two supplied files.
+
+    Inputs:
+        out_content[str]: The content in question.
+        gold_content[str]: The "gold" standard for the supplied content.
+        color[bool]: When True color is applied to the diff.
+        num_lines[int]: The number of lines to include with the diff (default: 3).
+
+    """
+
+    lines = difflib.unified_diff(gold_content.splitlines(True),
+                                 out_content.splitlines(True),
+                                 fromfile=gold_fname,
+                                 tofile=out_fname, n=num_lines)
+
+    diff = []
+    for line in list(lines):
+        if color:
+            if line.startswith('-'):
+                line = colorText(line, 'RED')
+            elif line.startswith('+'):
+                line = colorText(line, 'GREEN')
+            elif line.startswith('@'):
+                line = colorText(line, 'CYAN')
+        diff.append(line)
+
+    return ''.join(diff)
+
+def is_git_repo(working_dir=os.getcwd()):
+    """
+    Return true if the repository is a git repo.
+    """
+    return os.path.isdir(os.path.join(working_dir, '.git'))
+
 def git_ls_files(working_dir=os.getcwd()):
     """
     Return a list of files via 'git ls-files'.
@@ -291,6 +347,16 @@ def git_ls_files(working_dir=os.getcwd()):
     out = set()
     for fname in subprocess.check_output(['git', 'ls-files'], cwd=working_dir).split('\n'):
         out.add(os.path.abspath(os.path.join(working_dir, fname)))
+    return out
+
+def list_files(working_dir=os.getcwd()):
+    """
+    Return a set of files, recursively, for the supplied directory.
+    """
+    out = set()
+    for root, dirs, filenames in os.walk(working_dir):
+        for fname in filenames:
+            out.add(os.path.join(root, fname))
     return out
 
 def git_root_dir(working_dir=os.getcwd()):
@@ -305,3 +371,30 @@ def git_root_dir(working_dir=os.getcwd()):
         print("The supplied directory is not a git repository: {}".format(working_dir))
     except OSError:
         print("The supplied directory does not exist: {}".format(working_dir))
+
+def run_profile(function, *args, **kwargs):
+    """Run supplied function with python profiler."""
+    pr = profile.Profile()
+    start = time.time()
+    out = pr.runcall(function, *args, **kwargs)
+    print('Total Time:', time.time() - start)
+    s = StringIO.StringIO()
+    ps = pstats.Stats(pr, stream=s).sort_stats('tottime')
+    ps.print_stats()
+    print(s.getvalue())
+    return out
+
+def shellCommand(command, cwd=None):
+    """
+    Run a command in the shell.
+    We can ignore anything on stderr as that can potentially mess up the output
+    of an otherwise successful command.
+    """
+    with open(os.devnull, 'w') as devnull:
+        p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=devnull, cwd=cwd)
+        p.wait()
+        retcode = p.returncode
+        if retcode != 0:
+            raise Exception("Exception raised while running the command: %s in directory %s" % (command, cwd))
+
+        return p.communicate()[0]

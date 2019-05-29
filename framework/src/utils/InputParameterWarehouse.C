@@ -73,18 +73,30 @@ InputParameterWarehouse::addInputParameters(const std::string & name,
       for (const auto & object_name : object_names)
       {
         MooseObjectParameterName param_name(object_name, name);
-        _controllable_items[tid].emplace_back(
-            std::make_shared<ControllableItem>(param_name, value));
+        _controllable_items[tid].emplace_back(std::make_shared<ControllableItem>(
+            param_name, value, ptr->getControllableExecuteOnTypes(name)));
       }
   }
 
-  // Set the name and tid parameters
+  // Set the name and tid parameters, and unique_name
+  std::stringstream oss;
+  oss << unique_name;
+
+  ptr->addPrivateParam<std::string>("_unique_name", oss.str());
   ptr->addPrivateParam<std::string>("_object_name", name);
   ptr->addPrivateParam<THREAD_ID>("_tid", tid);
   ptr->allowCopy(false); // no more copies allowed
 
   // Return a reference to the InputParameters object
   return *ptr;
+}
+
+void
+InputParameterWarehouse::removeInputParameters(const MooseObject & moose_object, THREAD_ID tid)
+{
+  auto moose_object_name_string = moose_object.parameters().get<std::string>("_unique_name");
+  MooseObjectName moose_object_name(moose_object_name_string);
+  _input_parameters[tid].erase(moose_object_name);
 }
 
 const InputParameters &

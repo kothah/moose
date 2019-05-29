@@ -7,15 +7,18 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MULTIPHASESTRESSMATERIAL_H
-#define MULTIPHASESTRESSMATERIAL_H
+#pragma once
 
 #include "Material.h"
 
 // Forward Declarations
 class MultiPhaseStressMaterial;
-class RankTwoTensor;
-class RankFourTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
+template <typename>
+class RankFourTensorTempl;
+typedef RankFourTensorTempl<Real> RankFourTensor;
 
 template <>
 InputParameters validParams<MultiPhaseStressMaterial>();
@@ -52,4 +55,3 @@ protected:
   MaterialProperty<RankFourTensor> & _dstress_dstrain;
 };
 
-#endif // MULTIPHASESTRESSMATERIAL_H

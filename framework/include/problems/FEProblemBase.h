@@ -7,28 +7,30 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef FEPROBLEMBASE_H
-#define FEPROBLEMBASE_H
+#pragma once
 
 // MOOSE includes
 #include "SubProblem.h"
 #include "GeometricSearchData.h"
+#include "MortarData.h"
 #include "PostprocessorData.h"
 #include "VectorPostprocessorData.h"
 #include "Adaptivity.h"
 #include "InitialConditionWarehouse.h"
+#include "ScalarInitialConditionWarehouse.h"
 #include "Restartable.h"
 #include "SolverParams.h"
 #include "PetscSupport.h"
 #include "MooseApp.h"
 #include "ExecuteMooseObjectWarehouse.h"
-#include "AuxGroupExecuteMooseObjectWarehouse.h"
 #include "MaterialWarehouse.h"
 #include "MooseVariableFE.h"
 #include "MultiAppTransfer.h"
 #include "Postprocessor.h"
 #include "HashMap.h"
 #include "VectorPostprocessor.h"
+#include "PerfGraphInterface.h"
+#include "Attributes.h"
 
 #include "libmesh/enum_quadrature_type.h"
 #include "libmesh/equation_systems.h"
@@ -66,6 +68,7 @@ class SideUserObject;
 class NodalUserObject;
 class ElementUserObject;
 class InternalSideUserObject;
+class InterfaceUserObject;
 class GeneralUserObject;
 class Function;
 class Distribution;
@@ -73,6 +76,8 @@ class Sampler;
 class KernelBase;
 class IntegratedBCBase;
 class LineSearch;
+class UserObject;
+class AutomaticMortarGeneration;
 
 // libMesh forward declarations
 namespace libMesh
@@ -84,15 +89,16 @@ class NonlinearImplicitSystem;
 template <>
 InputParameters validParams<FEProblemBase>();
 
-enum MooseNonlinearConvergenceReason
+/// Enumeration for nonlinear convergence reasons
+enum class MooseNonlinearConvergenceReason
 {
-  MOOSE_NONLINEAR_ITERATING = 0,
-  MOOSE_CONVERGED_FNORM_ABS = 2,
-  MOOSE_CONVERGED_FNORM_RELATIVE = 3,
-  MOOSE_CONVERGED_SNORM_RELATIVE = 4,
-  MOOSE_DIVERGED_FUNCTION_COUNT = -2,
-  MOOSE_DIVERGED_FNORM_NAN = -4,
-  MOOSE_DIVERGED_LINE_SEARCH = -6
+  ITERATING = 0,
+  CONVERGED_FNORM_ABS = 2,
+  CONVERGED_FNORM_RELATIVE = 3,
+  CONVERGED_SNORM_RELATIVE = 4,
+  DIVERGED_FUNCTION_COUNT = -2,
+  DIVERGED_FNORM_NAN = -4,
+  DIVERGED_LINE_SEARCH = -6
 };
 
 // The idea with these enums is to abstract the reasons for
@@ -101,28 +107,28 @@ enum MooseNonlinearConvergenceReason
 // though.  This enum could also be combined with the
 // MooseNonlinearConvergenceReason enum but there might be some
 // confusion (?)
-enum MooseLinearConvergenceReason
+enum class MooseLinearConvergenceReason
 {
-  MOOSE_LINEAR_ITERATING = 0,
-  // MOOSE_CONVERGED_RTOL_NORMAL        =  1,
-  // MOOSE_CONVERGED_ATOL_NORMAL        =  9,
-  MOOSE_CONVERGED_RTOL = 2,
-  MOOSE_CONVERGED_ATOL = 3,
-  MOOSE_CONVERGED_ITS = 4,
-  // MOOSE_CONVERGED_CG_NEG_CURVE       =  5,
-  // MOOSE_CONVERGED_CG_CONSTRAINED     =  6,
-  // MOOSE_CONVERGED_STEP_LENGTH        =  7,
-  // MOOSE_CONVERGED_HAPPY_BREAKDOWN    =  8,
-  MOOSE_DIVERGED_NULL = -2,
-  // MOOSE_DIVERGED_ITS                 = -3,
-  // MOOSE_DIVERGED_DTOL                = -4,
-  // MOOSE_DIVERGED_BREAKDOWN           = -5,
-  // MOOSE_DIVERGED_BREAKDOWN_BICG      = -6,
-  // MOOSE_DIVERGED_NONSYMMETRIC        = -7,
-  // MOOSE_DIVERGED_INDEFINITE_PC       = -8,
-  MOOSE_DIVERGED_NANORINF = -9,
-  // MOOSE_DIVERGED_INDEFINITE_MAT      = -10
-  MOOSE_DIVERGED_PCSETUP_FAILED = -11
+  ITERATING = 0,
+  // CONVERGED_RTOL_NORMAL        =  1,
+  // CONVERGED_ATOL_NORMAL        =  9,
+  CONVERGED_RTOL = 2,
+  CONVERGED_ATOL = 3,
+  CONVERGED_ITS = 4,
+  // CONVERGED_CG_NEG_CURVE       =  5,
+  // CONVERGED_CG_CONSTRAINED     =  6,
+  // CONVERGED_STEP_LENGTH        =  7,
+  // CONVERGED_HAPPY_BREAKDOWN    =  8,
+  DIVERGED_NULL = -2,
+  // DIVERGED_ITS                 = -3,
+  // DIVERGED_DTOL                = -4,
+  // DIVERGED_BREAKDOWN           = -5,
+  // DIVERGED_BREAKDOWN_BICG      = -6,
+  // DIVERGED_NONSYMMETRIC        = -7,
+  // DIVERGED_INDEFINITE_PC       = -8,
+  DIVERGED_NANORINF = -9,
+  // DIVERGED_INDEFINITE_MAT      = -10
+  DIVERGED_PCSETUP_FAILED = -11
 };
 
 /**
@@ -137,6 +143,7 @@ public:
 
   virtual EquationSystems & es() override { return _eq; }
   virtual MooseMesh & mesh() override { return _mesh; }
+  virtual const MooseMesh & mesh() const override { return _mesh; }
 
   virtual Moose::CoordinateSystemType getCoordSystem(SubdomainID sid) override;
   virtual void setCoordSystem(const std::vector<SubdomainName> & blocks,
@@ -255,6 +262,26 @@ public:
    */
   virtual void clearActiveElementalMooseVariables(THREAD_ID tid) override;
 
+  virtual void clearActiveFEVariableCoupleableMatrixTags(THREAD_ID tid) override;
+
+  virtual void clearActiveFEVariableCoupleableVectorTags(THREAD_ID tid) override;
+
+  virtual void setActiveFEVariableCoupleableVectorTags(std::set<TagID> & vtags,
+                                                       THREAD_ID tid) override;
+
+  virtual void setActiveFEVariableCoupleableMatrixTags(std::set<TagID> & mtags,
+                                                       THREAD_ID tid) override;
+
+  virtual void clearActiveScalarVariableCoupleableMatrixTags(THREAD_ID tid) override;
+
+  virtual void clearActiveScalarVariableCoupleableVectorTags(THREAD_ID tid) override;
+
+  virtual void setActiveScalarVariableCoupleableVectorTags(std::set<TagID> & vtags,
+                                                           THREAD_ID tid) override;
+
+  virtual void setActiveScalarVariableCoupleableMatrixTags(std::set<TagID> & mtags,
+                                                           THREAD_ID tid) override;
+
   /**
    * Record and set the material properties required by the current computing thread.
    * @param mat_prop_ids The set of material properties required by the current computing thread.
@@ -303,7 +330,16 @@ public:
     return _uo_jacobian_moose_vars[tid];
   }
 
-  virtual Assembly & assembly(THREAD_ID tid) override { return *_assembly[tid]; }
+  Assembly & assembly(THREAD_ID tid) override
+  {
+    mooseAssert(tid < _assembly.size(), "Assembly objects not initialized");
+    return *_assembly[tid];
+  }
+  const Assembly & assembly(THREAD_ID tid) const override
+  {
+    mooseAssert(tid < _assembly.size(), "Assembly objects not initialized");
+    return *_assembly[tid];
+  }
 
   /**
    * Returns a list of all the variables in the problem (both from the NL and Aux systems.
@@ -339,7 +375,8 @@ public:
   virtual void reinitElem(const Elem * elem, THREAD_ID tid) override;
   virtual void reinitElemPhys(const Elem * elem,
                               const std::vector<Point> & phys_points_in_elem,
-                              THREAD_ID tid) override;
+                              THREAD_ID tid,
+                              bool suppress_displaced_init = false) override;
   virtual void
   reinitElemFace(const Elem * elem, unsigned int side, BoundaryID bnd_id, THREAD_ID tid) override;
   virtual void reinitNode(const Node * node, THREAD_ID tid) override;
@@ -365,11 +402,12 @@ public:
   virtual void neighborSubdomainSetup(SubdomainID subdomain, THREAD_ID tid);
 
   virtual void newAssemblyArray(NonlinearSystemBase & nl);
-  virtual void deleteAssemblyArray();
   virtual void initNullSpaceVectors(const InputParameters & parameters, NonlinearSystemBase & nl);
 
   virtual void init() override;
   virtual void solve() override;
+
+  const ConstElemRange & getEvaluableElementRange();
 
   /**
    * Set an exception.  Usually this should not be directly called - but should be called through
@@ -531,6 +569,12 @@ public:
   NonlinearSystemBase & getNonlinearSystemBase() { return *_nl; }
   const NonlinearSystemBase & getNonlinearSystemBase() const { return *_nl; }
 
+  virtual const SystemBase & systemBaseNonlinear() const override;
+  virtual SystemBase & systemBaseNonlinear() override;
+
+  virtual const SystemBase & systemBaseAuxiliary() const override;
+  virtual SystemBase & systemBaseAuxiliary() override;
+
   virtual NonlinearSystem & getNonlinearSystem();
 
   virtual void addVariable(const std::string & var_name,
@@ -603,6 +647,16 @@ public:
   virtual void addMaterial(const std::string & kernel_name,
                            const std::string & name,
                            InputParameters parameters);
+  virtual void addADResidualMaterial(const std::string & kernel_name,
+                                     const std::string & name,
+                                     InputParameters parameters);
+  virtual void addADJacobianMaterial(const std::string & kernel_name,
+                                     const std::string & name,
+                                     InputParameters parameters);
+  virtual void addMaterialHelper(std::vector<MaterialWarehouse *> warehouse,
+                                 const std::string & kernel_name,
+                                 const std::string & name,
+                                 InputParameters parameters);
 
   /**
    * Add the MooseVariables that the current materials depend on to the dependency list.
@@ -645,13 +699,11 @@ public:
   virtual void
   addUserObject(std::string user_object_name, const std::string & name, InputParameters parameters);
 
-  /**
-   * Return the storage of all UserObjects.
-   *
-   * @see AdvancedOutput::initPostprocessorOrVectorPostprocessorLists
-   */
+  // TODO: delete this function after apps have been updated to not call it
   const ExecuteMooseObjectWarehouse<UserObject> & getUserObjects() const
   {
+    mooseDeprecated(
+        "This function is deprecated, use theWarehouse().query() to construct a query instead");
     return _all_user_objects;
   }
 
@@ -661,16 +713,13 @@ public:
    * @return Const reference to the user object
    */
   template <class T>
-  const T & getUserObject(const std::string & name, unsigned int tid = 0) const
+  T & getUserObject(const std::string & name, unsigned int tid = 0) const
   {
-    if (_all_user_objects.hasActiveObject(name, tid))
-    {
-      auto uo_ptr = std::dynamic_pointer_cast<T>(_all_user_objects.getActiveObject(name, tid));
-      if (uo_ptr == nullptr)
-        mooseError("User object with name '" + name + "' is of wrong type");
-      return *uo_ptr;
-    }
-    mooseError("Unable to find user object with name '" + name + "'");
+    std::vector<T *> objs;
+    theWarehouse().query().condition<AttribThread>(tid).condition<AttribName>(name).queryInto(objs);
+    if (objs.empty())
+      mooseError("Unable to find user object with name '" + name + "'");
+    return *(objs[0]);
   }
   /**
    * Get the user object by its name
@@ -723,11 +772,14 @@ public:
    */
   PostprocessorValue & getPostprocessorValueOlder(const std::string & name);
 
+  ///@{
   /**
    * Returns whether or not the current simulation has any multiapps
    */
   bool hasMultiApps() const { return _multi_apps.hasActiveObjects(); }
+  bool hasMultiApps(ExecFlagType type) const;
   bool hasMultiApp(const std::string & name) const;
+  ///@}
 
   /**
    * Check existence of the VectorPostprocessor.
@@ -877,6 +929,12 @@ public:
                                                       MultiAppTransfer::DIRECTION direction) const;
 
   /**
+   * Return the complete warehouse for MultiAppTransfer object for the given direction
+   */
+  const ExecuteMooseObjectWarehouse<Transfer> &
+  getMultiAppTransferWarehouse(MultiAppTransfer::DIRECTION direction) const;
+
+  /**
    * Execute MultiAppTransfers associate with execution flag and direction.
    * @param type The execution flag to execute.
    * @param direction The direction (to or from) to transfer.
@@ -887,6 +945,8 @@ public:
    * Execute the MultiApps associated with the ExecFlagType
    */
   bool execMultiApps(ExecFlagType type, bool auto_advance = true);
+
+  void finalizeMultiApps();
 
   /**
    * Advance the MultiApps t_step (incrementStepOrReject) associated with the ExecFlagType
@@ -940,17 +1000,20 @@ public:
    */
   void execTransfers(ExecFlagType type);
 
-  /// Evaluates transient residual G in canonical semidiscrete form G(t,U,Udot) = F(t,U)
+  /// Evaluates transient residual G in canonical semidiscrete form G(t,U,Udot,Udotdot) = F(t,U)
   void computeTransientImplicitResidual(Real time,
                                         const NumericVector<Number> & u,
                                         const NumericVector<Number> & udot,
+                                        const NumericVector<Number> & udotdot,
                                         NumericVector<Number> & residual);
 
   /// Evaluates transient Jacobian J_a = dG/dU + a*dG/dUdot from canonical semidiscrete form G(t,U,Udot) = F(t,U)
   void computeTransientImplicitJacobian(Real time,
                                         const NumericVector<Number> & u,
                                         const NumericVector<Number> & udot,
-                                        Real shift,
+                                        const NumericVector<Number> & udotdot,
+                                        Real duDotDu_shift,
+                                        Real duDotDotDu_shift,
                                         SparseMatrix<Number> & jacobian);
 
   ////
@@ -1160,6 +1223,21 @@ public:
 
   virtual void updateGeomSearch(
       GeometricSearchData::GeometricSearchType type = GeometricSearchData::ALL) override;
+  virtual void updateMortarMesh();
+
+  void
+  createMortarInterface(const std::pair<BoundaryID, BoundaryID> & master_slave_boundary_pair,
+                        const std::pair<SubdomainID, SubdomainID> & master_slave_subdomain_pair,
+                        bool on_displaced,
+                        bool periodic);
+
+  const AutomaticMortarGeneration &
+  getMortarInterface(const std::pair<BoundaryID, BoundaryID> & master_slave_boundary_pair,
+                     const std::pair<SubdomainID, SubdomainID> & master_slave_subdomain_pair,
+                     bool on_displaced) const;
+
+  const std::unordered_map<std::pair<BoundaryID, BoundaryID>, AutomaticMortarGeneration> &
+  getMortarInterfaces(bool on_displaced) const;
 
   virtual void possiblyRebuildGeomSearchPatches();
 
@@ -1178,6 +1256,10 @@ public:
    */
   const MaterialPropertyStorage & getMaterialPropertyStorage() { return _material_props; }
   const MaterialPropertyStorage & getBndMaterialPropertyStorage() { return _bnd_material_props; }
+  const MaterialPropertyStorage & getNeighborMaterialPropertyStorage()
+  {
+    return _neighbor_material_props;
+  }
   ///@}
 
   ///@{
@@ -1294,8 +1376,8 @@ public:
   ///@{
   /**
    * These methods are used to determine whether stateful material properties need to be stored on
-   * internal sides.  There are four situations where this may be the case: 1) DGKernels
-   * 2) IntegratedBCs 3)InternalSideUserObjects 4)ElementalAuxBCs
+   * internal sides.  There are five situations where this may be the case: 1) DGKernels
+   * 2) IntegratedBCs 3)InternalSideUserObjects 4)ElementalAuxBCs 5)InterfaceUserObjects
    *
    * Method 1:
    * @param bnd_id the boundary id for which to see if stateful material properties need to be
@@ -1333,7 +1415,8 @@ public:
   /*
    * Return a reference to the material warehouse of Material objects to be computed.
    */
-  const MaterialWarehouse & getComputeMaterialWarehouse() const { return _materials; }
+  const MaterialWarehouse & getResidualMaterialsWarehouse() const { return _residual_materials; }
+  const MaterialWarehouse & getJacobianMaterialsWarehouse() const { return _jacobian_materials; }
   const MaterialWarehouse & getDiscreteMaterialWarehouse() const { return _discrete_materials; }
 
   /**
@@ -1394,10 +1477,11 @@ public:
    * Call compute methods on UserObjects.
    */
   virtual void computeUserObjects(const ExecFlagType & type, const Moose::AuxGroup & group);
-  template <typename T>
-  void initializeUserObjects(const MooseObjectWarehouse<T> & warehouse);
-  template <typename T>
-  void finalizeUserObjects(const MooseObjectWarehouse<T> & warehouse);
+
+  /**
+   * Compute an user object with the given name
+   */
+  virtual void computeUserObjectByName(const ExecFlagType & type, const std::string & name);
 
   /**
    * Call compute methods on AuxKernels
@@ -1427,8 +1511,11 @@ public:
   std::vector<Real> _real_zero;
   std::vector<VariableValue> _scalar_zero;
   std::vector<VariableValue> _zero;
+  std::vector<MooseArray<DualReal>> _ad_zero;
   std::vector<VariableGradient> _grad_zero;
+  std::vector<MooseArray<DualRealVectorValue>> _ad_grad_zero;
   std::vector<VariableSecond> _second_zero;
+  std::vector<MooseArray<DualRealTensorValue>> _ad_second_zero;
   std::vector<VariablePhiSecond> _second_phi_zero;
   std::vector<Point> _point_zero;
   std::vector<VectorVariableValue> _vector_zero;
@@ -1466,7 +1553,116 @@ public:
 
   const VectorPostprocessorData & getVectorPostprocessorData() const;
 
+  /**
+   * Returns _has_jacobian
+   */
+  bool hasJacobian() const;
+
+  /**
+   * Returns _const_jacobian (whether a MOOSE object has specified that
+   * the Jacobian is the same as the previous time it was computed)
+   */
+  bool constJacobian() const;
+
+  /**
+   * Adds an Output object.
+   */
+  void addOutput(const std::string &, const std::string &, InputParameters);
+
+  inline TheWarehouse & theWarehouse() const { return _app.theWarehouse(); }
+
+  /**
+   * If or not to reuse the base vector for matrix-free calculation
+   */
+  void setSNESMFReuseBase(bool reuse, bool set_by_user)
+  {
+    _snesmf_reuse_base = reuse, _snesmf_reuse_base_set_by_user = set_by_user;
+  }
+
+  /**
+   * Return a flag that indicates if we are reusing the vector base
+   */
+  bool useSNESMFReuseBase() { return _snesmf_reuse_base; }
+
+  /**
+   * Return a flag to indicate if _snesmf_reuse_base is set by users
+   */
+  bool isSNESMFReuseBaseSetbyUser() { return _snesmf_reuse_base_set_by_user; }
+
+  /**
+   * Set the global automatic differentiaion (AD) flag which indicates whether any consumer has
+   * requested an AD material property or whether any suppier has declared an AD material property
+   */
+  void usingADMatProps(bool using_ad_mat_props) { _using_ad_mat_props = using_ad_mat_props; }
+
+  /**
+   * Whether any object has requested/supplied an AD material property
+   */
+  bool usingADMatProps() const { return _using_ad_mat_props; }
+
+  /// Set boolean flag to true to store solution time derivative
+  virtual void setUDotRequested(const bool u_dot_requested) { _u_dot_requested = u_dot_requested; };
+
+  /// Set boolean flag to true to store solution second time derivative
+  virtual void setUDotDotRequested(const bool u_dotdot_requested)
+  {
+    _u_dotdot_requested = u_dotdot_requested;
+  };
+
+  /// Set boolean flag to true to store old solution time derivative
+  virtual void setUDotOldRequested(const bool u_dot_old_requested)
+  {
+    _u_dot_old_requested = u_dot_old_requested;
+  };
+
+  /// Set boolean flag to true to store old solution second time derivative
+  virtual void setUDotDotOldRequested(const bool u_dotdot_old_requested)
+  {
+    _u_dotdot_old_requested = u_dotdot_old_requested;
+  };
+
+  /// Get boolean flag to check whether solution time derivative needs to be stored
+  virtual bool uDotRequested() { return _u_dot_requested; };
+
+  /// Get boolean flag to check whether solution second time derivative needs to be stored
+  virtual bool uDotDotRequested() { return _u_dotdot_requested; };
+
+  /// Get boolean flag to check whether old solution time derivative needs to be stored
+  virtual bool uDotOldRequested()
+  {
+    if (_u_dot_old_requested && !_u_dot_requested)
+      mooseError("FEProblemBase: When requesting old time derivative of solution, current time "
+                 "derivative of solution should also be stored. Please set `u_dot_requested` to "
+                 "true using setUDotRequested.");
+
+    return _u_dot_old_requested;
+  };
+
+  /// Get boolean flag to check whether old solution second time derivative needs to be stored
+  virtual bool uDotDotOldRequested()
+  {
+    if (_u_dotdot_old_requested && !_u_dotdot_requested)
+      mooseError("FEProblemBase: When requesting old second time derivative of solution, current "
+                 "second time derivation of solution should also be stored. Please set "
+                 "`u_dotdot_requested` to true using setUDotDotRequested.");
+    return _u_dotdot_old_requested;
+  };
+
+  using SubProblem::haveADObjects;
+  void haveADObjects(bool have_ad_objects) override;
+
+  // Whether or not we should solve this system
+  bool shouldSolve() const { return _solve; }
+
+  /**
+   * Returns the mortar data object
+   */
+  const MortarData & mortarData() const { return _mortar_data; }
+
 protected:
+  /// Create extra tagged vectors and matrices
+  void createTagVectors();
+
   MooseMesh & _mesh;
   EquationSystems _eq;
   bool _initialized;
@@ -1494,7 +1690,7 @@ protected:
   // Dimension of the subspace spanned by the vectors with a given prefix
   std::map<std::string, unsigned int> _subspace_dim;
 
-  std::vector<Assembly *> _assembly;
+  std::vector<std::unique_ptr<Assembly>> _assembly;
 
   /// functions
   MooseObjectWarehouse<Function> _functions;
@@ -1514,12 +1710,13 @@ protected:
   ///@{
   /// Initial condition storage
   InitialConditionWarehouse _ics;
-  MooseObjectWarehouseBase<ScalarInitialCondition> _scalar_ics; // use base b/c of setup methods
+  ScalarInitialConditionWarehouse _scalar_ics; // use base b/c of setup methods
   ///@}
 
   // material properties
   MaterialPropertyStorage & _material_props;
   MaterialPropertyStorage & _bnd_material_props;
+  MaterialPropertyStorage & _neighbor_material_props;
 
   std::vector<std::shared_ptr<MaterialData>> _material_data;
   std::vector<std::shared_ptr<MaterialData>> _bnd_material_data;
@@ -1527,7 +1724,10 @@ protected:
 
   ///@{
   // Material Warehouses
-  MaterialWarehouse _materials;          // Traditional materials that MOOSE computes
+  MaterialWarehouse _residual_materials; // Residual materials. This is the union of traditional
+                                         // materials and the residual copy of an ADMaterial
+  MaterialWarehouse _jacobian_materials; // Jacobian materials. This is the union of traditional
+                                         // materials and the Jacobian copy of an ADMaterial
   MaterialWarehouse _discrete_materials; // Materials that the user must compute
   MaterialWarehouse _all_materials; // All materials for error checking and MaterialData storage
   ///@}
@@ -1547,15 +1747,8 @@ protected:
   // VectorPostprocessors
   VectorPostprocessorData _vpps_data;
 
-  ///@{
-  /// Storage for UserObjects
+  // TODO: delete this after apps have been updated to not call getUserObjects
   ExecuteMooseObjectWarehouse<UserObject> _all_user_objects;
-  AuxGroupExecuteMooseObjectWarehouse<GeneralUserObject> _general_user_objects;
-  AuxGroupExecuteMooseObjectWarehouse<NodalUserObject> _nodal_user_objects;
-  AuxGroupExecuteMooseObjectWarehouse<ElementUserObject> _elemental_user_objects;
-  AuxGroupExecuteMooseObjectWarehouse<SideUserObject> _side_user_objects;
-  AuxGroupExecuteMooseObjectWarehouse<InternalSideUserObject> _internal_side_user_objects;
-  ///@}
 
   /// MultiApp Warehouse
   ExecuteMooseObjectWarehouse<MultiApp> _multi_apps;
@@ -1596,6 +1789,10 @@ protected:
   /// Helper to check for duplicate variable names across systems or within a single system
   bool duplicateVariableCheck(const std::string & var_name, const FEType & type, bool is_aux);
 
+  void computeUserObjectsInternal(const ExecFlagType & type,
+                                  const Moose::AuxGroup & group,
+                                  TheWarehouse::Query & query);
+
   /// Verify that SECOND order mesh uses SECOND order displacements.
   void checkDisplacementOrders();
 
@@ -1629,6 +1826,7 @@ protected:
   MooseMesh * _displaced_mesh;
   std::shared_ptr<DisplacedProblem> _displaced_problem;
   GeometricSearchData _geometric_search_data;
+  MortarData _mortar_data;
 
   bool _reinit_displaced_elem;
   bool _reinit_displaced_face;
@@ -1641,6 +1839,12 @@ protected:
 
   /// Whether or not this system has any Constraints.
   bool _has_constraints;
+
+  /// If or not to resuse the base vector for matrix-free calculation
+  bool _snesmf_reuse_base;
+
+  /// If or not _snesmf_reuse_base is set by user
+  bool _snesmf_reuse_base_set_by_user;
 
   /// Whether nor not stateful materials have been initialized
   bool _has_initialized_stateful;
@@ -1705,11 +1909,20 @@ protected:
 
   std::shared_ptr<LineSearch> _line_search;
 
+  std::unique_ptr<ConstElemRange> _evaluable_local_elem_range;
+
+  /// Automatic differentiaion (AD) flag which indicates whether any consumer has
+  /// requested an AD material property or whether any suppier has declared an AD material property
+  bool _using_ad_mat_props;
+
 private:
+  void joinAndFinalize(TheWarehouse::Query query, bool isgen = false);
+
   bool _error_on_jacobian_nonzero_reallocation;
   bool _ignore_zeros_in_jacobian;
-  bool _force_restart;
-  bool _skip_additional_restart_data;
+  const bool _force_restart;
+  const bool _skip_additional_restart_data;
+  const bool _skip_nl_system_check;
   bool _fail_next_linear_convergence_check;
 
   /// At or beyond initialSteup stage
@@ -1717,6 +1930,65 @@ private:
 
   /// Whether the problem has dgkernels or interface kernels
   bool _has_internal_edge_residual_objects;
+
+  /// Timers
+  const PerfID _initial_setup_timer;
+  const PerfID _project_solution_timer;
+  const PerfID _compute_indicators_timer;
+  const PerfID _compute_markers_timer;
+  const PerfID _compute_user_objects_timer;
+  const PerfID _execute_controls_timer;
+  const PerfID _execute_samplers_timer;
+  const PerfID _update_active_objects_timer;
+  const PerfID _reinit_because_of_ghosting_or_new_geom_objects_timer;
+  const PerfID _exec_multi_app_transfers_timer;
+  const PerfID _init_timer;
+  const PerfID _eq_init_timer;
+  const PerfID _solve_timer;
+  const PerfID _check_exception_and_stop_solve_timer;
+  const PerfID _advance_state_timer;
+  const PerfID _restore_solutions_timer;
+  const PerfID _save_old_solutions_timer;
+  const PerfID _restore_old_solutions_timer;
+  const PerfID _output_step_timer;
+  const PerfID _on_timestep_begin_timer;
+  const PerfID _compute_residual_l2_norm_timer;
+  const PerfID _compute_residual_sys_timer;
+  const PerfID _compute_residual_internal_timer;
+  const PerfID _compute_residual_type_timer;
+  const PerfID _compute_transient_implicit_residual_timer;
+  const PerfID _compute_residual_tags_timer;
+  const PerfID _compute_jacobian_internal_timer;
+  const PerfID _compute_jacobian_tags_timer;
+  const PerfID _compute_jacobian_blocks_timer;
+  const PerfID _compute_bounds_timer;
+  const PerfID _compute_post_check_timer;
+  const PerfID _compute_damping_timer;
+  const PerfID _possibly_rebuild_geom_search_patches_timer;
+  const PerfID _initial_adapt_mesh_timer;
+  const PerfID _adapt_mesh_timer;
+  const PerfID _update_mesh_xfem_timer;
+  const PerfID _mesh_changed_timer;
+  const PerfID _mesh_changed_helper_timer;
+  const PerfID _check_problem_integrity_timer;
+  const PerfID _serialize_solution_timer;
+  const PerfID _check_nonlinear_convergence_timer;
+  const PerfID _check_linear_convergence_timer;
+  const PerfID _update_geometric_search_timer;
+  const PerfID _exec_multi_apps_timer;
+  const PerfID _backup_multi_apps_timer;
+
+  /// Whether solution time derivative needs to be stored
+  bool _u_dot_requested;
+
+  /// Whether solution second time derivative needs to be stored
+  bool _u_dotdot_requested;
+
+  /// Whether old solution time derivative needs to be stored
+  bool _u_dot_old_requested;
+
+  /// Whether old solution second time derivative needs to be stored
+  bool _u_dotdot_old_requested;
 
   friend class AuxiliarySystem;
   friend class NonlinearSystemBase;
@@ -1733,61 +2005,3 @@ FEProblemBase::allowOutput(bool state)
 {
   _app.getOutputWarehouse().allowOutput<T>(state);
 }
-
-template <typename T>
-void
-FEProblemBase::initializeUserObjects(const MooseObjectWarehouse<T> & warehouse)
-{
-  if (warehouse.hasActiveObjects())
-  {
-    for (THREAD_ID tid = 0; tid < libMesh::n_threads(); ++tid)
-    {
-      const auto & objects = warehouse.getActiveObjects(tid);
-      for (const auto & object : objects)
-        object->initialize();
-    }
-  }
-}
-
-template <typename T>
-void
-FEProblemBase::finalizeUserObjects(const MooseObjectWarehouse<T> & warehouse)
-{
-  if (warehouse.hasActiveObjects())
-  {
-    const auto & objects = warehouse.getActiveObjects(0);
-
-    // Join them down to processor 0
-    for (THREAD_ID tid = 1; tid < libMesh::n_threads(); ++tid)
-    {
-      const auto & other_objects = warehouse.getActiveObjects(tid);
-
-      for (unsigned int i = 0; i < objects.size(); ++i)
-        objects[i]->threadJoin(*(other_objects[i]));
-    }
-
-    std::set<std::string> vpps_finalized;
-
-    // Finalize them and save off PP values
-    for (auto & object : objects)
-    {
-      object->finalize();
-
-      auto pp = std::dynamic_pointer_cast<Postprocessor>(object);
-
-      if (pp)
-        _pps_data.storeValue(pp->PPName(), pp->getValue());
-
-      auto vpp = std::dynamic_pointer_cast<VectorPostprocessor>(object);
-
-      if (vpp)
-        vpps_finalized.insert(vpp->PPName());
-    }
-
-    // Broadcast/Scatter any VPPs that need it
-    for (auto & vpp_name : vpps_finalized)
-      _vpps_data.broadcastScatterVectors(vpp_name);
-  }
-}
-
-#endif /* FEPROBLEMBASE_H */

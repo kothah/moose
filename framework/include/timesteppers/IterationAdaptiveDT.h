@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ITERATIONADAPTIVEDT_H
-#define ITERATIONADAPTIVEDT_H
+#pragma once
 
 #include "TimeStepper.h"
 #include "LinearInterpolation.h"
@@ -46,11 +45,12 @@ protected:
   virtual Real computeInitialDT() override;
   virtual Real computeDT() override;
   virtual Real computeFailedDT() override;
+  virtual bool converged() const override;
 
   void computeAdaptiveDT(Real & dt, bool allowToGrow = true, bool allowToShrink = true);
   Real computeInterpolationDT();
   void limitDTByFunction(Real & limitedDT);
-  void limitDTToPostprocessorValue(Real & limitedDT);
+  void limitDTToPostprocessorValue(Real & limitedDT) const;
 
   Real & _dt_old;
 
@@ -100,9 +100,13 @@ protected:
 
   bool & _cutback_occurred;
   bool _at_function_point;
+
+  /// Indicates whether we need to reject a time step much larger than its ideal size
+  bool _reject_large_step;
+  /// Threshold used to detect whether we need to reject a step
+  double _large_step_rejection_threshold;
 };
 
 template <>
 InputParameters validParams<IterationAdaptiveDT>();
 
-#endif /* ITERATIONADAPTIVEDT_H */

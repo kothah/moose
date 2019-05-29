@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef FINITESTRAINCRYSTALPLASTICITY_H
-#define FINITESTRAINCRYSTALPLASTICITY_H
+#pragma once
 
 #include "ComputeStressBase.h"
 
@@ -314,6 +313,9 @@ protected:
 
   const MaterialProperty<RankTwoTensor> & _deformation_gradient;
   const MaterialProperty<RankTwoTensor> & _deformation_gradient_old;
+  /// Name of the elasticity tensor material property
+  const std::string _elasticity_tensor_name;
+  /// Elasticity tensor material property
   const MaterialProperty<RankFourTensor> & _elasticity_tensor;
   const MaterialProperty<RankTwoTensor> & _crysrot;
 
@@ -354,4 +356,3 @@ protected:
   bool _first_step_iter, _last_step_iter, _first_substep;
 };
 
-#endif // FINITESTRAINCRYSTALPLASTICITY_H

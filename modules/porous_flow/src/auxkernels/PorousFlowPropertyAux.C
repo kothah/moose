@@ -19,15 +19,23 @@ validParams<PorousFlowPropertyAux>()
   params.addRequiredParam<UserObjectName>(
       "PorousFlowDictator", "The UserObject that holds the list of PorousFlow variable names");
   MooseEnum property_enum("pressure saturation temperature density viscosity mass_fraction relperm "
-                          "enthalpy internal_energy secondary_concentration mineral_concentration "
-                          "mineral_reaction_rate");
+                          "capillary_pressure enthalpy internal_energy secondary_concentration "
+                          "mineral_concentration mineral_reaction_rate porosity permeability");
   params.addRequiredParam<MooseEnum>(
       "property", property_enum, "The fluid property that this auxillary kernel is to calculate");
   params.addParam<unsigned int>("phase", 0, "The index of the phase this auxillary kernel acts on");
   params.addParam<unsigned int>(
+      "liquid_phase", 0, "The index of the liquid phase (used for capillary pressure)");
+  params.addParam<unsigned int>(
+      "gas_phase", 1, "The index of the gas phase (used for capillary pressure)");
+  params.addParam<unsigned int>(
       "fluid_component", 0, "The index of the fluid component this auxillary kernel acts on");
   params.addParam<unsigned int>("secondary_species", 0, "The secondary chemical species number");
   params.addParam<unsigned int>("mineral_species", 0, "The mineral chemical species number");
+  params.addRangeCheckedParam<unsigned int>(
+      "row", 0, "row>=0 & row<=2", "Row of permeability tensor to output");
+  params.addRangeCheckedParam<unsigned int>(
+      "column", 0, "column>=0 & column<=2", "Column of permeability tensor to output");
   params.addClassDescription("AuxKernel to provide access to properties evaluated at quadpoints. "
                              "Note that elemental AuxVariables must be used, so that these "
                              "properties are integrated over each element.");
@@ -39,9 +47,13 @@ PorousFlowPropertyAux::PorousFlowPropertyAux(const InputParameters & parameters)
     _dictator(getUserObject<PorousFlowDictator>("PorousFlowDictator")),
     _property_enum(getParam<MooseEnum>("property").getEnum<PropertyEnum>()),
     _phase(getParam<unsigned int>("phase")),
+    _liquid_phase(getParam<unsigned int>("liquid_phase")),
+    _gas_phase(getParam<unsigned int>("gas_phase")),
     _fluid_component(getParam<unsigned int>("fluid_component")),
     _secondary_species(getParam<unsigned int>("secondary_species")),
-    _mineral_species(getParam<unsigned int>("mineral_species"))
+    _mineral_species(getParam<unsigned int>("mineral_species")),
+    _k_row(getParam<unsigned int>("row")),
+    _k_col(getParam<unsigned int>("column"))
 {
   // Check that the phase and fluid_component are valid
   if (_phase >= _dictator.numPhases())
@@ -53,6 +65,24 @@ PorousFlowPropertyAux::PorousFlowPropertyAux(const InputParameters & parameters)
     paramError("fluid_component",
                "Fluid component number entered is greater than the number of fluid components "
                "specified in the Dictator. Remember that indexing starts at 0");
+
+  // Check the parameters used to calculate capillary pressure
+  if (_property_enum == PropertyEnum::CAPILLARY_PRESSURE)
+  {
+    if (_liquid_phase >= _dictator.numPhases())
+      paramError(
+          "liquid_phase",
+          "Liquid phase number entered is greater than the number of phases specified in the "
+          "Dictator. Remember that indexing starts at 0");
+
+    if (_gas_phase >= _dictator.numPhases())
+      paramError("gas_phase",
+                 "Gas phase number entered is greater than the number of phases specified in the "
+                 "Dictator. Remember that indexing starts at 0");
+
+    if (_liquid_phase == _gas_phase)
+      paramError("liquid_phase", "Liquid phase number entered cannot be equal to gas_phase");
+  }
 
   if (_property_enum == PropertyEnum::SECONDARY_CONCENTRATION &&
       (_secondary_species >= _dictator.numAqueousEquilibrium()))
@@ -101,6 +131,10 @@ PorousFlowPropertyAux::PorousFlowPropertyAux(const InputParameters & parameters)
           &getMaterialProperty<std::vector<Real>>("PorousFlow_relative_permeability_qp");
       break;
 
+    case PropertyEnum::CAPILLARY_PRESSURE:
+      _pressure = &getMaterialProperty<std::vector<Real>>("PorousFlow_porepressure_qp");
+      break;
+
     case PropertyEnum::ENTHALPY:
       _enthalpy = &getMaterialProperty<std::vector<Real>>("PorousFlow_fluid_phase_enthalpy_qp");
       break;
@@ -122,6 +156,14 @@ PorousFlowPropertyAux::PorousFlowPropertyAux(const InputParameters & parameters)
     case PropertyEnum::MINERAL_REACTION_RATE:
       _mineral_reaction_rate =
           &getMaterialProperty<std::vector<Real>>("PorousFlow_mineral_reaction_rate_qp");
+      break;
+
+    case PropertyEnum::POROSITY:
+      _porosity = &getMaterialProperty<Real>("PorousFlow_porosity_qp");
+      break;
+
+    case PropertyEnum::PERMEABILITY:
+      _permeability = &getMaterialProperty<RealTensorValue>("PorousFlow_permeability_qp");
       break;
   }
 }
@@ -161,6 +203,10 @@ PorousFlowPropertyAux::computeValue()
       property = (*_relative_permeability)[_qp][_phase];
       break;
 
+    case PropertyEnum::CAPILLARY_PRESSURE:
+      property = (*_pressure)[_qp][_gas_phase] - (*_pressure)[_qp][_liquid_phase];
+      break;
+
     case PropertyEnum::ENTHALPY:
       property = (*_enthalpy)[_qp][_phase];
       break;
@@ -179,6 +225,14 @@ PorousFlowPropertyAux::computeValue()
 
     case PropertyEnum::MINERAL_REACTION_RATE:
       property = (*_mineral_reaction_rate)[_qp][_mineral_species];
+      break;
+
+    case PropertyEnum::POROSITY:
+      property = (*_porosity)[_qp];
+      break;
+
+    case PropertyEnum::PERMEABILITY:
+      property = (*_permeability)[_qp](_k_row, _k_col);
       break;
   }
 

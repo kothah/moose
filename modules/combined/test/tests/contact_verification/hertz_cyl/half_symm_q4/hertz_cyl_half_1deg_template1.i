@@ -347,8 +347,6 @@
   [./SMP]
     type = SMP
     full = true
-    petsc_options_iname = 'pc_type'
-    petsc_options_value = 'lu'
   [../]
 []
 
@@ -375,7 +373,7 @@
 
 [Outputs]
   print_linear_residuals = true
-  print_perf_log = true
+  perf_graph = true
   [./exodus]
     type = Exodus
     elemental_as_nodal = true

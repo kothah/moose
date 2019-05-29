@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ELEMENTMOMENTSUM_H
-#define ELEMENTMOMENTSUM_H
+#pragma once
 
 #include "ElementIntegralVariablePostprocessor.h"
 
@@ -26,7 +25,6 @@ public:
 protected:
   virtual void execute() override;
 
-  const DenseVector<Number> & _elemental_sln;
+  const VariableValue & _elemental_sln;
 };
 
-#endif // ELEMENTMOMENTSUM_H

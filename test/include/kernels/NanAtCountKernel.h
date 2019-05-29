@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef NANATCOUNTKERNEL_H
-#define NANATCOUNTKERNEL_H
+#pragma once
 
 #include "Kernel.h"
 
@@ -27,7 +26,11 @@ public:
   NanAtCountKernel(const InputParameters & parameters);
 
 protected:
-  virtual Real computeQpResidual();
+  virtual Real computeQpResidual() override;
+  /// Compute this Kernel's contribution to the diagonal Jacobian entries
+  virtual void computeJacobian() override;
+  /// Compute this Kernel's contribution to the residual
+  virtual void computeResidual() override;
 
 private:
   /// The residual count to nan at
@@ -40,4 +43,3 @@ private:
   unsigned int _count;
 };
 
-#endif // NANATCOUNTKERNEL_H

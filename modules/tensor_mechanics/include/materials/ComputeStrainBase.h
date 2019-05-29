@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTESTRAINBASE_H
-#define COMPUTESTRAINBASE_H
+#pragma once
 
 #include "Material.h"
 #include "RankTwoTensor.h"
@@ -28,10 +27,10 @@ class ComputeStrainBase : public DerivativeMaterialInterface<Material>
 {
 public:
   ComputeStrainBase(const InputParameters & parameters);
-  virtual ~ComputeStrainBase() {}
+
+  void initialSetup() override;
 
 protected:
-  void initialSetup() override;
   virtual void initQpStatefulProperties() override;
   virtual void displacementIntegrityCheck();
 
@@ -51,8 +50,7 @@ protected:
 
   const MaterialProperty<RankTwoTensor> * _global_strain;
 
-  bool _volumetric_locking_correction;
+  const bool _volumetric_locking_correction;
   const Real & _current_elem_volume;
 };
 
-#endif // COMPUTESTRAINBASE_H

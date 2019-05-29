@@ -7,12 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEEIGENSTRAINBASE_H
-#define COMPUTEEIGENSTRAINBASE_H
+#pragma once
 
 #include "Material.h"
 
-class RankTwoTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 class ComputeEigenstrainBase;
 
@@ -45,8 +46,11 @@ protected:
 
   /**
    * Helper function for models that compute the eigenstrain based on a volumetric
-   * strain.  This function computes the diagonal components of the eigenstrain tensor.
-   * param volumetric_strain The current volumetric strain to be applied
+   * strain.  This function computes the diagonal components of the eigenstrain tensor
+   * as logarithmic strains.
+   * @param volumetric_strain The current volumetric strain to be applied
+   * @return Current strain in one direction due to volumetric strain, expressed as a logarithmic
+   * strain
    */
   Real computeVolumetricStrainComponent(const Real volumetric_strain) const;
 
@@ -54,4 +58,3 @@ protected:
   bool & _step_zero;
 };
 
-#endif // COMPUTEEIGENSTRAINBASE_H

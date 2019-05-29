@@ -1,4 +1,4 @@
-# Exception test: the incorrect number of initial stresses are supplied
+# Exception test: the incorrect number of initial stress functions are supplied
 
 [Mesh]
   type = GeneratedMesh

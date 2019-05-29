@@ -5,8 +5,8 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 40
-  ny = 40
+  nx = 20
+  ny = 20
   bias_x = 1.1
   bias_y = 1.1
   ymax = 100
@@ -67,40 +67,22 @@
 [Materials]
   [./temperature]
     type = PorousFlowTemperature
-    at_nodes = true
-  [../]
-  [./temperature_qp]
-    type = PorousFlowTemperature
   [../]
   [./ppss]
     type = PorousFlow1PhaseP
     porepressure = pp
     capillary_pressure = pc
   [../]
-  [./ppss_nodal]
-    type = PorousFlow1PhaseP
-    at_nodes = true
-    porepressure = pp
-    capillary_pressure = pc
-  [../]
   [./massfrac]
     type = PorousFlowMassFraction
-    at_nodes = true
   [../]
   [./simple_fluid]
-    type = PorousFlowSingleComponentFluid
-    fp = simple_fluid
-    phase = 0
-    at_nodes = true
-  [../]
-  [./simple_fluid_qp]
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid
     phase = 0
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
-    at_nodes = true
     porosity = 0.2
   [../]
   [./permeability]
@@ -109,7 +91,6 @@
   [../]
   [./relperm]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 0
     phase = 0
   [../]
@@ -138,19 +119,17 @@
 [Executioner]
   type = Transient
   solve_type = Newton
-  dt = 7E1
+  dt = 200
   end_time = 1E3
   nl_abs_tol = 1e-10
 []
 
 [Outputs]
-  print_perf_log = true
+  perf_graph = true
   file_base = theis1
-  csv = true
-  execute_on = 'final'
-  [./con]
-    output_linear = true
-    type = Console
+  [./csv]
+    type = CSV
+    execute_on = final
   [../]
 []
 

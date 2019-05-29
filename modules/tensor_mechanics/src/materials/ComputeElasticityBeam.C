@@ -1,9 +1,11 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "ComputeElasticityBeam.h"
 #include "Function.h"
@@ -39,7 +41,7 @@ ComputeElasticityBeam::ComputeElasticityBeam(const InputParameters & parameters)
     _material_stiffness(declareProperty<RealVectorValue>("material_stiffness")),
     _material_flexure(declareProperty<RealVectorValue>("material_flexure")),
     _prefactor_function(isParamValid("elasticity_prefactor") ? &getFunction("elasticity_prefactor")
-                                                             : NULL),
+                                                             : nullptr),
     _youngs_modulus(coupledValue("youngs_modulus")),
     _poissons_ratio(coupledValue("poissons_ratio")),
     _shear_coefficient(coupledValue("shear_coefficient"))

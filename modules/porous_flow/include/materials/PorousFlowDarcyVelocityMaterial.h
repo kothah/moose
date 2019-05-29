@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWDARCYVELOCITYMATERIAL_H
-#define POROUSFLOWDARCYVELOCITYMATERIAL_H
+#pragma once
 
 #include "PorousFlowMaterial.h"
 
-// Forward Declarations
 class PorousFlowDarcyVelocityMaterial;
 
 template <>
@@ -29,19 +27,19 @@ public:
 protected:
   virtual void computeQpProperties() override;
 
-  /// number of phases
+  /// Number of phases
   const unsigned int _num_phases;
 
-  /// number of PorousFlow variables
+  /// Number of PorousFlow variables
   const unsigned int _num_var;
 
   /// Permeability of porous material
   const MaterialProperty<RealTensorValue> & _permeability;
 
-  /// d(permeabiity)/d(porous-flow variable)
+  /// d(permeabiity)/d(PorousFlow variable)
   const MaterialProperty<std::vector<RealTensorValue>> & _dpermeability_dvar;
 
-  /// d(permeabiity)/d(grad(porous-flow variable))
+  /// d(permeabiity)/d(grad(PorousFlow variable))
   const MaterialProperty<std::vector<std::vector<RealTensorValue>>> & _dpermeability_dgradvar;
 
   /// Fluid density for each phase
@@ -97,4 +95,3 @@ protected:
       _ddarcy_velocity_dgradvar;
 };
 
-#endif // POROUSFLOWDARCYVELOCITYMATERIAL_H

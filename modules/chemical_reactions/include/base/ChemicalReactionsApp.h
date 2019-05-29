@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CHEMICAL_REACTIONSAPP_H
-#define CHEMICAL_REACTIONSAPP_H
+#pragma once
 
 #include "MooseApp.h"
 
@@ -23,10 +22,10 @@ public:
   ChemicalReactionsApp(const InputParameters & parameters);
   virtual ~ChemicalReactionsApp();
 
+  static void registerAll(Factory & f, ActionFactory & af, Syntax & s);
   static void registerApps();
   static void registerObjects(Factory & factory);
   static void associateSyntax(Syntax & syntax, ActionFactory & action_factory);
   static void registerExecFlags(Factory & factory);
 };
 
-#endif /* CHEMICAL_REACTIONSAPP_H */

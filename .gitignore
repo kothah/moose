@@ -76,6 +76,7 @@ temp_print_trace.*
 *.tiff
 *.ps
 *.bmp
+*.ico
 *.html
 *.xyz
 *Revision.h
@@ -166,6 +167,9 @@ framework/contrib/asio/
 *.cpa-*
 *.cpr-*
 
+# Ignore petsc arch
+petsc/arch-*/*
+
 # phase_field/tests/solution_rasterizer
 out.xyz
 
@@ -179,6 +183,7 @@ tmp_jit_*
 
 # MooseDocs
 site
+python/MooseDocs/test/output
 !**/doc/content/**/*.md
 !**/doc/content/**/*.jpg
 !**/doc/content/**/*.jpeg
@@ -193,6 +198,10 @@ site
 !**/doc/content/**/*.bib
 !**/doc/content/**/*.woff
 !**/doc/content/**/*.woff2
+!python/MooseDocs/test/gold/**/*.json
+!python/MooseDocs/test/gold/**/*.html
+!python/MooseDocs/test/gold/**/*.tex
+.ruby-version
 
 # Chigger
 !python/chigger/tests/**/gold/*.png
@@ -209,3 +218,4 @@ python/peacock/tests/postprocessor_tab/TestPostprocessorPluginManager_test_scrip
 !python/peacock/icons/**/*.*
 !python/peacock/tests/**/input/*.*
 peacock_tmp_diff.exo
+*.e.diff

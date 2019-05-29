@@ -22,6 +22,8 @@ InputParameters
 validParams<EigenExecutionerBase>()
 {
   InputParameters params = validParams<Executioner>();
+  params.addClassDescription("Executioner for Eigen value problems.");
+
   params.addRequiredParam<PostprocessorName>("bx_norm", "To evaluate |Bx| for the eigenvalue");
   params.addParam<PostprocessorName>("normalization", "To evaluate |x| for normalization");
   params.addParam<Real>("normal_factor", "Normalize x to make |x| equal to this factor");
@@ -56,7 +58,8 @@ EigenExecutionerBase::EigenExecutionerBase(const InputParameters & parameters)
     _source_integral_old(1),
     _normalization(isParamValid("normalization")
                        ? getPostprocessorValue("normalization")
-                       : getPostprocessorValue("bx_norm")) // use |Bx| for normalization by default
+                       : getPostprocessorValue("bx_norm")), // use |Bx| for normalization by default
+    _final_timer(registerTimedSection("final", 1))
 {
   // FIXME: currently we have to use old and older solution vectors for power iteration.
   //       We will need 'step' in the future.
@@ -153,7 +156,7 @@ EigenExecutionerBase::checkIntegrity()
     mooseError("You have not specified any eigen kernels in your eigenvalue simulation");
 }
 
-void
+bool
 EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
                                             unsigned int max_iter,
                                             Real pfactor,
@@ -183,7 +186,7 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
 
   // not perform any iteration when max_iter==0
   if (max_iter == 0)
-    return;
+    return true;
 
   // turn off nonlinear flag so that RHS kernels opterate on previous solutions
   _eigen_sys.eigenKernelOnOld();
@@ -220,6 +223,8 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
   std::vector<Real> keff_history;
   std::vector<Real> diff_history;
 
+  bool converged;
+
   unsigned int iter = 0;
 
   // power iteration loop...
@@ -246,6 +251,9 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
 
     preIteration();
     _problem.solve();
+    converged = _problem.converged();
+    if (!converged)
+      break;
     postIteration();
 
     // save the initial residual
@@ -325,7 +333,6 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
       // no need to check convergence of the last iteration
       if (iter != max_iter)
       {
-        bool converged = true;
         Real keff_error = fabs(k_old - k) / k;
         if (keff_error > tol_eig)
           converged = false;
@@ -336,7 +343,10 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
           break;
       }
       else
+      {
+        converged = false;
         break;
+      }
     }
   }
 
@@ -349,6 +359,8 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
   _problem.restoreOldSolutions();
   if (_problem.getDisplacedProblem() != NULL)
     _problem.getDisplacedProblem()->restoreOldSolutions();
+
+  return converged;
 }
 
 void
@@ -394,6 +406,12 @@ EigenExecutionerBase::postExecute()
     _problem.time() = _problem.timeStep();
     _problem.outputStep(EXEC_TIMESTEP_END);
     _problem.time() = t;
+  }
+
+  {
+    TIME_SECTION(_final_timer)
+    _problem.execute(EXEC_FINAL);
+    _problem.outputStep(EXEC_FINAL);
   }
 }
 
@@ -542,7 +560,7 @@ EigenExecutionerBase::chebyshev(Chebyshev_Parameters & chebyshev_parameters,
   chebyshev_parameters.flux_error_norm_old = *solution_diff;
 }
 
-void
+bool
 EigenExecutionerBase::nonlinearSolve(Real rel_tol, Real abs_tol, Real pfactor, Real & k)
 {
   makeBXConsistent(k);
@@ -568,4 +586,6 @@ EigenExecutionerBase::nonlinearSolve(Real rel_tol, Real abs_tol, Real pfactor, R
   _problem.es().parameters.set<Real>("nonlinear solver absolute residual tolerance") = tol1;
   _problem.es().parameters.set<Real>("linear solver tolerance") = tol2;
   _problem.es().parameters.set<Real>("nonlinear solver relative residual tolerance") = tol3;
+
+  return _problem.converged();
 }

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef NODALKERNEL_H
-#define NODALKERNEL_H
+#pragma once
 
 // MOOSE
 #include "MooseObject.h"
@@ -146,19 +145,13 @@ protected:
   MooseMesh & _mesh;
 
   /// current node being processed
-  const Node *& _current_node;
+  const Node * const & _current_node;
 
   /// Quadrature point index
   unsigned int _qp;
 
   /// Value of the unknown variable this is acting on
   const VariableValue & _u;
-
-  /// Time derivative of the variable this is acting on
-  const VariableValue & _u_dot;
-
-  /// Derivative of u_dot with respect to u
-  const VariableValue & _du_dot_du;
 
   /// The aux variables to save the residual contributions to
   bool _has_save_in;
@@ -171,4 +164,3 @@ protected:
   std::vector<AuxVariableName> _diag_save_in_strings;
 };
 
-#endif /* NODALKERNEL_H */

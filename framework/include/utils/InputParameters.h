@@ -7,19 +7,17 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef INPUTPARAMETERS_H
-#define INPUTPARAMETERS_H
+#pragma once
 
 // MOOSE includes
+#include "MooseUtils.h"
 #include "MooseError.h"
 #include "MooseTypes.h"
-#include "MooseUtils.h"
 #include "MultiMooseEnum.h"
 #include "ExecFlagEnum.h"
 #include "Conversion.h"
 
 #include "libmesh/parameters.h"
-#include "libmesh/parsed_function.h"
 
 #ifdef LIBMESH_HAVE_FPARSER
 #include "libmesh/fparser.hh"
@@ -29,6 +27,8 @@ class FunctionParserBase
 {
 };
 #endif
+
+#include <tuple>
 
 // Forward declarations
 class Action;
@@ -284,6 +284,13 @@ public:
   void makeParamRequired(const std::string & name);
 
   /**
+   * Changes the parameter to not be required.
+   * @param name The parameter name
+   */
+  template <typename T>
+  void makeParamNotRequired(const std::string & name);
+
+  /**
    * This method adds a coupled variable name pair.  The parser will look for variable
    * name pair in the input file and can return a reference to the storage location
    * for the coupled variable if found
@@ -299,6 +306,18 @@ public:
    * not provided.
    */
   void addCoupledVar(const std::string & name, const Real value, const std::string & doc_string);
+
+  /**
+   * This method adds a coupled variable name pair.  The parser will look for variable
+   * name pair in the input file and can return a reference to the storage location
+   * for the coupled variable if found
+   *
+   * Also - you can provide a vector of values for this variable in the case that an actual variable
+   * is not provided.
+   */
+  void addCoupledVar(const std::string & name,
+                     const std::vector<Real> & value,
+                     const std::string & doc_string);
 
   ///@{
   /**
@@ -404,7 +423,7 @@ public:
   /**
    * Declare the given parameters as controllable
    */
-  void declareControllable(const std::string & name);
+  void declareControllable(const std::string & name, std::set<ExecFlagType> execute_flags = {});
 
   /**
    * Marker a parameter that has been changed by the Control system (this is for output purposes)
@@ -415,6 +434,11 @@ public:
    * Returns a Boolean indicating whether the specified parameter is controllable
    */
   bool isControllable(const std::string & name);
+
+  /**
+   * Return the allowed execute flags for a controllable parameter
+   */
+  const std::set<ExecFlagType> & getControllableExecuteOnTypes(const std::string & name);
 
   /**
    * This method must be called from every base "Moose System" to create linkage with the Action
@@ -433,16 +457,28 @@ public:
   void registerBuildableTypes(const std::string & names);
 
   /**
-   * Declares the types of RelationshipManagers that the owning object will either construct (in the
-   * case of Actions) or requires (in the case of every other MooseObject). With normal
-   * MooseObject-derived types built by MooseObjectAction, MOOSE will attempt to use the
-   * InputParameters available to it to construct the required RelationshipManager automatically.
-   * Actions may run custom logic to create RelationshipManagers. The names and rm_type lists must
-   * have the same number of entries.
+   * Tells MOOSE about a RelationshipManager that this object needs.  RelationshipManagers
+   * handle element "ghosting", "non-local DOF access" and "sparsity pattern" relationships.
    *
-   * @param names A space delimited list of RelationshipMangers that may be built by this object.
+   * Basically: if this object needs non-local (ie non-current-element) data access then you
+   * probably need a relationship manager
+   *
+   * @param name The name of the RelationshipManager type
+   * @param rm_type The type (GEOMETRIC/ALGEBRAIC) of the RelationshipManger.  Note: You can use
+   * boolean logic to to "or" RelationshipManagerTypes together to make a RelationshipManager that
+   * is multi-typed.
+   * @param input_parameter_callback This is a function pointer that will get called to fill in the
+   * RelationShipManager's InputParameters.  See MooseTypes.h for the signature of this function.
    */
-  void registerRelationshipManagers(const std::string & names);
+  void addRelationshipManager(
+      const std::string & name,
+      Moose::RelationshipManagerType rm_type,
+      Moose::RelationshipManagerInputParameterCallback input_parameter_callback = nullptr);
+
+  /**
+   * Clears all currently registered RelationshipManagers
+   */
+  void clearRelationshipManagers() { _buildable_rm_types.clear(); }
 
   /**
    * Returns the list of buildable types as a std::vector<std::string>
@@ -452,7 +488,10 @@ public:
   /**
    * Returns the list of buildable (or required) RelationshipManager object types for this object.
    */
-  const std::vector<std::string> & getBuildableRelationshipManagerTypes() const;
+  const std::vector<std::tuple<std::string,
+                               Moose::RelationshipManagerType,
+                               Moose::RelationshipManagerInputParameterCallback>> &
+  getBuildableRelationshipManagerTypes() const;
 
   ///@{
   /**
@@ -526,16 +565,25 @@ public:
    * Get the default value for an optionally coupled variable.
    *
    * @param coupling_name The name of the coupling parameter to get the default value for.
+   * @param i By default 0, in general the index of the requested coupled default value.
    */
-  Real defaultCoupledValue(const std::string & coupling_name) const;
+  Real defaultCoupledValue(const std::string & coupling_name, unsigned int i = 0) const;
+
+  /**
+   * Get the number of defaulted coupled value entries
+   *
+   * @param coupling_name The name of the coupling parameter to get the default value for.
+   */
+  unsigned int numberDefaultCoupledValues(const std::string & coupling_name) const;
 
   /**
    * Set the default value for an optionally coupled variable (called by the Parser).
    *
    * @param coupling_name The name of the coupling parameter to get the default value for.
    * @param value Default value to set.
+   * @param i By default 0, in general the index of the requested coupled default value.
    */
-  void defaultCoupledValue(const std::string & coupling_name, Real value);
+  void defaultCoupledValue(const std::string & coupling_name, Real value, unsigned int i = 0);
 
   /**
    * Returns the auto build vectors for all parameters.
@@ -603,7 +651,8 @@ public:
    * @see CommonOutputAction AddOutputAction
    */
   void applySpecificParameters(const InputParameters & common,
-                               const std::vector<std::string> & include);
+                               const std::vector<std::string> & include,
+                               bool allow_private = false);
 
   /**
    * Apply values from a single parameter in common, to a single parameter stored in this object
@@ -616,7 +665,9 @@ public:
    *   (3) Local parameter must be invalid OR not have been set from its default
    *   (4) Both cannot be private
    */
-  void applyParameter(const InputParameters & common, const std::string & common_name);
+  void applyParameter(const InputParameters & common,
+                      const std::string & common_name,
+                      bool allow_private = false);
 
   /**
    * Apply properties of a single coupled variable in common, to a single coupled variable stored in
@@ -754,12 +805,11 @@ private:
     bool _is_private = false;
     bool _have_coupled_default = false;
     /// The default value for optionally coupled variables
-    Real _coupled_default = 0;
+    std::vector<Real> _coupled_default = {0};
     bool _have_default_postprocessor_val = false;
     PostprocessorValue _default_postprocessor_val = 0;
     /// True if a parameters value was set by addParam, and not set again.
     bool _set_by_add_param = false;
-    bool _controllable = false;
     /// The reserved option names for a parameter
     std::set<std::string> _reserved_values;
     /// If non-empty, this parameter is deprecated.
@@ -770,6 +820,10 @@ private:
     std::string _param_fullpath;
     /// raw token text for a parameter - usually only set for filepath type params.
     std::string _raw_val;
+    /// True if the parameters is controllable
+    bool _controllable = false;
+    /// Controllable execute flag restriction
+    std::set<ExecFlagType> _controllable_flags;
   };
 
   Metadata & at(const std::string & param)
@@ -829,8 +883,14 @@ private:
   /// MooseObjectAction derived Actions.
   std::vector<std::string> _buildable_types;
 
-  /// The RelationshipManagers that this object may either build or requires
-  std::vector<std::string> _buildable_rm_types;
+  /// The RelationshipManagers that this object may either build or require.
+  /// The optional second argument may be supplied to "downgrade" the functionality of the corresponding
+  /// relationship manager (e.g. An AlgebraicRelationshipManager could be only used as a
+  /// GeometricRelationshipManager for a given simulation).
+  std::vector<std::tuple<std::string,
+                         Moose::RelationshipManagerType,
+                         Moose::RelationshipManagerInputParameterCallback>>
+      _buildable_rm_types;
 
   /// This parameter collapses one level of nesting in the syntax blocks.  It is used
   /// in conjunction with MooseObjectAction derived Actions.
@@ -1253,6 +1313,16 @@ InputParameters::makeParamRequired(const std::string & name)
 
 template <typename T>
 void
+InputParameters::makeParamNotRequired(const std::string & name)
+{
+  if (!this->have_parameter<T>(name))
+    mooseError("Unable to un-require nonexistent parameter: ", name);
+
+  _params[name]._required = false;
+}
+
+template <typename T>
+void
 InputParameters::addDeprecatedParam(const std::string & name,
                                     const T & value,
                                     const std::string & doc_string,
@@ -1366,6 +1436,7 @@ InputParameters::getParamHelper(const std::string & name, const InputParameters 
 {
   if (!pars.isParamValid(name))
     mooseError("The parameter \"", name, "\" is being retrieved before being set.\n");
+
   return pars.get<T>(name);
 }
 
@@ -1401,5 +1472,3 @@ validParams()
 
   mooseError("Missing validParams declaration!");
 }
-
-#endif /* INPUTPARAMETERS_H */

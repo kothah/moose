@@ -13,6 +13,7 @@
 #include "AuxiliarySystem.h"
 #include "Conversion.h"
 #include "Executioner.h"
+#include "MoosePreconditioner.h"
 #include "FEProblem.h"
 #include "MooseApp.h"
 #include "MooseMesh.h"
@@ -32,7 +33,7 @@ indent(unsigned int spaces)
 }
 
 std::string
-outputFrameworkInformation(MooseApp & app)
+outputFrameworkInformation(const MooseApp & app)
 {
   std::stringstream oss;
   oss << std::left;
@@ -61,13 +62,23 @@ outputMeshInformation(FEProblemBase & problem, bool verbose)
 
   if (verbose)
   {
+    bool forced = moose_mesh.isParallelTypeForced();
+    bool pre_split = problem.getMooseApp().isUseSplit();
+
+    // clang-format off
     oss << "Mesh: " << '\n'
         << std::setw(console_field_width)
         << "  Parallel Type: " << (moose_mesh.isDistributedMesh() ? "distributed" : "replicated")
-        << (moose_mesh.isParallelTypeForced() ? " (forced) " : "") << '\n'
+        << (forced || pre_split ? " (" : "")
+        << (forced ? "forced" : "")
+        << (forced && pre_split ? ", " : "")
+        << (pre_split ? "pre-split" : "")
+        << (forced || pre_split ? ")" : "")
+        << '\n'
         << std::setw(console_field_width) << "  Mesh Dimension: " << mesh.mesh_dimension() << '\n'
         << std::setw(console_field_width) << "  Spatial Dimension: " << mesh.spatial_dimension()
         << '\n';
+    // clang-format on
   }
 
   oss << std::setw(console_field_width) << "  Nodes:" << '\n'
@@ -107,7 +118,7 @@ outputNonlinearSystemInformation(FEProblemBase & problem)
 }
 
 std::string
-outputSystemInformationHelper(const System & system)
+outputSystemInformationHelper(System & system)
 {
   std::stringstream oss;
   oss << std::left;
@@ -144,8 +155,9 @@ outputSystemInformationHelper(const System & system)
 #ifndef LIBMESH_ENABLE_INFINITE_ELEMENTS
     for (unsigned int vg = 0; vg < system.n_variable_groups(); vg++)
     {
-      oss << "\"" << libMesh::Utility::enum_to_string<FEFamily>(
-                         system.get_dof_map().variable_group(vg).type().family)
+      oss << "\""
+          << libMesh::Utility::enum_to_string<FEFamily>(
+                 system.get_dof_map().variable_group(vg).type().family)
           << "\" ";
       curr_string_pos = oss.tellp();
       insertNewline(oss, begin_string_pos, curr_string_pos);
@@ -154,10 +166,12 @@ outputSystemInformationHelper(const System & system)
 #else
     for (unsigned int vg = 0; vg < system.n_variable_groups(); vg++)
     {
-      oss << "\"" << libMesh::Utility::enum_to_string<FEFamily>(
-                         system.get_dof_map().variable_group(vg).type().family)
-          << "\", \"" << libMesh::Utility::enum_to_string<FEFamily>(
-                             system.get_dof_map().variable_group(vg).type().radial_family)
+      oss << "\""
+          << libMesh::Utility::enum_to_string<FEFamily>(
+                 system.get_dof_map().variable_group(vg).type().family)
+          << "\", \""
+          << libMesh::Utility::enum_to_string<FEFamily>(
+                 system.get_dof_map().variable_group(vg).type().radial_family)
           << "\" ";
       curr_string_pos = oss.tellp();
       insertNewline(oss, begin_string_pos, curr_string_pos);
@@ -169,8 +183,9 @@ outputSystemInformationHelper(const System & system)
     oss << std::setw(console_field_width) << "  Infinite Element Mapping: ";
     for (unsigned int vg = 0; vg < system.n_variable_groups(); vg++)
     {
-      oss << "\"" << libMesh::Utility::enum_to_string<InfMapType>(
-                         system.get_dof_map().variable_group(vg).type().inf_map)
+      oss << "\""
+          << libMesh::Utility::enum_to_string<InfMapType>(
+                 system.get_dof_map().variable_group(vg).type().inf_map)
           << "\" ";
       curr_string_pos = oss.tellp();
       insertNewline(oss, begin_string_pos, curr_string_pos);
@@ -190,8 +205,9 @@ outputSystemInformationHelper(const System & system)
 #else
       oss << "\""
           << Utility::enum_to_string<Order>(system.get_dof_map().variable_group(vg).type().order)
-          << "\", \"" << Utility::enum_to_string<Order>(
-                             system.get_dof_map().variable_group(vg).type().radial_order)
+          << "\", \""
+          << Utility::enum_to_string<Order>(
+                 system.get_dof_map().variable_group(vg).type().radial_order)
           << "\" ";
 #endif
       curr_string_pos = oss.tellp();
@@ -204,7 +220,7 @@ outputSystemInformationHelper(const System & system)
 }
 
 std::string
-outputRelationshipManagerInformation(MooseApp & app)
+outputRelationshipManagerInformation(const MooseApp & app)
 {
   std::stringstream oss;
   oss << std::left;
@@ -213,7 +229,9 @@ outputRelationshipManagerInformation(MooseApp & app)
   if (info_strings.size())
   {
     for (const auto & info_pair : info_strings)
-      oss << std::setw(console_field_width) << std::string("  ") + info_pair.first << ": "
+      oss << std::setw(console_field_width)
+          << "  " + MooseUtils::underscoreToCamelCase(MooseUtils::toLower(info_pair.first), true) +
+                 ":"
           << info_pair.second << '\n';
     oss << '\n';
   }
@@ -222,7 +240,7 @@ outputRelationshipManagerInformation(MooseApp & app)
 }
 
 std::string
-outputExecutionInformation(MooseApp & app, FEProblemBase & problem)
+outputExecutionInformation(const MooseApp & app, FEProblemBase & problem)
 {
 
   std::stringstream oss;
@@ -243,7 +261,17 @@ outputExecutionInformation(MooseApp & app, FEProblemBase & problem)
 
   const std::string & pc_desc = problem.getPetscOptions().pc_description;
   if (!pc_desc.empty())
-    oss << std::setw(console_field_width) << "  Preconditioner: " << pc_desc << '\n';
+    oss << std::setw(console_field_width) << "  PETSc Preconditioner: " << pc_desc << '\n';
+
+  MoosePreconditioner const * mpc = problem.getNonlinearSystemBase().getPreconditioner();
+  if (mpc)
+  {
+    oss << std::setw(console_field_width)
+        << "  MOOSE Preconditioner: " << mpc->getParam<std::string>("_type");
+    if (mpc->name() == "_moose_auto")
+      oss << " (auto)";
+    oss << '\n';
+  }
   oss << '\n';
 
   return oss.str();

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TWOPHASEFLUIDPROPERTIES_H
-#define TWOPHASEFLUIDPROPERTIES_H
+#pragma once
 
 #include "FluidProperties.h"
 
@@ -26,8 +25,15 @@ class TwoPhaseFluidProperties : public FluidProperties
 public:
   TwoPhaseFluidProperties(const InputParameters & parameters);
 
-  const UserObjectName & getLiquidName() const;
-  const UserObjectName & getVaporName() const;
+  /**
+   * Returns the name of the liquid single-phase fluid properties object
+   */
+  virtual const UserObjectName & getLiquidName() const { return _liquid_name; }
+
+  /**
+   * Returns the name of the vapor single-phase fluid properties object
+   */
+  virtual const UserObjectName & getVaporName() const { return _vapor_name; }
 
   /**
    * Returns the critical pressure
@@ -63,6 +69,26 @@ public:
    */
   virtual Real h_lat(Real p, Real T) const;
 
+  /**
+   * Computes surface tension sigma of
+   * saturated liquid in contact with saturated vapor
+   *
+   * @param T  temperature
+   */
+  virtual Real sigma_from_T(Real T) const;
+
+  /**
+   * Computes dsigma/dT along the saturation line
+   *
+   * @param[in] T          temperature (K)
+   */
+  virtual Real dsigma_dT_from_T(Real T) const;
+
+  /**
+   * Returns true if phase change is supported, otherwise false
+   */
+  virtual bool supportsPhaseChange() const = 0;
+
 protected:
   /// The name of the user object that provides liquid phase fluid properties
   const UserObjectName _liquid_name;
@@ -75,4 +101,3 @@ protected:
   const SinglePhaseFluidProperties * _fp_vapor;
 };
 
-#endif /* TWOPHASEFLUIDPROPERTIES_H */

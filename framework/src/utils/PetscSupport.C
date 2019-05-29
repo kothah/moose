@@ -27,6 +27,7 @@
 #include "Conversion.h"
 #include "Executioner.h"
 #include "MooseMesh.h"
+#include "ComputeLineSearchObjectWrapper.h"
 
 #include "libmesh/equation_systems.h"
 #include "libmesh/linear_implicit_system.h"
@@ -145,6 +146,7 @@ setSolverOptions(SolverParams & solver_params)
 
     case Moose::ST_LINEAR:
       setSinglePetscOption("-snes_type", "ksponly");
+      setSinglePetscOption("-snes_monitor_cancel");
       break;
   }
 
@@ -262,11 +264,9 @@ PetscErrorCode
 petscSetupOutput(CommandLine * cmd_line)
 {
   char code[10] = {45, 45, 109, 111, 111, 115, 101};
-  int argc = cmd_line->argc();
-  char ** argv = cmd_line->argv();
-  for (int i = 0; i < argc; i++)
+  const std::vector<std::string> argv = cmd_line->getArguments();
+  for (const auto & arg : argv)
   {
-    std::string arg(argv[i]);
     if (arg == std::string(code, 10))
     {
       Console::petscSetupOutput();
@@ -298,7 +298,7 @@ petscConverged(KSP ksp, PetscInt n, PetscReal rnorm, KSPConvergedReason * reason
   // Prior to PETSc 3.0.0, you could call KSPDefaultConverged with a NULL context
   // pointer, as it was unused.
   KSPDefaultConverged(ksp, n, rnorm, reason, PETSC_NULL);
-#elif PETSC_RELEASE_LESS_THAN(3, 5, 0)
+#elif PETSC_VERSION_LESS_THAN(3, 5, 0)
   // As of PETSc 3.0.0, you must call KSPDefaultConverged with a
   // non-NULL context pointer which must be created with
   // KSPDefaultConvergedCreate(), and destroyed with
@@ -335,15 +335,15 @@ petscConverged(KSP ksp, PetscInt n, PetscReal rnorm, KSPConvergedReason * reason
 
   switch (moose_reason)
   {
-    case MOOSE_CONVERGED_RTOL:
+    case MooseLinearConvergenceReason::CONVERGED_RTOL:
       *reason = KSP_CONVERGED_RTOL;
       break;
 
-    case MOOSE_CONVERGED_ITS:
+    case MooseLinearConvergenceReason::CONVERGED_ITS:
       *reason = KSP_CONVERGED_ITS;
       break;
 
-    case MOOSE_DIVERGED_NANORINF:
+    case MooseLinearConvergenceReason::DIVERGED_NANORINF:
 #if PETSC_VERSION_LESS_THAN(3, 4, 0)
       // Report divergence due to exceeding the divergence tolerance.
       *reason = KSP_DIVERGED_DTOL;
@@ -353,8 +353,12 @@ petscConverged(KSP ksp, PetscInt n, PetscReal rnorm, KSPConvergedReason * reason
 #endif
       break;
 #if !PETSC_VERSION_LESS_THAN(3, 6, 0) // A new convergence enum in PETSc 3.6
-    case MOOSE_DIVERGED_PCSETUP_FAILED:
+    case MooseLinearConvergenceReason::DIVERGED_PCSETUP_FAILED:
+#if PETSC_VERSION_LESS_THAN(3, 11, 0) && PETSC_VERSION_RELEASE
       *reason = KSP_DIVERGED_PCSETUP_FAILED;
+#else
+      *reason = KSP_DIVERGED_PC_FAILED;
+#endif
       break;
 #endif
     default:
@@ -404,7 +408,7 @@ petscNonlinearConverged(SNES snes,
   // Whether or not to force SNESSolve() take at least one iteration regardless of the initial
   // residual norm
   PetscBool force_iteration = PETSC_FALSE;
-#if !PETSC_RELEASE_LESS_THAN(3, 8, 4)
+#if !PETSC_VERSION_LESS_THAN(3, 8, 4)
   ierr = SNESGetForceIteration(snes, &force_iteration);
   CHKERRABORT(problem.comm().get(), ierr);
 #endif
@@ -449,19 +453,19 @@ petscNonlinearConverged(SNES snes,
 
   switch (moose_reason)
   {
-    case MOOSE_NONLINEAR_ITERATING:
+    case MooseNonlinearConvergenceReason::ITERATING:
       *reason = SNES_CONVERGED_ITERATING;
       break;
 
-    case MOOSE_CONVERGED_FNORM_ABS:
+    case MooseNonlinearConvergenceReason::CONVERGED_FNORM_ABS:
       *reason = SNES_CONVERGED_FNORM_ABS;
       break;
 
-    case MOOSE_CONVERGED_FNORM_RELATIVE:
+    case MooseNonlinearConvergenceReason::CONVERGED_FNORM_RELATIVE:
       *reason = SNES_CONVERGED_FNORM_RELATIVE;
       break;
 
-    case MOOSE_CONVERGED_SNORM_RELATIVE:
+    case MooseNonlinearConvergenceReason::CONVERGED_SNORM_RELATIVE:
 #if PETSC_VERSION_LESS_THAN(3, 3, 0)
       *reason = SNES_CONVERGED_PNORM_RELATIVE;
 #else
@@ -469,15 +473,15 @@ petscNonlinearConverged(SNES snes,
 #endif
       break;
 
-    case MOOSE_DIVERGED_FUNCTION_COUNT:
+    case MooseNonlinearConvergenceReason::DIVERGED_FUNCTION_COUNT:
       *reason = SNES_DIVERGED_FUNCTION_COUNT;
       break;
 
-    case MOOSE_DIVERGED_FNORM_NAN:
+    case MooseNonlinearConvergenceReason::DIVERGED_FNORM_NAN:
       *reason = SNES_DIVERGED_FNORM_NAN;
       break;
 
-    case MOOSE_DIVERGED_LINE_SEARCH:
+    case MooseNonlinearConvergenceReason::DIVERGED_LINE_SEARCH:
 #if PETSC_VERSION_LESS_THAN(3, 2, 0)
       *reason = SNES_DIVERGED_LS_FAILURE;
 #else
@@ -732,7 +736,17 @@ storePetscOptions(FEProblemBase & fe_problem, const InputParameters & params)
     // Do not add duplicate settings
     if (find(po.inames.begin(), po.inames.end(), petsc_options_inames[i]) == po.inames.end())
     {
-      po.inames.push_back(petsc_options_inames[i]);
+#if !PETSC_VERSION_LESS_THAN(3, 9, 0)
+      if (petsc_options_inames[i] == "-pc_factor_mat_solver_package")
+        po.inames.push_back("-pc_factor_mat_solver_type");
+      else
+        po.inames.push_back(petsc_options_inames[i]);
+#else
+      if (petsc_options_inames[i] == "-pc_factor_mat_solver_type")
+        po.inames.push_back("-pc_factor_mat_solver_package");
+      else
+        po.inames.push_back(petsc_options_inames[i]);
+#endif
       po.values.push_back(petsc_options_values[i]);
 
       // Look for a pc description
@@ -746,7 +760,8 @@ storePetscOptions(FEProblemBase & fe_problem, const InputParameters & params)
       if (petsc_options_inames[i] == "-pc_hypre_boomeramg_strong_threshold")
         strong_threshold_found = true;
 #if !PETSC_VERSION_LESS_THAN(3, 7, 0)
-      if (petsc_options_inames[i] == "-pc_factor_mat_solver_package" &&
+      if ((petsc_options_inames[i] == "-pc_factor_mat_solver_package" ||
+           petsc_options_inames[i] == "-pc_factor_mat_solver_type") &&
           petsc_options_values[i] == "superlu_dist")
         superlu_dist_found = true;
       if (petsc_options_inames[i] == "-mat_superlu_dist_fact")
@@ -848,7 +863,7 @@ getCommonPetscFlags()
       "-dm_moose_print_embedding -dm_view -ksp_converged_reason -ksp_gmres_modifiedgramschmidt "
       "-ksp_monitor -ksp_monitor_snes_lg-snes_ksp_ew -ksp_snes_ew -snes_converged_reason "
       "-snes_ksp -snes_ksp_ew -snes_linesearch_monitor -snes_mf -snes_mf_operator -snes_monitor "
-      "-snes_test_display -snes_view -snew_ksp_ew",
+      "-snes_test_display -snes_view",
       "",
       true);
 }
@@ -884,7 +899,7 @@ setSinglePetscOption(const std::string & name, const std::string & value)
   // Not convenient to use the usual error checking macro, because we
   // don't have a specific communicator in this helper function.
   if (ierr)
-    mooseError("Error setting PETSc option.");
+    mooseError("Error setting PETSc option: ", name);
 }
 
 void
@@ -955,16 +970,6 @@ colorAdjacencyMatrix(PetscScalar * adjacency_matrix,
   MatColoringDestroy(&mc);
 #endif
   ISColoringDestroy(&iscoloring);
-}
-
-ComputeLineSearchObjectWrapper::ComputeLineSearchObjectWrapper(FEProblemBase & fe_problem)
-  : _fe_problem(fe_problem)
-{
-}
-
-void ComputeLineSearchObjectWrapper::linesearch(SNESLineSearch /*line_search_object*/)
-{
-  _fe_problem.lineSearch();
 }
 
 } // Namespace PetscSupport

@@ -13,6 +13,8 @@
 #include "MooseMesh.h"
 
 #include "libmesh/fparser_ad.hh"
+#include "libmesh/elem.h"
+#include "libmesh/fe_base.h"
 
 registerMooseObject("MooseApp", ParsedAddSideset);
 
@@ -117,7 +119,7 @@ ParsedAddSideset::modify()
         continue;
 
       // check expression
-      std::unique_ptr<Elem> curr_side = elem->side(side);
+      std::unique_ptr<Elem> curr_side = elem->side_ptr(side);
       _func_params[0] = curr_side->centroid()(0);
       _func_params[1] = curr_side->centroid()(1);
       _func_params[2] = curr_side->centroid()(2);

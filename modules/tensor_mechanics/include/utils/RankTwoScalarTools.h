@@ -7,15 +7,16 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef RANKTWOSCALARTOOLS_H
-#define RANKTWOSCALARTOOLS_H
+#pragma once
 
 // MOOSE includes
 #include "MooseTypes.h"
 
 // Forward declarations
 class MooseEnum;
-class RankTwoTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 namespace libMesh
 {
@@ -94,13 +95,15 @@ Real L2norm(const RankTwoTensor & r2tensor);
  * The volumentric strain is the change in volume over the original volume. In
  * this method the squared and cubic terms are included so that the calculation
  * is valid for both small and finite strains.
+ * @param strain Total logarithmic strain
+ * @return volumetric strain (delta V / V)
  */
 Real volumetricStrain(const RankTwoTensor & strain);
 
 /*
-* The first invariant of a tensor is the sum of the diagonal component; defined
-* in L. Malvern, Introduction to the Mechanics of a Continuous Mediam (1969) pg 89.
-*/
+ * The first invariant of a tensor is the sum of the diagonal component; defined
+ * in L. Malvern, Introduction to the Mechanics of a Continuous Mediam (1969) pg 89.
+ */
 Real firstInvariant(const RankTwoTensor & r2tensor);
 
 /*
@@ -109,7 +112,7 @@ Real firstInvariant(const RankTwoTensor & r2tensor);
  * Note that the Hjelmstad version of the second invariant is the negative of
  * the second invariant given in L. Malvern, Introduction to the Mechanics of a
  * Continuous Medium (1969) pg 89.
-*/
+ */
 Real secondInvariant(const RankTwoTensor & r2tensor);
 
 /*
@@ -190,7 +193,7 @@ Real hoopStress(const RankTwoTensor & stress,
  * @param point2 The end point of the rotation axis
  * @param curr_point The point corresponding to the stress (pass in & _q_point[_qp])
  * @param direction The direction vector in which the scalar stress value is calculated.
-*/
+ */
 Real radialStress(const RankTwoTensor & stress,
                   const Point & point1,
                   const Point & point2,
@@ -221,6 +224,16 @@ Real directionValueTensor(const RankTwoTensor & r2tensor, Point & direction);
  * Triaxiality is the ratio of the hydrostatic stress to the von Mises stress.
  */
 Real triaxialityStress(const RankTwoTensor & stress);
+
+/*
+ * maxShear is the maximum shear stress defined as the maximum principal
+ * stress minus the minimum principal stress.
+ */
+Real maxShear(const RankTwoTensor & stress);
+
+/*
+ * stressIntensity is defined as two times the maximum shear stress.
+ */
+Real stressIntensity(const RankTwoTensor & stress);
 }
 
-#endif // RANKTWOSCALARTOOLS_H

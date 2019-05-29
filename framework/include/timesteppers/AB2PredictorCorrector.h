@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef AB2PREDICTORCORRECTOR_H
-#define AB2PREDICTORCORRECTOR_H
+#pragma once
 
 // MOOSE includes
 #include "TimeStepper.h"
@@ -41,7 +40,8 @@ public:
   virtual void step() override;
   virtual void preExecute() override;
   virtual void preSolve() override;
-  virtual bool converged() override;
+  virtual void postSolve() override;
+  virtual bool converged() const override;
 
 protected:
   virtual Real computeDT() override;
@@ -77,4 +77,3 @@ protected:
   std::ofstream myfile;
 };
 
-#endif // AB2PREDICTORCORRECTOR_H

@@ -7,13 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWDARCYVELOCITYCOMPONENT_H
-#define POROUSFLOWDARCYVELOCITYCOMPONENT_H
+#pragma once
 
 #include "AuxKernel.h"
 #include "PorousFlowDictator.h"
 
-// Forward Declarations
 class PorousFlowDarcyVelocityComponent;
 
 template <>
@@ -52,7 +50,7 @@ protected:
   /// Fluid density for each phase (at the qp)
   const MaterialProperty<std::vector<Real>> & _fluid_density_qp;
 
-  /// PorousFlow UserObject
+  /// PorousFlowDicatator UserObject
   const PorousFlowDictator & _dictator;
 
   /// Index of the fluid phase
@@ -65,4 +63,3 @@ protected:
   const RealVectorValue _gravity;
 };
 
-#endif // POROUSFLOWDARCYVELOCITYCOMPONENT_H

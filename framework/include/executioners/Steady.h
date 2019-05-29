@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef STEADY_H
-#define STEADY_H
+#pragma once
 
 #include "Executioner.h"
 
@@ -46,11 +45,18 @@ public:
 
   virtual void checkIntegrity();
 
+  virtual bool lastSolveConverged() const override { return _last_solve_converged; }
+
 protected:
   FEProblemBase & _problem;
 
+  Real _system_time;
   int & _time_step;
   Real & _time;
+
+  PerfID _final_timer;
+
+private:
+  bool _last_solve_converged;
 };
 
-#endif // STEADY_H

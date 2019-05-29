@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef VALUERANGEMARKER_H
-#define VALUERANGEMARKER_H
+#pragma once
 
 #include "QuadraturePointMarker.h"
 
@@ -29,11 +28,7 @@ protected:
   Real _upper_bound;
   Real _buffer_size;
 
-  MarkerValue _third_state;
   MarkerValue _inside;
   MarkerValue _outside;
-
-  const VariableValue & _u;
 };
 
-#endif /* VALUERANGEMARKER_H */

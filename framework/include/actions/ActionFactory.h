@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ACTIONFACTORY_H
-#define ACTIONFACTORY_H
+#pragma once
 
 #include <vector>
 #include <map>
@@ -133,6 +132,8 @@ protected:
 
   FileLineInfoMap _name_to_line;
   std::multimap<std::string, std::string> _task_to_action_map;
+
+  /// set<objectname, task> used to track if an object previously added is being added again
+  std::set<std::pair<std::string, std::string>> _current_objs;
 };
 
-#endif /* ACTIONFACTORY_H */

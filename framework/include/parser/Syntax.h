@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef SYNTAX_H
-#define SYNTAX_H
+#pragma once
 
 #include <string>
 #include <map>
@@ -33,9 +32,10 @@ public:
    * Method to register a new task. Tasks are short verbs (strings) that describe a particular point
    * in the simulation setup phase.
    * @param task The task (verb) to be registered with MOOSE.
-   * @param is_required indicates whether the task is required for a sucessful simulation.
+   * @param should_autobuild indicates whether the task should be autobuilt if not supplied
+   * elsewhere.
    */
-  void registerTaskName(const std::string & task, bool is_required);
+  void registerTaskName(const std::string & task, bool should_auto_build = false);
 
   /**
    * Method to register a new task (see overload method with same name). This version also accepts
@@ -45,7 +45,7 @@ public:
    */
   void registerTaskName(const std::string & task,
                         const std::string & moose_object_type,
-                        bool is_required);
+                        bool should_auto_build = false);
 
   /**
    * Method to associate another "allowed" pluggable MOOSE system to an existing registered task.
@@ -63,6 +63,12 @@ public:
    * within the parenthesis is given equal precedence.
    */
   void addDependencySets(const std::string & action_sets);
+
+  /**
+   * Deletes or removes the dependencies that this task depends on. This method does not fixup
+   * or change the graph in any other way.
+   */
+  void deleteTaskDependencies(const std::string & task);
 
   /**
    * Clears all tasks from the system object.
@@ -84,12 +90,19 @@ public:
   /**
    * Returns a Boolean indicating whether or not a task is registered with the syntax object.
    */
-  bool hasTask(const std::string & task);
+  bool hasTask(const std::string & task) const;
 
   /**
    * Returns a Boolean indicating whether the specified task is required.
+   * DEPRECATED (use shouldAutoBuild).
    */
-  bool isActionRequired(const std::string & task);
+  bool isActionRequired(const std::string & task) const;
+
+  /**
+   * Returns a Boolean indicating whether MOOSE should attempt to automatically create an Action
+   * to satisfy a task if an Action doesn't already exist to service that task.
+   */
+  bool shouldAutoBuild(const std::string & task) const;
 
   /**
    * Registration function for associating Moose Actions with syntax.
@@ -128,6 +141,13 @@ public:
    * want deprecated in the passed in parameter.
    */
   void deprecateActionSyntax(const std::string & syntax);
+  void deprecateActionSyntax(const std::string & syntax, const std::string & message);
+
+  /**
+   * Returns the deprecation message for a given syntax that has been deprecated by
+   * deprecateActionSyntax.
+   */
+  std::string deprecatedActionSyntaxMessage(const std::string syntax);
 
   /**
    * Returns a Boolean indicating whether the syntax has been deprecated through a call to
@@ -146,7 +166,7 @@ public:
    * Method for determining whether a piece of syntax is associated with an Action
    * TODO: I need a better name
    */
-  std::string isAssociated(const std::string & real_id, bool * is_parent);
+  std::string isAssociated(const std::string & real_id, bool * is_parent) const;
 
   /**
    * Returns a pair of multimap iterators to all the ActionInfo objects associated with a given
@@ -180,7 +200,7 @@ public:
                            const std::string & task) const;
 
 protected:
-  /// The list of registered tasks and a flag indicating whether or not they are required
+  /// The list of registered tasks and a flag indicating whether or not they should be auto-built.
   std::map<std::string, bool> _registered_tasks;
 
   /// The list of Moose system objects to tasks.  This map indicates which tasks are allowed to build certain MooseObjects.
@@ -202,10 +222,9 @@ protected:
   /// Boolean indicating whether the _actions_to_syntax map is built and valid and synced
   bool _actions_to_syntax_valid;
 
-  /// The set of deprecated syntax items
-  std::set<std::string> _deprecated_syntax;
+  /// The list of deprecated syntax items and the associated deprecated message
+  std::map<std::string, std::string> _deprecated_syntax;
 
   FileLineInfoMap _syntax_to_line;
 };
 
-#endif // MOOSESYNTAX_H

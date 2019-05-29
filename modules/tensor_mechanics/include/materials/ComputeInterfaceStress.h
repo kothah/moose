@@ -7,13 +7,14 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTEINTERFACESTRESS_H
-#define COMPUTEINTERFACESTRESS_H
+#pragma once
 
 #include "Material.h"
 
 class ComputeInterfaceStress;
-class RankTwoTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 template <>
 InputParameters validParams<ComputeInterfaceStress>();
@@ -38,4 +39,3 @@ protected:
   MaterialProperty<RankTwoTensor> & _planar_stress;
 };
 
-#endif // COMPUTEINTERFACESTRESS_H

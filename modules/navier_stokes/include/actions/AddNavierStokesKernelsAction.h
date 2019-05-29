@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ADDNAVIERSTOKESKERNELSACTION_H
-#define ADDNAVIERSTOKESKERNELSACTION_H
+#pragma once
 
 #include "NSAction.h"
 
@@ -60,10 +59,9 @@ protected:
   void addNSEnthalpyAux();
   void addNSMachAux();
   void addNSInternalEnergyAux();
-  void addNSSpecificVolumeAux();
+  void addSpecificVolumeComputation();
 
   // Name of the FluidProperties object to pass on to Kernels
   UserObjectName _fp_name;
 };
 
-#endif

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PENETRATIONTHREAD_H
-#define PENETRATIONTHREAD_H
+#pragma once
 
 // MOOSE includes
 #include "MooseTypes.h"
@@ -99,7 +98,24 @@ protected:
     EDGE_AND_COMMON_NODE
   };
 
+  /**
+   * When interactions are identified between a node and two faces, compete between the faces
+   * to determine whether first (pi1) or second (pi2) interaction is stronger
+   * @param pi1 Pointer to the PenetrationInfo object for the first face
+   * @param pi2 Pointer to the PenetrationInfo object for the second face
+   * @return Appropriate ComputeInterationResult enum entry identifying which face is a better match
+   */
   CompeteInteractionResult competeInteractions(PenetrationInfo * pi1, PenetrationInfo * pi2);
+
+  /**
+   * Determine whether first (pi1) or second (pi2) interaction is stronger when it is known
+   * that the node projects to both of the two competing faces
+   * @param pi1 Pointer to the PenetrationInfo object for the first face
+   * @param pi2 Pointer to the PenetrationInfo object for the second face
+   * @return Appropriate ComputeInterationResult enum entry identifying which face is a better match
+   */
+  CompeteInteractionResult competeInteractionsBothOnFace(PenetrationInfo * pi1,
+                                                         PenetrationInfo * pi2);
 
   CommonEdgeResult interactionsOffCommonEdge(PenetrationInfo * pi1, PenetrationInfo * pi2);
 
@@ -178,4 +194,3 @@ protected:
   };
 };
 
-#endif // PENETRATIONTHREAD_H

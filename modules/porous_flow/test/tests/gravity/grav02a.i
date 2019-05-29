@@ -111,35 +111,17 @@
   [./temperature]
     type = PorousFlowTemperature
   [../]
-  [./temperature_nodal]
-    type = PorousFlowTemperature
-    at_nodes = true
-  [../]
   [./ppss]
     type = PorousFlow2PhasePP
     phase0_porepressure = ppwater
     phase1_porepressure = ppgas
     capillary_pressure = pc
   [../]
-  [./ppss_nodal]
-    type = PorousFlow2PhasePP
-    at_nodes = true
-    phase0_porepressure = ppwater
-    phase1_porepressure = ppgas
-    capillary_pressure = pc
-  [../]
   [./massfrac]
     type = PorousFlowMassFraction
-    at_nodes = true
     mass_fraction_vars = 'massfrac_ph0_sp0 massfrac_ph1_sp0'
   [../]
   [./simple_fluid0]
-    type = PorousFlowSingleComponentFluid
-    fp = simple_fluid0
-    phase = 0
-    at_nodes = true
-  [../]
-  [./simple_fluid0_qp]
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid0
     phase = 0
@@ -148,16 +130,9 @@
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid1
     phase = 1
-    at_nodes = true
-  [../]
-  [./simple_fluid1_qp]
-    type = PorousFlowSingleComponentFluid
-    fp = simple_fluid1
-    phase = 1
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
-    at_nodes = true
     porosity = 0.1
   [../]
   [./permeability]
@@ -166,13 +141,11 @@
   [../]
   [./relperm_water]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 1
     phase = 0
   [../]
   [./relperm_gas]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 1
     phase = 1
   [../]
@@ -219,38 +192,28 @@
     fluid_component = 1
     execute_on = 'initial timestep_end'
   [../]
-
 []
 
 [Preconditioning]
-  active = andy
   [./andy]
     type = SMP
     full = true
-    petsc_options_iname = '-ksp_type -pc_type -snes_atol -snes_rtol -snes_max_it'
-    petsc_options_value = 'bcgs bjacobi 1E-12 1E-10 10000'
-  [../]
-  [./check]
-    type = SMP
-    full = true
-    petsc_options_iname = '-ksp_type -pc_type -snes_atol -snes_rtol -snes_max_it -snes_type'
-    petsc_options_value = 'bcgs bjacobi 1E-12 1E-10 10000 test'
   [../]
 []
-
 
 [Executioner]
   type = Transient
   solve_type = Newton
   dt = 0.1
   end_time = 1.0
+  nl_rel_tol = 1E-10
+  nl_abs_tol = 1E-12
 []
 
 [Outputs]
-  execute_on = 'initial final'
-  file_base = grav02a
   [./csv]
     type = CSV
+    file_base = grav02a
+    execute_on = 'initial final'
   [../]
-  exodus = true
 []

@@ -53,23 +53,12 @@ UserObject::UserObject(const InputParameters & parameters)
     Restartable(this, "UserObjects"),
     MeshChangedInterface(parameters),
     ScalarCoupleable(this),
+    PerfGraphInterface(this),
     _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
     _fe_problem(*getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
     _tid(parameters.get<THREAD_ID>("_tid")),
     _assembly(_subproblem.assembly(_tid)),
     _coord_sys(_assembly.coordSystem()),
     _duplicate_initial_execution(getParam<bool>("allow_duplicate_execution_on_initial"))
-{
-}
-
-UserObject::~UserObject() {}
-
-void
-UserObject::load(std::ifstream & /*stream*/)
-{
-}
-
-void
-UserObject::store(std::ofstream & /*stream*/)
 {
 }

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef INVERSEPOWERMETHOD_H
-#define INVERSEPOWERMETHOD_H
+#pragma once
 
 #include "EigenExecutionerBase.h"
 
@@ -26,6 +25,8 @@ public:
   virtual void init() override;
 
   virtual void execute() override;
+
+  virtual bool lastSolveConverged() const override { return _last_solve_converged; }
 
 protected:
   virtual void takeStep();
@@ -46,6 +47,7 @@ protected:
   const Real & _pfactor;
   /// indicating if Chebyshev acceleration is turned on
   const bool & _cheb_on;
+  /// flag to indicate if inverse power iteration converged
+  bool _last_solve_converged;
 };
 
-#endif // INVERSEPOWERMETHOD_H

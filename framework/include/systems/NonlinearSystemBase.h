@@ -7,13 +7,15 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef NONLINEARSYSTEMBASE_H
-#define NONLINEARSYSTEMBASE_H
+#pragma once
 
 #include "SystemBase.h"
 #include "ConstraintWarehouse.h"
 #include "MooseObjectWarehouse.h"
 #include "MooseObjectTagWarehouse.h"
+#include "PerfGraphInterface.h"
+#include "ComputeMortarFunctor.h"
+#include "MooseHashing.h"
 
 #include "libmesh/transient_system.h"
 #include "libmesh/nonlinear_implicit_system.h"
@@ -31,8 +33,10 @@ class GeometricSearchData;
 class IntegratedBCBase;
 class NodalBCBase;
 class PresetNodalBC;
-class DGKernel;
-class InterfaceKernel;
+template <ComputeStage>
+class ADPresetNodalBC;
+class DGKernelBase;
+class InterfaceKernelBase;
 class ScalarKernel;
 class DiracKernel;
 class NodalKernel;
@@ -47,14 +51,16 @@ template <typename T>
 class NumericVector;
 template <typename T>
 class SparseMatrix;
-}
+} // namespace libMesh
 
 /**
  * Nonlinear system to be solved
  *
  * It is a part of FEProblemBase ;-)
  */
-class NonlinearSystemBase : public SystemBase, public ConsoleStreamInterface
+class NonlinearSystemBase : public SystemBase,
+                            public ConsoleStreamInterface,
+                            public PerfGraphInterface
 {
 public:
   NonlinearSystemBase(FEProblemBase & problem, System & sys, const std::string & name);
@@ -111,8 +117,16 @@ public:
    * @param name The name of the integrator
    * @param parameters Integrator params
    */
-  void
-  addTimeIntegrator(const std::string & type, const std::string & name, InputParameters parameters);
+  void addTimeIntegrator(const std::string & type,
+                         const std::string & name,
+                         InputParameters parameters) override;
+  using SystemBase::addTimeIntegrator;
+
+  /**
+   * Add u_dot, u_dotdot, u_dot_old and u_dotdot_old
+   * vectors if requested by the time integrator
+   */
+  void addDotVectors();
 
   /**
    * Adds a kernel
@@ -343,7 +357,22 @@ public:
    */
   virtual void setSolutionUDot(const NumericVector<Number> & udot);
 
-  virtual NumericVector<Number> & solutionUDot() override;
+  /**
+   * Set transient term used by residual and Jacobian evaluation.
+   * @param udotdot transient term
+   * @note If the calling sequence for residual evaluation was changed, this could become an
+   * explicit argument.
+   */
+  virtual void setSolutionUDotDot(const NumericVector<Number> & udotdot);
+
+  NumericVector<Number> * solutionUDot() override { return _u_dot; }
+  NumericVector<Number> * solutionUDotDot() override { return _u_dotdot; }
+  NumericVector<Number> * solutionUDotOld() override { return _u_dot_old; }
+  NumericVector<Number> * solutionUDotDotOld() override { return _u_dotdot_old; }
+  const NumericVector<Number> * solutionUDot() const override { return _u_dot; }
+  const NumericVector<Number> * solutionUDotDot() const override { return _u_dotdot; }
+  const NumericVector<Number> * solutionUDotOld() const override { return _u_dot_old; }
+  const NumericVector<Number> * solutionUDotDotOld() const override { return _u_dotdot_old; }
 
   /**
    *  Return a numeric vector that is associated with the time tag.
@@ -360,7 +389,10 @@ public:
    */
   NumericVector<Number> & residualVector(TagID tag);
 
-  virtual const NumericVector<Number> *& currentSolution() override { return _current_solution; }
+  const NumericVector<Number> * const & currentSolution() const override
+  {
+    return _current_solution;
+  }
 
   virtual void serializeSolution();
   virtual NumericVector<Number> & serializedSolution() override;
@@ -379,6 +411,7 @@ public:
    * @param pc The preconditioner to be set
    */
   void setPreconditioner(std::shared_ptr<MoosePreconditioner> pc);
+  MoosePreconditioner const * getPreconditioner() const;
 
   /**
    * If called with true this system will use a finite differenced form of
@@ -488,8 +521,6 @@ public:
   void setPredictor(std::shared_ptr<Predictor> predictor);
   Predictor * getPredictor() { return _predictor.get(); }
 
-  TimeIntegrator * getTimeIntegrator() { return _time_integrator.get(); }
-
   void setPCSide(MooseEnum pcs);
 
   Moose::PCSideType getPCSide() { return _pc_side; }
@@ -520,19 +551,17 @@ public:
    * Access functions to Warehouses from outside NonlinearSystemBase
    */
   MooseObjectTagWarehouse<KernelBase> & getKernelWarehouse() { return _kernels; }
-  const MooseObjectWarehouse<DGKernel> & getDGKernelWarehouse() { return _dg_kernels; }
-  const MooseObjectWarehouse<InterfaceKernel> & getInterfaceKernelWarehouse()
+  MooseObjectTagWarehouse<KernelBase> & getADJacobianKernelWarehouse()
+  {
+    return _ad_jacobian_kernels;
+  }
+  MooseObjectTagWarehouse<DGKernelBase> & getDGKernelWarehouse() { return _dg_kernels; }
+  MooseObjectTagWarehouse<InterfaceKernelBase> & getInterfaceKernelWarehouse()
   {
     return _interface_kernels;
   }
-  const MooseObjectWarehouse<DiracKernel> & getDiracKernelWarehouse() const
-  {
-    return _dirac_kernels;
-  }
-  const MooseObjectWarehouse<IntegratedBCBase> & getIntegratedBCWarehouse() const
-  {
-    return _integrated_bcs;
-  }
+  MooseObjectTagWarehouse<DiracKernel> & getDiracKernelWarehouse() { return _dirac_kernels; }
+  MooseObjectTagWarehouse<IntegratedBCBase> & getIntegratedBCWarehouse() { return _integrated_bcs; }
   const MooseObjectWarehouse<ElementDamper> & getElementDamperWarehouse() const
   {
     return _element_dampers;
@@ -554,15 +583,21 @@ public:
    */
   bool hasDiagSaveIn() const { return _has_diag_save_in || _has_nodalbc_diag_save_in; }
 
-  virtual NumericVector<Number> & solution() override { return *_sys.solution; }
+  NumericVector<Number> & solution() override { return *_sys.solution; }
+  const NumericVector<Number> & solution() const override { return *_sys.solution; }
 
   virtual System & system() override { return _sys; }
   virtual const System & system() const override { return _sys; }
 
-  virtual NumericVector<Number> * solutionPreviousNewton() override
+  NumericVector<Number> * solutionPreviousNewton() override { return _solution_previous_nl; }
+  const NumericVector<Number> * solutionPreviousNewton() const override
   {
     return _solution_previous_nl;
   }
+
+  virtual void setSolutionUDotOld(const NumericVector<Number> & u_dot_old);
+
+  virtual void setSolutionUDotDotOld(const NumericVector<Number> & u_dotdot_old);
 
   virtual void setPreviousNewtonSolution(const NumericVector<Number> & soln);
 
@@ -615,9 +650,9 @@ protected:
    */
   void computeJacobianInternal(const std::set<TagID> & tags);
 
-  void computeDiracContributions(bool is_jacobian);
+  void computeDiracContributions(const std::set<TagID> & tags, bool is_jacobian);
 
-  void computeScalarKernelsJacobians();
+  void computeScalarKernelsJacobians(const std::set<TagID> & tags);
 
   /**
    * Enforce nodal constraints
@@ -625,6 +660,17 @@ protected:
   void enforceNodalConstraintsResidual(NumericVector<Number> & residual);
   void enforceNodalConstraintsJacobian();
 
+  /**
+   * Do mortar constraint residual computation
+   */
+  void mortarResidualConstraints(bool displaced);
+
+  /**
+   * Do mortar constraint jacobian computation
+   */
+  void mortarJacobianConstraints(bool displaced);
+
+protected:
   /// solution vector from nonlinear solver
   const NumericVector<Number> * _current_solution;
   /// ghosted form of the residual
@@ -639,13 +685,20 @@ protected:
   /// Copy of the residual vector
   NumericVector<Number> & _residual_copy;
 
-  /// Time integrator
-  std::shared_ptr<TimeIntegrator> _time_integrator;
-
   /// solution vector for u^dot
   NumericVector<Number> * _u_dot;
+  /// solution vector for u^dotdot
+  NumericVector<Number> * _u_dotdot;
+
+  /// old solution vector for u^dot
+  NumericVector<Number> * _u_dot_old;
+  /// old solution vector for u^dotdot
+  NumericVector<Number> * _u_dotdot_old;
+
   /// \f$ {du^dot}\over{du} \f$
   Number _du_dot_du;
+  /// \f$ {du^dotdot}\over{du} \f$
+  Number _du_dotdot_du;
 
   /// Tag for time contribution residual
   TagID _Re_time_tag;
@@ -676,23 +729,23 @@ protected:
   ///@{
   /// Kernel Storage
   MooseObjectTagWarehouse<KernelBase> _kernels;
-  MooseObjectWarehouse<ScalarKernel> _scalar_kernels;
-  MooseObjectWarehouse<ScalarKernel> _time_scalar_kernels;
-  MooseObjectWarehouse<ScalarKernel> _non_time_scalar_kernels;
-  MooseObjectWarehouse<DGKernel> _dg_kernels;
-  MooseObjectWarehouse<InterfaceKernel> _interface_kernels;
+  MooseObjectTagWarehouse<KernelBase> _ad_jacobian_kernels;
+  MooseObjectTagWarehouse<ScalarKernel> _scalar_kernels;
+  MooseObjectTagWarehouse<DGKernelBase> _dg_kernels;
+  MooseObjectTagWarehouse<InterfaceKernelBase> _interface_kernels;
 
   ///@}
 
   ///@{
   /// BoundaryCondition Warhouses
-  MooseObjectWarehouse<IntegratedBCBase> _integrated_bcs;
+  MooseObjectTagWarehouse<IntegratedBCBase> _integrated_bcs;
   MooseObjectTagWarehouse<NodalBCBase> _nodal_bcs;
   MooseObjectWarehouse<PresetNodalBC> _preset_nodal_bcs;
+  MooseObjectWarehouse<ADPresetNodalBC<RESIDUAL>> _ad_preset_nodal_bcs;
   ///@}
 
   /// Dirac Kernel storage for each thread
-  MooseObjectWarehouse<DiracKernel> _dirac_kernels;
+  MooseObjectTagWarehouse<DiracKernel> _dirac_kernels;
 
   /// Element Dampers for each thread
   MooseObjectWarehouse<ElementDamper> _element_dampers;
@@ -704,7 +757,7 @@ protected:
   MooseObjectWarehouse<GeneralDamper> _general_dampers;
 
   /// NodalKernels for each thread
-  MooseObjectWarehouse<NodalKernel> _nodal_kernels;
+  MooseObjectTagWarehouse<NodalKernel> _nodal_kernels;
 
   /// Decomposition splits
   MooseObjectWarehouseBase<Split> _splits; // use base b/c there are no setup methods
@@ -712,7 +765,6 @@ protected:
   /// Constraints storage object
   ConstraintWarehouse _constraints;
 
-protected:
   /// increment vector
   NumericVector<Number> * _increment_vec;
   /// Preconditioner
@@ -786,6 +838,38 @@ protected:
   void getNodeDofs(dof_id_type node_id, std::vector<dof_id_type> & dofs);
 
   std::vector<dof_id_type> _var_all_dof_indices;
-};
 
-#endif /* NONLINEARSYSTEMBASE_H */
+  /// Timers
+  PerfID _compute_residual_tags_timer;
+  PerfID _compute_residual_internal_timer;
+  PerfID _kernels_timer;
+  PerfID _scalar_kernels_timer;
+  PerfID _nodal_kernels_timer;
+  PerfID _nodal_kernel_bcs_timer;
+  PerfID _nodal_bcs_timer;
+  PerfID _compute_jacobian_tags_timer;
+  PerfID _compute_jacobian_blocks_timer;
+  PerfID _compute_dampers_timer;
+  PerfID _compute_dirac_timer;
+
+private:
+  /// Functors for computing residuals from undisplaced mortar constraints
+  std::unordered_map<std::pair<BoundaryID, BoundaryID>,
+                     ComputeMortarFunctor<ComputeStage::RESIDUAL>>
+      _undisplaced_mortar_residual_functors;
+
+  /// Functors for computing jacobians from undisplaced mortar constraints
+  std::unordered_map<std::pair<BoundaryID, BoundaryID>,
+                     ComputeMortarFunctor<ComputeStage::JACOBIAN>>
+      _undisplaced_mortar_jacobian_functors;
+
+  /// Functors for computing residuals from displaced mortar constraints
+  std::unordered_map<std::pair<BoundaryID, BoundaryID>,
+                     ComputeMortarFunctor<ComputeStage::RESIDUAL>>
+      _displaced_mortar_residual_functors;
+
+  /// Functors for computing jacobians from displaced mortar constraints
+  std::unordered_map<std::pair<BoundaryID, BoundaryID>,
+                     ComputeMortarFunctor<ComputeStage::JACOBIAN>>
+      _displaced_mortar_jacobian_functors;
+};

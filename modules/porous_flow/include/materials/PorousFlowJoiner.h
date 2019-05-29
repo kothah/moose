@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWJOINER_H
-#define POROUSFLOWJOINER_H
+#pragma once
 
 #include "PorousFlowMaterialVectorBase.h"
 
-// Forward Declarations
 class PorousFlowJoiner;
 
 template <>
@@ -44,18 +42,6 @@ protected:
   virtual void initQpStatefulProperties() override;
   virtual void computeQpProperties() override;
 
-  /// Name of (dummy) pressure variable
-  const VariableName _pressure_variable_name;
-
-  /// Name of (dummy) saturation variable
-  const VariableName _saturation_variable_name;
-
-  /// Name of (dummy) temperature variable
-  const VariableName _temperature_variable_name;
-
-  /// Name of (dummy) mass fraction variable
-  const VariableName _mass_fraction_variable_name;
-
   /// Name of material property to be joined
   const std::string _pf_prop;
 
@@ -68,13 +54,13 @@ protected:
   /// Derivatives of temperature variable wrt PorousFlow variables at the qps or nodes
   const MaterialProperty<std::vector<Real>> & _dtemperature_dvar;
 
-  /// computed property of the phase
+  /// Computed property of the phase
   MaterialProperty<std::vector<Real>> & _property;
 
   /// d(property)/d(PorousFlow variable)
   MaterialProperty<std::vector<std::vector<Real>>> & _dproperty_dvar;
 
-  /// property of each phase
+  /// Property of each phase
   std::vector<const MaterialProperty<Real> *> _phase_property;
 
   /// d(property of each phase)/d(pressure)
@@ -87,4 +73,3 @@ protected:
   std::vector<const MaterialProperty<Real> *> _dphase_property_dt;
 };
 
-#endif // POROUSFLOWJOINER_H

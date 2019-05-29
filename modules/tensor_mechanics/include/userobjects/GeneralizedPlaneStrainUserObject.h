@@ -7,15 +7,18 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef GENERALIZEDPLANESTRAINUSEROBJECT_H
-#define GENERALIZEDPLANESTRAINUSEROBJECT_H
+#pragma once
 
 #include "ElementUserObject.h"
 #include "SubblockIndexProvider.h"
 
 class GeneralizedPlaneStrainUserObject;
-class RankTwoTensor;
-class RankFourTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
+template <typename>
+class RankFourTensorTempl;
+typedef RankFourTensorTempl<Real> RankFourTensor;
 class Function;
 
 template <>
@@ -50,4 +53,3 @@ protected:
   std::vector<Real> _jacobian;
 };
 
-#endif // GENERALIZEDPLANESTRAINUSEROBJECT_H

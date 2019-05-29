@@ -1,18 +1,14 @@
 #pylint: disable=missing-docstring
-####################################################################################################
-#                                    DO NOT MODIFY THIS HEADER                                     #
-#                   MOOSE - Multiphysics Object Oriented Simulation Environment                    #
-#                                                                                                  #
-#                              (c) 2010 Battelle Energy Alliance, LLC                              #
-#                                       ALL RIGHTS RESERVED                                        #
-#                                                                                                  #
-#                            Prepared by Battelle Energy Alliance, LLC                             #
-#                               Under Contract No. DE-AC07-05ID14517                               #
-#                               With the U. S. Department of Energy                                #
-#                                                                                                  #
-#                               See COPYRIGHT for full restrictions                                #
-####################################################################################################
+#* This file is part of the MOOSE framework
+#* https://www.mooseframework.org
+#*
+#* All rights reserved, see COPYRIGHT for full restrictions
+#* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+#*
+#* Licensed under LGPL 2.1, please see LICENSE for details
+#* https://www.gnu.org/licenses/lgpl-2.1.html
 #pylint: enable=missing-docstring
+
 import os
 import collections
 import yaml
@@ -36,13 +32,18 @@ class Loader(yaml.Loader):
         """
         Allow for the embedding of yaml files.
         """
-        filename = eval_path(self.construct_scalar(node))
+        items = self.construct_scalar(node).split()
+        filename = eval_path(items[0])
+        keys = items[1:] if len(items) > 1 else []
         if not os.path.isabs(filename):
             filename = os.path.join(self._root, filename)
 
         if os.path.exists(filename):
             with open(filename, 'r') as f:
-                return yaml.load(f, Loader)
+                content = yaml.load(f, Loader)
+                for key in keys:
+                    content = content[key]
+                return content
         else:
             msg = "Unknown include file '{}' on line {} of {}"
             raise IOError(msg.format(filename, node.line, self._filename))

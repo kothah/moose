@@ -16,7 +16,7 @@
     tecplot = true
     dof_id_bytes = 4
     curl = true
-    tbb = true
+    threading = openmp
     superlu = true
     slepc = true
     unique_id = true
@@ -24,5 +24,9 @@
     asio = true
     boost = true
     fparser_jit = true
+    chaco = true
+    parmetis = true
+    party = true
+    ptscotch = true
   [../]
 []

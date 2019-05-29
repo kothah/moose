@@ -8,9 +8,11 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 // MOOSE includes
-#include "MooseApp.h"
 #include "MooseRevision.h"
 #include "AppFactory.h"
+#include "DisplacedProblem.h"
+#include "NonlinearSystemBase.h"
+#include "AuxiliarySystem.h"
 #include "MooseSyntax.h"
 #include "MooseInit.h"
 #include "Executioner.h"
@@ -20,6 +22,7 @@
 #include "InfixIterator.h"
 #include "MultiApp.h"
 #include "MeshModifier.h"
+#include "MeshGenerator.h"
 #include "DependencyResolver.h"
 #include "MooseUtils.h"
 #include "MooseObjectAction.h"
@@ -35,6 +38,9 @@
 #include "RelationshipManager.h"
 #include "Registry.h"
 #include "SerializerGuard.h"
+#include "PerfGraphInterface.h" // For TIME_SECTIOn
+#include "Attributes.h"
+#include "MooseApp.h"
 
 // Regular expression includes
 #include "pcrecpp.h"
@@ -43,6 +49,7 @@
 #include "libmesh/mesh_refinement.h"
 #include "libmesh/string_to_enum.h"
 #include "libmesh/checkpoint_io.h"
+#include "libmesh/mesh_base.h"
 
 // System include for dynamic library methods
 #include <dlfcn.h>
@@ -257,6 +264,8 @@ MooseApp::MooseApp(InputParameters parameters)
     _pars(parameters),
     _type(getParam<std::string>("_type")),
     _comm(getParam<std::shared_ptr<Parallel::Communicator>>("_comm")),
+    _perf_graph(type() + " (" + name() + ')'),
+    _rank_map(*_comm, _perf_graph),
     _output_position_set(false),
     _start_time_set(false),
     _start_time(0.0),
@@ -276,6 +285,8 @@ MooseApp::MooseApp(InputParameters parameters)
     _distributed_mesh_on_command_line(false),
     _recover(false),
     _restart(false),
+    _split_mesh(false),
+    _use_split(parameters.get<bool>("use_split")),
 #ifdef DEBUG
     _trap_fpe(true),
 #else
@@ -288,9 +299,36 @@ MooseApp::MooseApp(InputParameters parameters)
     _multiapp_level(
         isParamValid("_multiapp_level") ? parameters.get<unsigned int>("_multiapp_level") : 0),
     _multiapp_number(
-        isParamValid("_multiapp_number") ? parameters.get<unsigned int>("_multiapp_number") : 0)
+        isParamValid("_multiapp_number") ? parameters.get<unsigned int>("_multiapp_number") : 0),
+    _setup_timer(_perf_graph.registerSection("MooseApp::setup", 2)),
+    _setup_options_timer(_perf_graph.registerSection("MooseApp::setupOptions", 5)),
+    _run_input_file_timer(_perf_graph.registerSection("MooseApp::runInputFile", 3)),
+    _execute_timer(_perf_graph.registerSection("MooseApp::execute", 2)),
+    _execute_executioner_timer(_perf_graph.registerSection("MooseApp::executeExecutioner", 3)),
+    _restore_timer(_perf_graph.registerSection("MooseApp::restore", 2)),
+    _run_timer(_perf_graph.registerSection("MooseApp::run", 3)),
+    _execute_mesh_modifiers_timer(_perf_graph.registerSection("MooseApp::executeMeshModifiers", 1)),
+    _execute_mesh_generators_timer(
+        _perf_graph.registerSection("MooseApp::executeMeshGenerators", 1)),
+    _restore_cached_backup_timer(_perf_graph.registerSection("MooseApp::restoreCachedBackup", 2)),
+    _create_minimal_app_timer(_perf_graph.registerSection("MooseApp::createMinimalApp", 3))
 {
   Registry::addKnownLabel(_type);
+  Moose::registerAll(_factory, _action_factory, _syntax);
+
+  _the_warehouse = libmesh_make_unique<TheWarehouse>();
+  _the_warehouse->registerAttribute<AttribMatrixTags>("matrix_tags", 0);
+  _the_warehouse->registerAttribute<AttribVectorTags>("vector_tags", 0);
+  _the_warehouse->registerAttribute<AttribExecOns>("exec_ons", 0);
+  _the_warehouse->registerAttribute<AttribSubdomains>("subdomains", 0);
+  _the_warehouse->registerAttribute<AttribBoundaries>("boundaries", 0);
+  _the_warehouse->registerAttribute<AttribThread>("thread", 0);
+  _the_warehouse->registerAttribute<AttribPreIC>("pre_ic", 0);
+  _the_warehouse->registerAttribute<AttribPreAux>("pre_aux", 0);
+  _the_warehouse->registerAttribute<AttribName>("name", "dummy");
+  _the_warehouse->registerAttribute<AttribSystem>("system", "dummy");
+  _the_warehouse->registerAttribute<AttribVar>("variable", 0);
+  _the_warehouse->registerAttribute<AttribInterfaces>("interfaces", 0);
 
   if (isParamValid("_argc") && isParamValid("_argv"))
   {
@@ -307,7 +345,7 @@ MooseApp::MooseApp(InputParameters parameters)
   if (_check_input && isParamValid("recover"))
     mooseError("Cannot run --check-input with --recover. Recover files might not exist");
 
-  if (isParamValid("start_in_debugger"))
+  if (isParamValid("start_in_debugger") && _multiapp_level == 0)
   {
     auto command = getParam<std::string>("start_in_debugger");
 
@@ -337,7 +375,8 @@ MooseApp::MooseApp(InputParameters parameters)
     std::string command_string = command_stream.str();
     Moose::out << "Running: " << command_string << std::endl;
 
-    std::system(command_string.c_str());
+    int ret = std::system(command_string.c_str());
+    libmesh_ignore(ret);
 
     // Sleep to allow time for the debugger to attach
     std::this_thread::sleep_for(std::chrono::seconds(10));
@@ -376,6 +415,7 @@ MooseApp::~MooseApp()
 {
   _action_warehouse.clear();
   _executioner.reset();
+  _the_warehouse.reset();
 
   delete _input_parameter_warehouse;
 
@@ -407,6 +447,8 @@ MooseApp::getPrintableVersion() const
 void
 MooseApp::setupOptions()
 {
+  TIME_SECTION(_setup_options_timer);
+
   // MOOSE was updated to have the ability to register execution flags in similar fashion as
   // objects. However, this change requires all *App.C/h files to be updated with the new
   // registerExecFlags method. To avoid breaking all applications the default MOOSE flags
@@ -435,7 +477,11 @@ MooseApp::setupOptions()
 
   // The no_timing flag takes precedence over the timing flag.
   if (getParam<bool>("no_timing"))
+  {
     _pars.set<bool>("timing") = false;
+
+    _perf_graph.setActive(false);
+  }
 
   if (isParamValid("trap_fpe") && isParamValid("no_trap_fpe"))
     mooseError("Cannot use both \"--trap-fpe\" and \"--no-trap-fpe\" flags.");
@@ -708,6 +754,7 @@ MooseApp::setupOptions()
     }
     else if (isParamValid("split_mesh"))
     {
+      _split_mesh = true;
       _syntax.registerTaskName("split_mesh", true);
       _syntax.addDependency("split_mesh", "setup_mesh_complete");
       _action_warehouse.setFinalTask("split_mesh");
@@ -717,7 +764,7 @@ MooseApp::setupOptions()
   else if (getParam<bool>("apptype"))
   {
     Moose::perf_log.disable_logging();
-    Moose::out << type() << std::endl;
+    Moose::out << "MooseApp Type: " << type() << std::endl;
     _ready_to_exit = true;
   }
   else
@@ -748,6 +795,8 @@ MooseApp::getOutputFileBase() const
 void
 MooseApp::runInputFile()
 {
+  TIME_SECTION(_run_input_file_timer);
+
   // If ready to exit has been set, then just return
   if (_ready_to_exit)
     return;
@@ -785,6 +834,8 @@ MooseApp::errorCheck()
 void
 MooseApp::executeExecutioner()
 {
+  TIME_SECTION(_execute_executioner_timer);
+
   // If ready to exit has been set, then just return
   if (_ready_to_exit)
     return;
@@ -817,6 +868,18 @@ MooseApp::isRestarting() const
 }
 
 bool
+MooseApp::isSplitMesh() const
+{
+  return _split_mesh;
+}
+
+bool
+MooseApp::isUseSplit() const
+{
+  return _use_split;
+}
+
+bool
 MooseApp::hasRecoverFileBase()
 {
   return !_recover_base.empty();
@@ -831,28 +894,22 @@ MooseApp::registerRecoverableData(std::string name)
 std::shared_ptr<Backup>
 MooseApp::backup()
 {
+  mooseAssert(_executioner, "Executioner is nullptr");
   FEProblemBase & fe_problem = _executioner->feProblem();
 
   RestartableDataIO rdio(fe_problem);
-
   return rdio.createBackup();
 }
 
 void
 MooseApp::restore(std::shared_ptr<Backup> backup, bool for_restart)
 {
-  // This means that a Backup is coming through to use for restart / recovery
-  // We should just cache it for now
-  if (!_executioner)
-  {
-    _cached_backup = backup;
-    return;
-  }
+  TIME_SECTION(_restore_timer);
 
+  mooseAssert(_executioner, "Executioner is nullptr");
   FEProblemBase & fe_problem = _executioner->feProblem();
 
   RestartableDataIO rdio(fe_problem);
-
   rdio.restoreBackup(backup, for_restart);
 }
 
@@ -886,11 +943,11 @@ MooseApp::setErrorOverridden()
 void
 MooseApp::run()
 {
-  Moose::perf_log.push("Full Runtime", "Application");
+  TIME_SECTION(_run_timer);
 
-  Moose::perf_log.push("Application Setup", "Setup");
   try
   {
+    TIME_SECTION(_setup_timer);
     setupOptions();
     runInputFile();
   }
@@ -898,18 +955,18 @@ MooseApp::run()
   {
     mooseError(err.what());
   }
-  Moose::perf_log.pop("Application Setup", "Setup");
 
   if (!_check_input)
+  {
+    TIME_SECTION(_execute_timer);
     executeExecutioner();
+  }
   else
   {
     errorCheck();
     // Output to stderr, so it is easier for peacock to get the result
     Moose::err << "Syntax OK" << std::endl;
   }
-
-  Moose::perf_log.pop("Full Runtime", "Application");
 }
 
 void
@@ -919,7 +976,7 @@ MooseApp::setOutputPosition(Point p)
   _output_position = p;
   _output_warehouse.meshChanged();
 
-  if (_executioner.get() != NULL)
+  if (_executioner.get())
     _executioner->parentOutputPositionChanged();
 }
 
@@ -951,7 +1008,10 @@ MooseApp::getCheckpointDirectories() const
   for (const auto & action : actions)
   {
     // Get the parameters from the MooseObjectAction
-    MooseObjectAction * moose_object_action = static_cast<MooseObjectAction *>(action);
+    MooseObjectAction * moose_object_action = dynamic_cast<MooseObjectAction *>(action);
+    if (!moose_object_action)
+      continue;
+
     const InputParameters & params = moose_object_action->getObjectParams();
 
     // Loop through the actions and add the necessary directories to the list to check
@@ -1042,6 +1102,7 @@ MooseApp::dynamicAppRegistration(const std::string & app_name,
                                  std::string library_path,
                                  const std::string & library_name)
 {
+#ifdef LIBMESH_HAVE_DLOPEN
   Parameters params;
   params.set<std::string>("app_name") = app_name;
   params.set<RegistrationType>("reg_type") = APPLICATION;
@@ -1068,44 +1129,35 @@ MooseApp::dynamicAppRegistration(const std::string & app_name,
            "methods.";
     mooseError(oss.str());
   }
+#else
+  mooseError("Dynamic Loading is either not supported or was not detected by libMesh configure.");
+#endif
 }
 
 void
-MooseApp::dynamicObjectRegistration(const std::string & app_name,
-                                    Factory * factory,
-                                    std::string library_path,
-                                    const std::string & library_name)
+MooseApp::dynamicAllRegistration(const std::string & app_name,
+                                 Factory * factory,
+                                 ActionFactory * action_factory,
+                                 Syntax * syntax,
+                                 std::string library_path,
+                                 const std::string & library_name)
 {
+#ifdef LIBMESH_HAVE_DLOPEN
   Parameters params;
   params.set<std::string>("app_name") = app_name;
-  params.set<RegistrationType>("reg_type") = OBJECT;
-  params.set<std::string>("registration_method") = app_name + "__registerObjects";
+  params.set<RegistrationType>("reg_type") = REGALL;
+  params.set<std::string>("registration_method") = app_name + "__registerAll";
   params.set<std::string>("library_path") = library_path;
   params.set<std::string>("library_name") = library_name;
 
   params.set<Factory *>("factory") = factory;
-
-  dynamicRegistration(params);
-}
-
-void
-MooseApp::dynamicSyntaxAssociation(const std::string & app_name,
-                                   Syntax * syntax,
-                                   ActionFactory * action_factory,
-                                   std::string library_path,
-                                   const std::string & library_name)
-{
-  Parameters params;
-  params.set<std::string>("app_name") = app_name;
-  params.set<RegistrationType>("reg_type") = SYNTAX;
-  params.set<std::string>("registration_method") = app_name + "__associateSyntax";
-  params.set<std::string>("library_path") = library_path;
-  params.set<std::string>("library_name") = library_name;
-
   params.set<Syntax *>("syntax") = syntax;
   params.set<ActionFactory *>("action_factory") = action_factory;
 
   dynamicRegistration(params);
+#else
+  mooseError("Dynamic Loading is either not supported or was not detected by libMesh configure.");
+#endif
 }
 
 void
@@ -1198,14 +1250,20 @@ MooseApp::loadLibraryAndDependencies(const std::string & library_filename,
     // Assemble the actual filename using the base path of the *.la file and the dl_lib_filename
     std::string dl_lib_full_path = lib_name_parts.first + '/' + dl_lib_filename;
 
+    MooseUtils::checkFileReadable(dl_lib_full_path, false, /*throw_on_unreadable=*/true);
+
 #ifdef LIBMESH_HAVE_DLOPEN
     void * handle = dlopen(dl_lib_full_path.c_str(), RTLD_LAZY);
 #else
-    void * handle = NULL;
+    void * handle = nullptr;
 #endif
 
     if (!handle)
-      mooseError("Cannot open library: ", dl_lib_full_path.c_str(), "\n");
+      mooseError("The library file \"",
+                 dl_lib_full_path,
+                 "\" exists and has proper permissions, but cannot by dynamically loaded.\nThis "
+                 "generally means that the loader was unable to load one or more of the "
+                 "dependencies listed in the supplied library (see otool or ldd).\n");
 
 // get the pointer to the method in the library.  The dlsym()
 // function returns a null pointer if the symbol cannot be found,
@@ -1214,7 +1272,7 @@ MooseApp::loadLibraryAndDependencies(const std::string & library_filename,
 #ifdef LIBMESH_HAVE_DLOPEN
     void * registration_method = dlsym(handle, registration_method_name.c_str());
 #else
-    void * registration_method = NULL;
+    void * registration_method = nullptr;
 #endif
 
     if (!registration_method)
@@ -1248,18 +1306,13 @@ MooseApp::loadLibraryAndDependencies(const std::string & library_filename,
           (*reg_ptr)();
           break;
         }
-        case OBJECT:
+        case REGALL:
         {
-          typedef void (*register_app_t)(Factory *);
+          typedef void (*register_app_t)(Factory *, ActionFactory *, Syntax *);
           register_app_t * reg_ptr = reinterpret_cast<register_app_t *>(&registration_method);
-          (*reg_ptr)(params.get<Factory *>("factory"));
-          break;
-        }
-        case SYNTAX:
-        {
-          typedef void (*register_app_t)(Syntax *, ActionFactory *);
-          register_app_t * reg_ptr = reinterpret_cast<register_app_t *>(&registration_method);
-          (*reg_ptr)(params.get<Syntax *>("syntax"), params.get<ActionFactory *>("action_factory"));
+          (*reg_ptr)(params.get<Factory *>("factory"),
+                     params.get<ActionFactory *>("action_factory"),
+                     params.get<Syntax *>("syntax"));
           break;
         }
         default:
@@ -1327,6 +1380,8 @@ MooseApp::executeMeshModifiers()
 {
   if (!_mesh_modifiers.empty())
   {
+    TIME_SECTION(_execute_mesh_modifiers_timer);
+
     DependencyResolver<std::shared_ptr<MeshModifier>> resolver;
 
     // Add all of the dependencies into the resolver and sort them
@@ -1363,7 +1418,7 @@ MooseApp::executeMeshModifiers()
         modifier->modifyMesh(mesh, displaced_mesh);
 
       /**
-       * Set preparation flag after modifers are run. The final preparation
+       * Set preparation flag after modifiers are run. The final preparation
        * will be handled by the SetupMeshComplete Action.
        */
       mesh->prepared(false);
@@ -1377,6 +1432,121 @@ void
 MooseApp::clearMeshModifiers()
 {
   _mesh_modifiers.clear();
+}
+
+void
+MooseApp::addMeshGenerator(const std::string & generator_name,
+                           const std::string & name,
+                           InputParameters parameters)
+{
+  std::shared_ptr<MeshGenerator> mesh_generator =
+      _factory.create<MeshGenerator>(generator_name, name, parameters);
+
+  _mesh_generators.insert(std::make_pair(MooseUtils::shortName(name), mesh_generator));
+}
+
+const MeshGenerator &
+MooseApp::getMeshGenerator(const std::string & name) const
+{
+  return *_mesh_generators.find(MooseUtils::shortName(name))->second.get();
+}
+
+std::vector<std::string>
+MooseApp::getMeshGeneratorNames() const
+{
+  std::vector<std::string> names;
+  for (auto & pair : _mesh_generators)
+    names.push_back(pair.first);
+  return names;
+}
+
+std::unique_ptr<MeshBase> &
+MooseApp::getMeshGeneratorOutput(const std::string & name)
+{
+  auto & outputs = _mesh_generator_outputs[name];
+
+  outputs.push_back(nullptr);
+
+  return outputs.back();
+}
+
+void
+MooseApp::executeMeshGenerators()
+{
+  if (!_mesh_generators.empty())
+  {
+    TIME_SECTION(_execute_mesh_generators_timer);
+
+    DependencyResolver<std::shared_ptr<MeshGenerator>> resolver;
+
+    // Add all of the dependencies into the resolver and sort them
+    for (const auto & it : _mesh_generators)
+    {
+      // Make sure an item with no dependencies comes out too!
+      resolver.addItem(it.second);
+
+      std::vector<std::string> & generators = it.second->getDependencies();
+      for (const auto & depend_name : generators)
+      {
+        auto depend_it = _mesh_generators.find(depend_name);
+
+        if (depend_it == _mesh_generators.end())
+          mooseError("The MeshGenerator \"",
+                     depend_name,
+                     "\" was not created, did you make a "
+                     "spelling mistake or forget to include it "
+                     "in your input file?");
+
+        resolver.insertDependency(it.second, depend_it->second);
+      }
+    }
+
+    const auto & ordered_generators = resolver.getSortedValues();
+
+    if (ordered_generators.size())
+    {
+      // Grab the outputs from the final generator so MeshGeneratorMesh can pick them up
+      auto final_generator_name = ordered_generators.back()->name();
+
+      _final_generated_meshes.emplace_back(&getMeshGeneratorOutput(final_generator_name));
+
+      // Need to grab two if we're going to be making a displaced mesh
+      if (_action_warehouse.displacedMesh())
+        _final_generated_meshes.emplace_back(&getMeshGeneratorOutput(final_generator_name));
+
+      // Run the MeshGenerators in the proper order
+      for (const auto & generator : ordered_generators)
+      {
+        auto name = generator->name();
+
+        auto current_mesh = generator->generate();
+
+        // Now we need to possibly give this mesh to downstream generators
+        auto & outputs = _mesh_generator_outputs[name];
+
+        if (outputs.size())
+        {
+          auto & first_output = *outputs.begin();
+
+          first_output = std::move(current_mesh);
+
+          const auto & copy_from = *first_output;
+
+          auto output_it = ++outputs.begin();
+
+          // For all of the rest we need to make a copy
+          for (; output_it != outputs.end(); ++output_it)
+            (*output_it) = copy_from.clone();
+        }
+      }
+    }
+  }
+}
+
+void
+MooseApp::clearMeshGenerators()
+{
+  _mesh_generators.clear();
 }
 
 void
@@ -1394,10 +1564,18 @@ MooseApp::setRecover(const bool & value)
 }
 
 void
+MooseApp::setBackupObject(std::shared_ptr<Backup> backup)
+{
+  _cached_backup = backup;
+}
+
+void
 MooseApp::restoreCachedBackup()
 {
   if (!_cached_backup.get())
     mooseError("No cached Backup to restore!");
+
+  TIME_SECTION(_restore_cached_backup_timer);
 
   restore(_cached_backup, isRestarting());
 
@@ -1408,12 +1586,13 @@ MooseApp::restoreCachedBackup()
 void
 MooseApp::createMinimalApp()
 {
-  // SetupMeshAction (setup_mesh)
+  TIME_SECTION(_create_minimal_app_timer);
+
+  // SetupMeshAction
   {
     // Build the Action parameters
     InputParameters action_params = _action_factory.getValidParams("SetupMeshAction");
     action_params.set<std::string>("type") = "GeneratedMesh";
-    action_params.set<std::string>("task") = "setup_mesh";
 
     // Create The Action
     std::shared_ptr<MooseObjectAction> action = std::static_pointer_cast<MooseObjectAction>(
@@ -1425,19 +1604,6 @@ MooseApp::createMinimalApp()
     params.set<unsigned int>("nx") = 1;
 
     // Add Action to the warehouse
-    _action_warehouse.addActionBlock(action);
-  }
-
-  // SetupMeshAction (init_mesh)
-  {
-    // Action parameters
-    InputParameters action_params = _action_factory.getValidParams("SetupMeshAction");
-    action_params.set<std::string>("type") = "GeneratedMesh";
-    action_params.set<std::string>("task") = "init_mesh";
-
-    // Build the action
-    std::shared_ptr<Action> action =
-        _action_factory.create("SetupMeshAction", "Mesh", action_params);
     _action_warehouse.addActionBlock(action);
   }
 
@@ -1463,16 +1629,12 @@ MooseApp::createMinimalApp()
   // Problem
   {
     // Build the Action parameters
-    InputParameters action_params = _action_factory.getValidParams("CreateProblemAction");
-    action_params.set<std::string>("type") = "FEProblem";
+    InputParameters action_params = _action_factory.getValidParams("CreateProblemDefaultAction");
+    action_params.set<bool>("_solve") = false;
 
     // Create the action
-    std::shared_ptr<MooseObjectAction> action = std::static_pointer_cast<MooseObjectAction>(
-        _action_factory.create("CreateProblemAction", "Problem", action_params));
-
-    // Set the object parameters
-    InputParameters & params = action->getObjectParams();
-    params.set<bool>("solve") = false;
+    std::shared_ptr<Action> action = std::static_pointer_cast<Action>(
+        _action_factory.create("CreateProblemDefaultAction", "Problem", action_params));
 
     // Add Action to the warehouse
     _action_warehouse.addActionBlock(action);
@@ -1501,13 +1663,17 @@ MooseApp::addExecFlag(const ExecFlagType & flag)
   if (flag.id() == MooseEnumItem::INVALID_ID)
   {
     // It is desired that users when creating ExecFlagTypes should not worry about needing
-    // to assign a name and an ID. However, the ExecFlagTypes created by users are global constants
-    // and the ID to be assigned can't be known at construction time of this global constant, it is
-    // only known when it is added to this object (ExecFlagEnum). Therefore, this const cast allows
-    // the ID to be set after construction. This was the lesser of two evils: const_cast or
-    // friend class with mutable members.
+    // to assign a name and an ID. However, the ExecFlagTypes created by users are global
+    // constants and the ID to be assigned can't be known at construction time of this global
+    // constant, it is only known when it is added to this object (ExecFlagEnum). Therefore,
+    // this const cast allows the ID to be set after construction. This was the lesser of two
+    // evils: const_cast or friend class with mutable members.
     ExecFlagType & non_const_flag = const_cast<ExecFlagType &>(flag);
-    non_const_flag.setID(_execute_flags.getNextValidID());
+    auto it = _execute_flags.find(flag.name());
+    if (it != _execute_flags.items().end())
+      non_const_flag.setID(it->id());
+    else
+      non_const_flag.setID(_execute_flags.getNextValidID());
   }
   _execute_flags.addAvailableFlags(flag);
 }
@@ -1522,34 +1688,149 @@ MooseApp::hasRelationshipManager(const std::string & name) const
                       }) != _relationship_managers.end();
 }
 
-void
+bool
 MooseApp::addRelationshipManager(std::shared_ptr<RelationshipManager> relationship_manager)
 {
-  auto name = relationship_manager->name();
-  if (hasRelationshipManager(name))
-    mooseError("Duplicate RelationshipManager added: \"", name, "\"");
+  // We don't need Geometric-only RelationshipManagers when we run with
+  // ReplicatedMesh unless we are splitting the mesh.
+  if (!_action_warehouse.mesh()->isDistributedMesh() && !_split_mesh &&
+      (relationship_manager->isType(Moose::RelationshipManagerType::GEOMETRIC) &&
+       !relationship_manager->isType(Moose::RelationshipManagerType::ALGEBRAIC)))
+    return false;
 
-  _relationship_managers.emplace_back(relationship_manager);
+  bool add = true;
+  for (const auto & rm : _relationship_managers)
+  {
+    if (*rm == *relationship_manager)
+    {
+      add = false;
+
+      auto & existing_for_whom = rm->forWhom();
+
+      // Since the existing object is going to cover this one
+      // Pass along who is needing it
+      for (auto & fw : relationship_manager->forWhom())
+      {
+        if (std::find(existing_for_whom.begin(), existing_for_whom.end(), fw) ==
+            existing_for_whom.end())
+          rm->addForWhom(fw);
+      }
+
+      break;
+    }
+  }
+
+  if (add)
+    _relationship_managers.emplace_back(relationship_manager);
+
+  // Inform the caller whether the object was added or not
+  return add;
 }
 
 void
 MooseApp::attachRelationshipManagers(Moose::RelationshipManagerType rm_type)
 {
   for (auto & rm : _relationship_managers)
-    rm->attachRelationshipManagers(rm_type);
+  {
+    if (rm->isType(rm_type))
+    {
+      // Will attach them later (during algebraic)
+      if (rm_type == Moose::RelationshipManagerType::GEOMETRIC && !rm->attachGeometricEarly())
+        continue;
+
+      if (rm_type == Moose::RelationshipManagerType::GEOMETRIC)
+      {
+        // The problem is not built yet - so the ActionWarehouse currently owns the mesh
+        auto & mesh = _action_warehouse.mesh();
+
+        rm->init();
+
+        if (rm->useDisplacedMesh() && _action_warehouse.displacedMesh())
+          _action_warehouse.displacedMesh()->getMesh().add_ghosting_functor(*rm);
+        else
+          mesh->getMesh().add_ghosting_functor(*rm);
+      }
+
+      if (rm_type == Moose::RelationshipManagerType::ALGEBRAIC)
+      {
+        // If it's also Geometric but didn't get attached early - then let's attach it now
+        if (rm->isType(Moose::RelationshipManagerType::GEOMETRIC) && !rm->attachGeometricEarly())
+        {
+          // Now that the Problem is built we'll get the mesh from there
+          auto & problem = _executioner->feProblem();
+          auto & mesh = problem.mesh();
+
+          rm->init();
+
+          if (rm->useDisplacedMesh() && _action_warehouse.displacedMesh())
+            _action_warehouse.displacedMesh()->getMesh().add_ghosting_functor(*rm);
+          else
+            mesh.getMesh().add_ghosting_functor(*rm);
+        }
+
+        auto & problem = _executioner->feProblem();
+
+        // If it is not at all GEOMETRIC then it hasn't been inited
+        if (!rm->isType(Moose::RelationshipManagerType::GEOMETRIC))
+          rm->init();
+
+        if (rm->useDisplacedMesh() && problem.getDisplacedProblem())
+        {
+          problem.getDisplacedProblem()->nlSys().dofMap().add_algebraic_ghosting_functor(*rm);
+          problem.getDisplacedProblem()->auxSys().dofMap().add_algebraic_ghosting_functor(*rm);
+        }
+        else
+        {
+          problem.getNonlinearSystemBase().dofMap().add_algebraic_ghosting_functor(*rm);
+          problem.getAuxiliarySystem().dofMap().add_algebraic_ghosting_functor(*rm);
+        }
+      }
+    }
+  }
 }
 
 std::vector<std::pair<std::string, std::string>>
-MooseApp::getRelationshipManagerInfo()
+MooseApp::getRelationshipManagerInfo() const
 {
   std::vector<std::pair<std::string, std::string>> info_strings;
   info_strings.reserve(_relationship_managers.size());
 
   for (const auto & rm : _relationship_managers)
   {
-    auto info = rm->getInfo();
-    if (info.size())
-      info_strings.emplace_back(std::make_pair(Moose::stringify(rm->getType()), info));
+    std::stringstream oss;
+    oss << rm->getInfo();
+
+    auto & for_whom = rm->forWhom();
+
+    if (!for_whom.empty())
+    {
+      oss << " for ";
+
+      std::copy(for_whom.begin(), for_whom.end(), infix_ostream_iterator<std::string>(oss, ", "));
+    }
+
+    info_strings.emplace_back(std::make_pair(Moose::stringify(rm->getType()), oss.str()));
+  }
+
+  // List the libMesh GhostingFunctors - Not that in libMesh all of the algebraic and coupling
+  // Ghosting Functors are also attached to the mesh. This should catch them all.
+  const auto & mesh = _action_warehouse.getMesh();
+  if (mesh)
+  {
+    std::unordered_map<std::string, unsigned int> counts;
+
+    for (auto & gf : as_range(mesh->getMesh().ghosting_functors_begin(),
+                              mesh->getMesh().ghosting_functors_end()))
+    {
+      const auto * gf_ptr = dynamic_cast<const RelationshipManager *>(gf);
+      if (!gf_ptr)
+        // Count how many occurances of the same Ghosting Functor types we are encountering
+        counts[demangle(typeid(*gf).name())]++;
+    }
+
+    for (const auto pair : counts)
+      info_strings.emplace_back(std::make_pair(
+          "Default", pair.first + (pair.second > 1 ? " x " + std::to_string(pair.second) : "")));
   }
 
   return info_strings;

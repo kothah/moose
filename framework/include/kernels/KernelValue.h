@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef KERNELVALUE_H
-#define KERNELVALUE_H
+#pragma once
 
 // local includes
 #include "Kernel.h"
@@ -55,7 +54,6 @@ protected:
    */
   virtual Real precomputeQpJacobian();
 
-  virtual Real computeQpResidual() override;
+  virtual Real computeQpResidual() final;
 };
 
-#endif // KERNELVALUE_H

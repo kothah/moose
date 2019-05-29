@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTESMALLSTRAIN_H
-#define COMPUTESMALLSTRAIN_H
+#pragma once
 
 #include "ComputeStrainBase.h"
 
@@ -25,8 +24,6 @@ class ComputeSmallStrain : public ComputeStrainBase
 public:
   ComputeSmallStrain(const InputParameters & parameters);
 
-protected:
   virtual void computeProperties() override;
 };
 
-#endif // COMPUTESMALLSTRAIN_H

@@ -7,12 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ACTION_H
-#define ACTION_H
+#pragma once
 
 #include "InputParameters.h"
 #include "ConsoleStreamInterface.h"
 #include "Registry.h"
+#include "PerfGraphInterface.h"
 
 #include <string>
 #include <ostream>
@@ -32,7 +32,7 @@ InputParameters validParams<Action>();
 /**
  * Base class for actions.
  */
-class Action : public ConsoleStreamInterface
+class Action : public ConsoleStreamInterface, public PerfGraphInterface
 {
 public:
   Action(InputParameters parameters);
@@ -40,10 +40,25 @@ public:
   virtual ~Action() {}
 
   /**
-   * Method to add objects to the simulation or perform other setup tasks.
+   * The method called externally that causes the action to act()
    */
-  virtual void act() = 0;
+  void timedAct();
 
+protected:
+  /**
+   * Method to add a relationship manager for the objects being added to the system. Relationship
+   * managers have to be added relatively early. In many cases before the Action::act() method
+   * is called.
+   * @param when_type The parameter indicating the normal time for adding either Geometric or
+   *        Algebraic RelationshipManagers. It may not always be possible to add your
+   *        RelationshipManager as early as you'd like. In these cases, your DistributedMesh may
+   *        consume more memory during the problem setup.
+   * @param moose_object_pars The MooseObject to inspect for RelationshipManagers to add
+   */
+  void addRelationshipManagers(Moose::RelationshipManagerType when_type,
+                               const InputParameters & moose_object_pars);
+
+public:
   /**
    * Method to add a relationship manager for the objects being added to the system. Relationship
    * managers have to be added relatively early. In many cases before the Action::act() method
@@ -108,11 +123,10 @@ public:
    * back to the normal behavior of mooseError - only printing a message using the given args.
    */
   template <typename... Args>
-  [[noreturn]] void paramError(const std::string & param, Args... args)
-  {
+  [[noreturn]] void paramError(const std::string & param, Args... args) {
     auto prefix = param + ": ";
     if (!_pars.inputLocation(param).empty())
-      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + ") ";
+      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + "):\n";
     mooseError(prefix, args...);
   }
 
@@ -127,7 +141,7 @@ public:
   {
     auto prefix = param + ": ";
     if (!_pars.inputLocation(param).empty())
-      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + ") ";
+      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + "):\n";
     mooseWarning(prefix, args...);
   }
 
@@ -143,11 +157,16 @@ public:
   {
     auto prefix = param + ": ";
     if (!_pars.inputLocation(param).empty())
-      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + ") ";
+      prefix = _pars.inputLocation(param) + ": (" + _pars.paramFullpath(param) + "):\n";
     mooseInfo(prefix, args...);
   }
 
 protected:
+  /**
+   * Method to add objects to the simulation or perform other setup tasks.
+   */
+  virtual void act() = 0;
+
   /// Input parameters for the action
   InputParameters _pars;
 
@@ -196,8 +215,8 @@ protected:
   /// Convenience reference to a problem this action works on
   std::shared_ptr<FEProblemBase> & _problem;
 
-  /// Convenience reference to an executioner
-  std::shared_ptr<Executioner> & _executioner;
+  /// Timers
+  PerfID _act_timer;
 };
 
 template <typename T>
@@ -207,4 +226,3 @@ Action::getParam(const std::string & name) const
   return InputParameters::getParamHelper(name, _pars, static_cast<T *>(0));
 }
 
-#endif // ACTION_H

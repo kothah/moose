@@ -7,10 +7,8 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWLINESINK_H
-#define POROUSFLOWLINESINK_H
+#pragma once
 
-// Moose Includes
 #include "PorousFlowLineGeometry.h"
 #include "PorousFlowSumQuantity.h"
 #include "PorousFlowDictator.h"
@@ -58,7 +56,7 @@ protected:
                                             Real & outflow,
                                             Real & outflowp) const = 0;
 
-  /// PorousFlow UserObject
+  /// PorousFlowDictator UserObject
   const PorousFlowDictator & _dictator;
 
   /**
@@ -162,4 +160,3 @@ protected:
   const MaterialProperty<std::vector<std::vector<Real>>> * const _dinternal_energy_dvar;
 };
 
-#endif // POROUSFLOWLINESINK_H

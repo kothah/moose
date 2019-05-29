@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CO2FLUIDPROPERTIESTEST_H
-#define CO2FLUIDPROPERTIESTEST_H
+#pragma once
 
 #include "MooseObjectUnitTest.h"
 #include "CO2FluidProperties.h"
@@ -18,13 +17,10 @@ class CO2FluidPropertiesTest : public MooseObjectUnitTest
 public:
   CO2FluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp")
   {
-    registerObjects(_factory);
     buildObjects();
   }
 
 protected:
-  void registerObjects(Factory & factory) { registerUserObject(CO2FluidProperties); }
-
   void buildObjects()
   {
     InputParameters uo_pars = _factory.getValidParams("CO2FluidProperties");
@@ -35,4 +31,3 @@ protected:
   const CO2FluidProperties * _fp;
 };
 
-#endif // CO2FLUIDPROPERTIESTEST_H

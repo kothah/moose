@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POLYCRYSTALCIRCLES_H
-#define POLYCRYSTALCIRCLES_H
+#pragma once
 
 #include <array>
 #include "PolycrystalUserObjectBase.h"
@@ -26,7 +25,7 @@ InputParameters validParams<PolycrystalCircles>();
  * through a user input or by reading a .txt file.
  * The file is expected to have a one-line header labeling the
  * colums 'x y z r'.
-**/
+ **/
 
 class PolycrystalCircles : public PolycrystalUserObjectBase
 {
@@ -55,4 +54,3 @@ protected:
   std::vector<Real> _radii;         // Radius for each circular grain created
 };
 
-#endif // POLYCRYSTALCIRCLES_H

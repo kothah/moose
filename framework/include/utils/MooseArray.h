@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ARRAY_H
-#define ARRAY_H
+#pragma once
 
 #include <vector>
 #include "MooseError.h"
@@ -20,23 +19,34 @@ public:
   /**
    * Default constructor.  Doesn't initialize anything.
    */
-  MooseArray() : _data(NULL), _size(0), _allocated_size(0) {}
+  MooseArray() : _data(nullptr), _size(0), _allocated_size(0) {}
 
   /**
    * @param size The initial size of the array.
    */
-  explicit MooseArray(const unsigned int size) : _data(NULL), _allocated_size(0) { resize(size); }
+  explicit MooseArray(const unsigned int size) : _data(nullptr), _allocated_size(0)
+  {
+    resize(size);
+  }
 
   /**
    * @param size The initial size of the array.
    * @param default_value The default value to set.
    */
   explicit MooseArray(const unsigned int size, const T & default_value)
-    : _data(NULL), _allocated_size(0)
+    : _data(nullptr), _allocated_size(0)
   {
     resize(size);
 
     setAllValues(default_value);
+  }
+
+  explicit MooseArray(const MooseArray & rhs) : _data(nullptr), _allocated_size(0)
+  {
+    resize(rhs._size);
+
+    for (unsigned int i = 0; i < _size; i++)
+      _data[i] = rhs._data[i];
   }
 
   /**
@@ -50,10 +60,10 @@ public:
    */
   void release()
   {
-    if (_data != NULL)
+    if (_data_ptr)
     {
-      delete[] _data;
-      _data = NULL;
+      _data_ptr.reset();
+      _data = nullptr;
       _allocated_size = _size = 0;
     }
   }
@@ -79,7 +89,7 @@ public:
    * Note that this does _not_ free unused memory.
    * This is done for speed.
    */
-  void resize(const unsigned int size);
+  void resize(unsigned int size);
 
   /**
    * Change the number of elements the array can store.
@@ -94,7 +104,7 @@ public:
    *
    * Also note that default_value is only applied to NEW entries.
    */
-  void resize(const unsigned int size, const T & default_value);
+  void resize(unsigned int size, const T & default_value);
 
   /**
    * The number of elements that can currently
@@ -167,10 +177,18 @@ public:
    *
    * @return A _copy_ of the MooseArray contents.
    */
-  std::vector<T> stdVector();
+  std::vector<T> stdVector() const;
+
+  /**
+   * Reference to first element of array
+   */
+  const T * data() const { return _data; }
 
 private:
-  /// Actual data pointer.
+  /// Smart pointer storage
+  std::unique_ptr<T[]> _data_ptr;
+
+  // Actual data pointer (from inside of the smart pointer).
   T * _data;
 
   /// The current number of elements the array can hold.
@@ -197,18 +215,16 @@ MooseArray<T>::clear()
 
 template <typename T>
 inline void
-MooseArray<T>::resize(const unsigned int size)
+MooseArray<T>::resize(unsigned int size)
 {
   if (size <= _allocated_size)
     _size = size;
   else
   {
-    T * new_pointer = new T[size];
-    mooseAssert(new_pointer, "Failed to allocate MooseArray memory!");
+    _data_ptr.reset(new T[size]);
+    mooseAssert(_data_ptr, "Failed to allocate MooseArray memory!");
 
-    if (_data != NULL)
-      delete[] _data;
-    _data = new_pointer;
+    _data = _data_ptr.get();
     _allocated_size = size;
     _size = size;
   }
@@ -216,21 +232,19 @@ MooseArray<T>::resize(const unsigned int size)
 
 template <typename T>
 inline void
-MooseArray<T>::resize(const unsigned int size, const T & default_value)
+MooseArray<T>::resize(unsigned int size, const T & default_value)
 {
   if (size > _allocated_size)
   {
     T * new_pointer = new T[size];
     mooseAssert(new_pointer, "Failed to allocate MooseArray memory!");
 
-    if (_data != NULL)
-    {
+    if (_data)
       for (unsigned int i = 0; i < _size; i++)
         new_pointer[i] = _data[i];
-      delete[] _data;
-    }
 
-    _data = new_pointer;
+    _data_ptr.reset(new_pointer);
+    _data = _data_ptr.get();
     _allocated_size = size;
   }
 
@@ -269,6 +283,7 @@ template <typename T>
 inline void
 MooseArray<T>::swap(MooseArray & rhs)
 {
+  _data_ptr.swap(rhs._data_ptr);
   std::swap(_data, rhs._data);
   std::swap(_size, rhs._size);
   std::swap(_allocated_size, rhs._allocated_size);
@@ -322,7 +337,7 @@ MooseArray<T>::operator=(const MooseArray<T> & rhs)
 
 template <class T>
 std::vector<T>
-MooseArray<T>::stdVector()
+MooseArray<T>::stdVector() const
 {
   return std::vector<T>(_data, _data + _size);
 }
@@ -336,4 +351,3 @@ freeDoubleMooseArray(MooseArray<MooseArray<T>> & a)
   a.release();
 }
 
-#endif // ARRAY_H

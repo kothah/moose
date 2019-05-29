@@ -1,4 +1,4 @@
-# Tests correct calculation of properties derivatives in PorousFlowFluidStateBrineCO2
+# Tests correct calculation of properties derivatives in PorousFlowFluidState
 # for conditions for two phases, including salt as a nonlinear variable
 
 [Mesh]
@@ -28,18 +28,21 @@
     min = 1e6
     max = 4e6
     variable = pgas
+    seed = 1
   [../]
   [./z]
     type = RandomIC
     min = 0.2
     max = 0.8
     variable = zi
+    seed = 1
   [../]
   [./xnacl]
     type = RandomIC
     min = 0.01
     max = 0.15
     variable = xnacl
+    seed = 1
   [../]
 []
 
@@ -119,7 +122,7 @@
     at_nodes = true
   [../]
   [./brineco2]
-    type = PorousFlowFluidStateBrineCO2
+    type = PorousFlowFluidState
     gas_porepressure = pgas
     z = zi
     at_nodes = true
@@ -129,7 +132,7 @@
     fluid_state = fs
   [../]
   [./brineco2_qp]
-    type = PorousFlowFluidStateBrineCO2
+    type = PorousFlowFluidState
     gas_porepressure = pgas
     z = zi
     temperature_unit = Celsius

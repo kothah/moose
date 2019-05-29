@@ -7,10 +7,9 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
+#pragma once
 // Original class author: A.M. Jokisaari,  O. Heinonen
 
-#ifndef FINITESTRAINPLASTICMATERIAL_H
-#define FINITESTRAINPLASTICMATERIAL_H
 
 #include "ComputeStressBase.h"
 
@@ -35,7 +34,6 @@ public:
 protected:
   virtual void computeQpStress();
   virtual void initQpStatefulProperties();
-
   std::vector<Real> _yield_stress_vector;
   MaterialProperty<RankTwoTensor> & _plastic_strain;
   const MaterialProperty<RankTwoTensor> & _plastic_strain_old;
@@ -44,6 +42,9 @@ protected:
   const MaterialProperty<RankTwoTensor> & _stress_old;
   const MaterialProperty<RankTwoTensor> & _strain_increment;
   const MaterialProperty<RankTwoTensor> & _rotation_increment;
+  /// Name of the elasticity tensor material property
+  const std::string _elasticity_tensor_name;
+  /// Elasticity tensor material property
   const MaterialProperty<RankFourTensor> & _elasticity_tensor;
   Real _rtol;
   Real _ftol;
@@ -138,4 +139,3 @@ protected:
   Real getdYieldStressdPlasticStrain(const Real equivalent_plastic_strain);
 };
 
-#endif // FINITESTRAINPLASTICMATERIAL_H

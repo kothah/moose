@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef FUNCTION_H
-#define FUNCTION_H
+#pragma once
 
 #include "MooseObject.h"
 #include "SetupInterface.h"
@@ -78,6 +77,15 @@ public:
   virtual RealVectorValue vectorValue(Real t, const Point & p);
 
   /**
+   * Override this to evaluate the curl of the vector function at a point (t,x,y,z),
+   * by default this returns a zero vector, you must override it.
+   * \param t The time
+   * \param p The Point in space (x,y,z)
+   * \return A vector of the curl of the function evaluated at the time and location
+   */
+  virtual RealVectorValue vectorCurl(Real t, const Point & p);
+
+  /**
    * Function objects can optionally provide a gradient at a point. By default
    * this returns 0, you must override it.
    * \param t The time
@@ -101,4 +109,3 @@ public:
   virtual Real average();
 };
 
-#endif // FUNCTION_H

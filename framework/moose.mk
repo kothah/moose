@@ -1,5 +1,6 @@
 # Whether or not to do a Unity build
 MOOSE_UNITY ?= true
+MOOSE_HEADER_SYMLINKS ?= true
 
 #
 # MOOSE
@@ -25,7 +26,7 @@ pcre_deps      := $(patsubst %.cc, %.$(obj-suffix).d, $(pcre_srcfiles)) \
 # hit (new getpot parser)
 #
 hit_DIR       := $(FRAMEWORK_DIR)/contrib/hit
-hit_srcfiles  := $(hit_DIR)/parse.cc $(hit_DIR)/lex.cc
+hit_srcfiles  := $(hit_DIR)/parse.cc $(hit_DIR)/lex.cc $(hit_DIR)/braceexpr.cc
 hit_objects   := $(patsubst %.cc, %.$(obj-suffix), $(hit_srcfiles))
 hit_LIB       := $(hit_DIR)/libhit-$(METHOD).la
 # dependency files
@@ -34,12 +35,12 @@ hit_deps      := $(patsubst %.cc, %.$(obj-suffix).d, $(hit_srcfiles))
 #
 # hit python bindings
 #
-pyhit_srcfiles  := $(hit_DIR)/hit.cpp $(hit_DIR)/lex.cc $(hit_DIR)/parse.cc
+pyhit_srcfiles  := $(hit_DIR)/hit.cpp $(hit_DIR)/lex.cc $(hit_DIR)/parse.cc $(hit_DIR)/braceexpr.cc
 pyhit_LIB       := $(FRAMEWORK_DIR)/../python/hit.so
 
 # some systems have python2 but no python2-config command - fall back to python-config for them
 pyconfig := python2-config
-ifeq (, $(shell which python2-config))
+ifeq (, $(shell which python2-config 2>/dev/null))
   pyconfig := python-config
 endif
 
@@ -60,6 +61,8 @@ gtest_deps      := $(patsubst %.cc, %.$(obj-suffix).d, $(gtest_srcfiles))
 #
 # header symlinks
 #
+ifeq ($(MOOSE_HEADER_SYMLINKS),true)
+
 all_header_dir := $(FRAMEWORK_DIR)/build/header_symlinks
 moose_all_header_dir := $(all_header_dir)
 
@@ -93,8 +96,14 @@ $(eval $(call all_header_dir_rule, $(all_header_dir)))
 $(call symlink_rules, $(all_header_dir), $(include_files))
 
 header_symlinks:: $(all_header_dir) $(link_names)
-
 moose_INC_DIRS := $(all_header_dir)
+
+else # No Header Symlinks
+
+moose_INC_DIRS := $(shell find $(FRAMEWORK_DIR)/include -type d)
+
+endif
+
 moose_INC_DIRS += $(shell find $(FRAMEWORK_DIR)/contrib/*/include -type d)
 moose_INC_DIRS += "$(gtest_DIR)"
 moose_INC_DIRS += "$(hit_DIR)"

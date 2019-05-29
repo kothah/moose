@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTERSPHERICALINCREMENTALSTRAIN_H
-#define COMPUTERSPHERICALINCREMENTALSTRAIN_H
+#pragma once
 
 #include "ComputeIncrementalSmallStrain.h"
 
@@ -28,9 +27,9 @@ class ComputeRSphericalIncrementalStrain : public ComputeIncrementalSmallStrain
 public:
   ComputeRSphericalIncrementalStrain(const InputParameters & parameters);
 
-protected:
   virtual void initialSetup() override;
 
+protected:
   /// Computes the current and old deformation gradients with the assumptions for
   /// 1D spherical symmetry geometries: \f$ \epsilon_{\theta} = \epsilon_{\phi} = \frac{u_r}{r} \f$
   virtual void computeTotalStrainIncrement(RankTwoTensor & total_strain_increment) override;
@@ -39,4 +38,3 @@ protected:
   const VariableValue & _disp_old_0;
 };
 
-#endif // COMPUTERSPHERICALINCREMENTALSTRAIN_H

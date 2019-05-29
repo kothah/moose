@@ -19,14 +19,14 @@ template <>
 InputParameters
 validParams<CO2FluidProperties>()
 {
-  InputParameters params = validParams<SinglePhaseFluidPropertiesPT>();
+  InputParameters params = validParams<HelmholtzFluidProperties>();
   params.addClassDescription(
       "Fluid properties for carbon dioxide (CO2) using the Span & Wagner EOS");
   return params;
 }
 
 CO2FluidProperties::CO2FluidProperties(const InputParameters & parameters)
-  : SinglePhaseFluidPropertiesPT(parameters)
+  : HelmholtzFluidProperties(parameters)
 {
 }
 
@@ -120,6 +120,12 @@ CO2FluidProperties::vaporPressure(Real temperature) const
   return _critical_pressure * std::exp(logpressure);
 }
 
+void
+CO2FluidProperties::vaporPressure(Real, Real &, Real &) const
+{
+  mooseError(name(), ": vaporPressure() is not implemented");
+}
+
 Real
 CO2FluidProperties::saturatedLiquidDensity(Real temperature) const
 {
@@ -153,7 +159,7 @@ CO2FluidProperties::saturatedVaporDensity(Real temperature) const
 }
 
 Real
-CO2FluidProperties::phiSW(Real delta, Real tau) const
+CO2FluidProperties::alpha(Real delta, Real tau) const
 {
   // Ideal gas component of the Helmholtz free energy
   Real sum0 = 0.0;
@@ -190,7 +196,7 @@ CO2FluidProperties::phiSW(Real delta, Real tau) const
 }
 
 Real
-CO2FluidProperties::dphiSW_dd(Real delta, Real tau) const
+CO2FluidProperties::dalpha_ddelta(Real delta, Real tau) const
 {
   // Derivative of the ideal gas component wrt gamma
   Real dphi0dd = 1.0 / delta;
@@ -233,7 +239,7 @@ CO2FluidProperties::dphiSW_dd(Real delta, Real tau) const
 }
 
 Real
-CO2FluidProperties::dphiSW_dt(Real delta, Real tau) const
+CO2FluidProperties::dalpha_dtau(Real delta, Real tau) const
 {
   // Derivative of the ideal gas component wrt tau
   Real sum0 = 0.0;
@@ -274,7 +280,7 @@ CO2FluidProperties::dphiSW_dt(Real delta, Real tau) const
 }
 
 Real
-CO2FluidProperties::d2phiSW_dd2(Real delta, Real tau) const
+CO2FluidProperties::d2alpha_ddelta2(Real delta, Real tau) const
 {
   // Second derivative of the ideal gas component wrt gamma
   Real d2phi0dd2 = -1.0 / delta / delta;
@@ -340,7 +346,7 @@ CO2FluidProperties::d2phiSW_dd2(Real delta, Real tau) const
 }
 
 Real
-CO2FluidProperties::d2phiSW_dt2(Real delta, Real tau) const
+CO2FluidProperties::d2alpha_dtau2(Real delta, Real tau) const
 {
   // Second derivative of the ideal gas component wrt tau
   Real sum0 = 0.0;
@@ -389,7 +395,7 @@ CO2FluidProperties::d2phiSW_dt2(Real delta, Real tau) const
 }
 
 Real
-CO2FluidProperties::d2phiSW_ddt(Real delta, Real tau) const
+CO2FluidProperties::d2alpha_ddeltatau(Real delta, Real tau) const
 {
   // Note: second derivative of the ideal gas component wrt delta and tau is 0
   // Derivative of the residual component wrt gamma
@@ -438,17 +444,7 @@ CO2FluidProperties::d2phiSW_ddt(Real delta, Real tau) const
 }
 
 Real
-CO2FluidProperties::pressureSW(Real density, Real temperature) const
-{
-  // Scale the input density and temperature
-  Real delta = density / _critical_density;
-  Real tau = _critical_temperature / temperature;
-
-  return _Rco2 * temperature * density * delta * dphiSW_dd(delta, tau);
-}
-
-Real
-CO2FluidProperties::pressure(Real density, Real temperature) const
+CO2FluidProperties::p_from_rho_T(Real density, Real temperature) const
 {
   // Check that the input parameters are within the region of validity
   if (temperature < 216.0 || temperature > 1100.0 || density <= 0.0)
@@ -462,28 +458,28 @@ CO2FluidProperties::pressure(Real density, Real temperature) const
     Real liquid_density = saturatedLiquidDensity(temperature);
 
     if (density < gas_density || density > liquid_density)
-      pressure = pressureSW(density, temperature);
+      pressure = HelmholtzFluidProperties::p_from_rho_T(density, temperature);
     else
       pressure = vaporPressure(temperature);
   }
   else
-    pressure = pressureSW(density, temperature);
+    pressure = HelmholtzFluidProperties::p_from_rho_T(density, temperature);
 
   return pressure;
 }
 
 Real
-CO2FluidProperties::rho(Real pressure, Real temperature) const
+CO2FluidProperties::rho_from_p_T(Real pressure, Real temperature) const
 {
   // Check that the input parameters are within the region of validity
   if (temperature < 216.0 || temperature > 1100.0 || pressure <= 0.0)
-    throw MooseException("Parameters out of range in " + name() + ": rho()");
+    throw MooseException("Parameters out of range in " + name() + ": rho_from_p_T()");
 
   // Also check that the pressure and temperature are not in the solid phase region
   if (((temperature > _triple_point_temperature) && (pressure > meltingPressure(temperature))) ||
       ((temperature < _triple_point_temperature) && (pressure > sublimationPressure(temperature))))
     throw MooseException("Input pressure and temperature in " + name() +
-                         ": rho() correspond to solid CO2 phase");
+                         ": rho_from_p_T() correspond to solid CO2 phase");
 
   Real density;
   // Initial estimate of a bracketing interval for the density
@@ -493,7 +489,7 @@ CO2FluidProperties::rho(Real pressure, Real temperature) const
   // The density is found by finding the zero of the pressure calculated using the
   // Span and Wagner EOS minus the input pressure
   auto pressure_diff = [&pressure, &temperature, this](Real x) {
-    return this->pressure(x, temperature) - pressure;
+    return p_from_rho_T(x, temperature) - pressure;
   };
 
   BrentsMethod::bracket(pressure_diff, lower_density, upper_density);
@@ -503,37 +499,28 @@ CO2FluidProperties::rho(Real pressure, Real temperature) const
 }
 
 void
-CO2FluidProperties::rho_dpT(
+CO2FluidProperties::rho_from_p_T(
     Real pressure, Real temperature, Real & rho, Real & drho_dp, Real & drho_dT) const
 {
-  rho = this->rho(pressure, temperature);
-  // Scale the density and temperature
-  Real delta = rho / _critical_density;
-  Real tau = _critical_temperature / temperature;
-  Real dpdd = dphiSW_dd(delta, tau);
-  Real d2pdd2 = d2phiSW_dd2(delta, tau);
-
-  drho_dp = 1.0 / (_Rco2 * temperature * delta * (2.0 * dpdd + delta * d2pdd2));
-  drho_dT =
-      rho * (tau * d2phiSW_ddt(delta, tau) - dpdd) / temperature / (2.0 * dpdd + delta * d2pdd2);
+  HelmholtzFluidProperties::rho_from_p_T(pressure, temperature, rho, drho_dp, drho_dT);
 }
 
 Real
-CO2FluidProperties::mu(Real pressure, Real temperature) const
+CO2FluidProperties::mu_from_p_T(Real pressure, Real temperature) const
 {
-  Real rho = this->rho(pressure, temperature);
-  return this->mu_from_rho_T(rho, temperature);
+  Real rho = rho_from_p_T(pressure, temperature);
+  return mu_from_rho_T(rho, temperature);
 }
 
 void
-CO2FluidProperties::mu_dpT(
+CO2FluidProperties::mu_from_p_T(
     Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const
 {
   Real rho, drho_dp, drho_dT;
-  this->rho_dpT(pressure, temperature, rho, drho_dp, drho_dT);
+  HelmholtzFluidProperties::rho_from_p_T(pressure, temperature, rho, drho_dp, drho_dT);
 
   Real dmu_drho;
-  mu_drhoT_from_rho_T(rho, temperature, drho_dT, mu, dmu_drho, dmu_dT);
+  mu_from_rho_T(rho, temperature, drho_dT, mu, dmu_drho, dmu_dT);
   dmu_dp = dmu_drho * drho_dp;
 }
 
@@ -542,7 +529,7 @@ CO2FluidProperties::mu_from_rho_T(Real density, Real temperature) const
 {
   // Check that the input parameters are within the region of validity
   if (temperature < 216.0 || temperature > 1000.0 || density > 1400.0)
-    throw MooseException("Parameters out of range in " + name() + ": mu()");
+    throw MooseException("Parameters out of range in " + name() + ": mu_from_rho_T()");
 
   Real Tstar = temperature / 251.196;
 
@@ -563,12 +550,12 @@ CO2FluidProperties::mu_from_rho_T(Real density, Real temperature) const
 }
 
 void
-CO2FluidProperties::mu_drhoT_from_rho_T(Real density,
-                                        Real temperature,
-                                        Real ddensity_dT,
-                                        Real & mu,
-                                        Real & dmu_drho,
-                                        Real & dmu_dT) const
+CO2FluidProperties::mu_from_rho_T(Real density,
+                                  Real temperature,
+                                  Real ddensity_dT,
+                                  Real & mu,
+                                  Real & dmu_drho,
+                                  Real & dmu_dT) const
 {
   // Check that the input parameters are within the region of validity
   if (temperature < 216.0 || temperature > 1000.0 || density > 1400.0)
@@ -613,25 +600,25 @@ CO2FluidProperties::mu_drhoT_from_rho_T(Real density,
 }
 
 void
-CO2FluidProperties::rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const
+CO2FluidProperties::rho_mu_from_p_T(Real pressure, Real temperature, Real & rho, Real & mu) const
 {
-  rho = this->rho(pressure, temperature);
-  mu = this->mu_from_rho_T(rho, temperature);
+  rho = rho_from_p_T(pressure, temperature);
+  mu = mu_from_rho_T(rho, temperature);
 }
 
 void
-CO2FluidProperties::rho_mu_dpT(Real pressure,
-                               Real temperature,
-                               Real & rho,
-                               Real & drho_dp,
-                               Real & drho_dT,
-                               Real & mu,
-                               Real & dmu_dp,
-                               Real & dmu_dT) const
+CO2FluidProperties::rho_mu_from_p_T(Real pressure,
+                                    Real temperature,
+                                    Real & rho,
+                                    Real & drho_dp,
+                                    Real & drho_dT,
+                                    Real & mu,
+                                    Real & dmu_dp,
+                                    Real & dmu_dT) const
 {
-  this->rho_dpT(pressure, temperature, rho, drho_dp, drho_dT);
+  rho_from_p_T(pressure, temperature, rho, drho_dp, drho_dT);
   Real dmu_drho;
-  this->mu_drhoT_from_rho_T(rho, temperature, drho_dT, mu, dmu_drho, dmu_dT);
+  mu_from_rho_T(rho, temperature, drho_dT, mu, dmu_drho, dmu_dT);
   dmu_dp = dmu_drho * drho_dp;
 }
 
@@ -653,124 +640,32 @@ CO2FluidProperties::henryConstant(Real temperature) const
 }
 
 void
-CO2FluidProperties::henryConstant_dT(Real temperature, Real & Kh, Real & dKh_dT) const
+CO2FluidProperties::henryConstant(Real temperature, Real & Kh, Real & dKh_dT) const
 {
-  henryConstantIAPWS_dT(temperature, Kh, dKh_dT, -8.55445, 4.01195, 9.52345);
+  henryConstantIAPWS(temperature, Kh, dKh_dT, -8.55445, 4.01195, 9.52345);
 }
 
 Real
-CO2FluidProperties::e(Real pressure, Real temperature) const
+CO2FluidProperties::k_from_p_T(Real pressure, Real temperature) const
 {
   // Require density first
-  Real density = rho(pressure, temperature);
-  // Scale the input density and temperature
-  Real delta = density / _critical_density;
-  Real tau = _critical_temperature / temperature;
-
-  return _Rco2 * temperature * tau * dphiSW_dt(delta, tau);
+  Real density = rho_from_p_T(pressure, temperature);
+  return k_from_rho_T(density, temperature);
 }
 
 void
-CO2FluidProperties::e_dpT(
-    Real pressure, Real temperature, Real & e, Real & de_dp, Real & de_dT) const
-{
-  // Require density first
-  Real density = rho(pressure, temperature);
-  // Scale the input density and temperature
-  Real delta = density / _critical_density;
-  Real tau = _critical_temperature / temperature;
-
-  e = _Rco2 * temperature * tau * dphiSW_dt(delta, tau);
-  Real dpdd = dphiSW_dd(delta, tau);
-  Real d2pdd2 = d2phiSW_dd2(delta, tau);
-  Real d2pddt = d2phiSW_ddt(delta, tau);
-
-  de_dp = tau * d2pddt / (density * (2.0 * dpdd + delta * d2pdd2));
-  de_dT = -_Rco2 * (delta * tau * d2pddt * (dpdd - tau * d2pddt) / (2.0 * dpdd + delta * d2pdd2) +
-                    tau * tau * d2phiSW_dt2(delta, tau));
-}
-
-void
-CO2FluidProperties::rho_e_dpT(Real pressure,
-                              Real temperature,
-                              Real & rho,
-                              Real & drho_dp,
-                              Real & drho_dT,
-                              Real & e,
-                              Real & de_dp,
-                              Real & de_dT) const
-{
-  rho_dpT(pressure, temperature, rho, drho_dp, drho_dT);
-  e_dpT(pressure, temperature, e, de_dp, de_dT);
-}
-
-Real
-CO2FluidProperties::c(Real pressure, Real temperature) const
-{
-  // Require density first
-  Real density = rho(pressure, temperature);
-  // Scale the input density and temperature
-  Real delta = density / _critical_density;
-  Real tau = _critical_temperature / temperature;
-
-  Real speed2 =
-      2.0 * delta * dphiSW_dd(delta, tau) + delta * delta * d2phiSW_dd2(delta, tau) -
-      Utility::pow<2>(delta * dphiSW_dd(delta, tau) - delta * tau * d2phiSW_ddt(delta, tau)) /
-          (tau * tau * d2phiSW_dt2(delta, tau));
-
-  return std::sqrt(_Rco2 * temperature * speed2);
-}
-
-Real
-CO2FluidProperties::cp(Real pressure, Real temperature) const
-{
-  // Require density first
-  Real density = rho(pressure, temperature);
-  // Scale the input density and temperature
-  Real delta = density / _critical_density;
-  Real tau = _critical_temperature / temperature;
-
-  Real heat_capacity =
-      -tau * tau * d2phiSW_dt2(delta, tau) +
-      Utility::pow<2>(delta * dphiSW_dd(delta, tau) - delta * tau * d2phiSW_ddt(delta, tau)) /
-          (2.0 * delta * dphiSW_dd(delta, tau) + delta * delta * d2phiSW_dd2(delta, tau));
-
-  return _Rco2 * heat_capacity;
-}
-
-Real
-CO2FluidProperties::cv(Real pressure, Real temperature) const
-{
-  // Require density first
-  Real density = rho(pressure, temperature);
-  // Scale the input density and temperature
-  Real delta = density / _critical_density;
-  Real tau = _critical_temperature / temperature;
-
-  return -_Rco2 * tau * tau * d2phiSW_dt2(delta, tau);
-}
-
-Real
-CO2FluidProperties::k(Real pressure, Real temperature) const
-{
-  // Require density first
-  Real density = rho(pressure, temperature);
-  return this->k_from_rho_T(density, temperature);
-}
-
-void
-CO2FluidProperties::k_dpT(
+CO2FluidProperties::k_from_p_T(
     Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const
 {
-  k = this->k(pressure, temperature);
+  k = this->k_from_p_T(pressure, temperature);
   // Calculate derivatives using finite differences. Note: this will be slow as
   // multiple calculations of density are required
   const Real eps = 1.0e-6;
   const Real peps = pressure * eps;
   const Real Teps = temperature * eps;
 
-  dk_dp = (this->k(pressure + peps, temperature) - k) / peps;
-  dk_dT = (this->k(pressure, temperature + Teps) - k) / Teps;
+  dk_dp = (this->k_from_p_T(pressure + peps, temperature) - k) / peps;
+  dk_dT = (this->k_from_p_T(pressure, temperature + Teps) - k) / Teps;
 }
 
 Real
@@ -808,48 +703,4 @@ CO2FluidProperties::k_from_rho_T(Real density, Real temperature) const
                _k_a[8]);
 
   return 4.81384 * (sum1 + std::exp(-5.0 * rhor * rhor) * sum2 + 0.775547504 * lambdac) / 1000.0;
-}
-
-Real
-CO2FluidProperties::s(Real pressure, Real temperature) const
-{
-  // Require density first
-  Real density = rho(pressure, temperature);
-  // Scale the input density and temperature
-  Real delta = density / _critical_density;
-  Real tau = _critical_temperature / temperature;
-
-  return _Rco2 * (tau * dphiSW_dt(delta, tau) - phiSW(delta, tau));
-}
-
-Real
-CO2FluidProperties::h(Real pressure, Real temperature) const
-{
-  // Require density first
-  Real density = rho(pressure, temperature);
-  // Scale the input density and temperature
-  Real delta = density / _critical_density;
-  Real tau = _critical_temperature / temperature;
-
-  return _Rco2 * temperature * (tau * dphiSW_dt(delta, tau) + delta * dphiSW_dd(delta, tau));
-}
-
-void
-CO2FluidProperties::h_dpT(
-    Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const
-{
-  // Require density first
-  Real density = rho(pressure, temperature);
-  // Scale the input density and temperature
-  Real delta = density / _critical_density;
-  Real tau = _critical_temperature / temperature;
-  Real dpdd = dphiSW_dd(delta, tau);
-  Real d2pdd2 = d2phiSW_dd2(delta, tau);
-  Real d2pddt = d2phiSW_ddt(delta, tau);
-
-  h = _Rco2 * temperature * (tau * dphiSW_dt(delta, tau) + delta * dpdd);
-  dh_dp = (dpdd + delta * d2pdd2 + tau * d2pddt) / (density * (2.0 * dpdd + delta * d2pdd2));
-  dh_dT = _Rco2 * delta * dpdd * (1.0 - tau * d2pddt / dpdd) * (1.0 - tau * d2pddt / dpdd) /
-              (2.0 + delta * d2pdd2 / dpdd) -
-          _Rco2 * tau * tau * d2phiSW_dt2(delta, tau);
 }

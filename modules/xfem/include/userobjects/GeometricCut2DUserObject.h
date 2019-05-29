@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef GEOMETRICCUT2DUSEROBJECT_H
-#define GEOMETRICCUT2DUSEROBJECT_H
+#pragma once
 
 #include "GeometricCutUserObject.h"
 
@@ -56,10 +55,9 @@ protected:
    * @param time      Current simulation time
    * @return Current fractional distance
    */
-  Real cutFraction(unsigned int cut_num, Real time) const;
+  virtual Real cutFraction(unsigned int cut_num, Real time) const;
 
   /// Vector of start/end times for each cut segment
   std::vector<std::pair<Real, Real>> _cut_time_ranges;
 };
 
-#endif // GEOMETRICCUT2DUSEROBJECT_H

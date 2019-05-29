@@ -16,6 +16,7 @@
 #include "MooseVariableFE.h"
 #include "MooseArray.h"
 #include "SystemBase.h"
+#include "Assembly.h"
 
 template <>
 InputParameters
@@ -23,6 +24,14 @@ validParams<SubProblem>()
 {
   InputParameters params = validParams<Problem>();
   params.addPrivateParam<MooseMesh *>("mesh");
+
+  params.addParam<bool>(
+      "default_ghosting",
+      false,
+      "Whether or not to use libMesh's default amount of algebraic and geometric ghosting");
+
+  params.addParamNamesToGroup("default_ghosting", "Advanced");
+
   return params;
 }
 
@@ -32,14 +41,23 @@ SubProblem::SubProblem(const InputParameters & parameters)
     _factory(_app.getFactory()),
     _nonlocal_cm(),
     _requires_nonlocal_coupling(false),
+    _default_ghosting(getParam<bool>("default_ghosting")),
     _rz_coord_axis(1), // default to RZ rotation around y-axis
     _currently_computing_jacobian(false),
-    _computing_nonlinear_residual(false)
+    _computing_nonlinear_residual(false),
+    _safe_access_tagged_matrices(false),
+    _safe_access_tagged_vectors(false),
+    _have_ad_objects(false)
 {
   unsigned int n_threads = libMesh::n_threads();
   _active_elemental_moose_variables.resize(n_threads);
   _has_active_elemental_moose_variables.resize(n_threads);
   _active_material_property_ids.resize(n_threads);
+
+  _active_fe_var_coupleable_matrix_tags.resize(n_threads);
+  _active_fe_var_coupleable_vector_tags.resize(n_threads);
+  _active_sc_var_coupleable_matrix_tags.resize(n_threads);
+  _active_sc_var_coupleable_vector_tags.resize(n_threads);
 }
 
 SubProblem::~SubProblem() {}
@@ -140,6 +158,78 @@ TagName
 SubProblem::matrixTagName(TagID tag)
 {
   return _matrix_tag_id_to_tag_name[tag];
+}
+
+void
+SubProblem::setActiveFEVariableCoupleableMatrixTags(std::set<TagID> & mtags, THREAD_ID tid)
+{
+  _active_fe_var_coupleable_matrix_tags[tid] = mtags;
+}
+
+void
+SubProblem::setActiveFEVariableCoupleableVectorTags(std::set<TagID> & vtags, THREAD_ID tid)
+{
+  _active_fe_var_coupleable_vector_tags[tid] = vtags;
+}
+
+void
+SubProblem::clearActiveFEVariableCoupleableVectorTags(THREAD_ID tid)
+{
+  _active_fe_var_coupleable_vector_tags[tid].clear();
+}
+
+void
+SubProblem::clearActiveFEVariableCoupleableMatrixTags(THREAD_ID tid)
+{
+  _active_fe_var_coupleable_matrix_tags[tid].clear();
+}
+
+const std::set<TagID> &
+SubProblem::getActiveFEVariableCoupleableMatrixTags(THREAD_ID tid) const
+{
+  return _active_fe_var_coupleable_matrix_tags[tid];
+}
+
+const std::set<TagID> &
+SubProblem::getActiveFEVariableCoupleableVectorTags(THREAD_ID tid) const
+{
+  return _active_fe_var_coupleable_vector_tags[tid];
+}
+
+void
+SubProblem::setActiveScalarVariableCoupleableMatrixTags(std::set<TagID> & mtags, THREAD_ID tid)
+{
+  _active_sc_var_coupleable_matrix_tags[tid] = mtags;
+}
+
+void
+SubProblem::setActiveScalarVariableCoupleableVectorTags(std::set<TagID> & vtags, THREAD_ID tid)
+{
+  _active_sc_var_coupleable_vector_tags[tid] = vtags;
+}
+
+void
+SubProblem::clearActiveScalarVariableCoupleableVectorTags(THREAD_ID tid)
+{
+  _active_sc_var_coupleable_vector_tags[tid].clear();
+}
+
+void
+SubProblem::clearActiveScalarVariableCoupleableMatrixTags(THREAD_ID tid)
+{
+  _active_sc_var_coupleable_matrix_tags[tid].clear();
+}
+
+const std::set<TagID> &
+SubProblem::getActiveScalarVariableCoupleableMatrixTags(THREAD_ID tid) const
+{
+  return _active_sc_var_coupleable_matrix_tags[tid];
+}
+
+const std::set<TagID> &
+SubProblem::getActiveScalarVariableCoupleableVectorTags(THREAD_ID tid) const
+{
+  return _active_sc_var_coupleable_vector_tags[tid];
 }
 
 void
@@ -578,4 +668,92 @@ SubProblem::getVariableHelper(THREAD_ID tid,
                "Did you specify a vector variable when you meant to specify a standard variable "
                "(or vice-versa)?");
   }
+}
+
+void
+SubProblem::reinitElemFaceRef(const Elem * elem,
+                              unsigned int side,
+                              BoundaryID bnd_id,
+                              Real tolerance,
+                              const std::vector<Point> * const pts,
+                              const std::vector<Real> * const weights,
+                              THREAD_ID tid)
+{
+  // - Set our _current_elem for proper dof index getting in the moose variables
+  // - Reinitialize all of our FE objects so we have current phi, dphi, etc. data
+  // Note that our number of shape functions will reflect the number of shapes associated with the
+  // interior element while the number of quadrature points will be determined by the passed pts
+  // parameter (which presumably will have a number of pts reflective of a facial quadrature rule)
+  assembly(tid).reinitElemFaceRef(elem, side, tolerance, pts, weights);
+
+  // Actually get the dof indices in the moose variables
+  systemBaseNonlinear().prepare(tid);
+  systemBaseAuxiliary().prepare(tid);
+
+  // With the dof indices set in the moose variables, now let's properly size
+  // our local residuals/Jacobians
+  assembly(tid).prepareJacobianBlock();
+  assembly(tid).prepareResidual();
+
+  // Let's finally compute our variable values!
+  systemBaseNonlinear().reinitElemFace(elem, side, bnd_id, tid);
+  systemBaseAuxiliary().reinitElemFace(elem, side, bnd_id, tid);
+}
+
+void
+SubProblem::reinitNeighborFaceRef(const Elem * neighbor_elem,
+                                  unsigned int neighbor_side,
+                                  BoundaryID bnd_id,
+                                  Real tolerance,
+                                  const std::vector<Point> * const pts,
+                                  const std::vector<Real> * const weights,
+                                  THREAD_ID tid)
+{
+  // - Set our _current_neighbor_elem for proper dof index getting in the moose variables
+  // - Reinitialize all of our FE objects so we have current phi, dphi, etc. data
+  // Note that our number of shape functions will reflect the number of shapes associated with the
+  // interior element while the number of quadrature points will be determined by the passed pts
+  // parameter (which presumably will have a number of pts reflective of a facial quadrature rule)
+  assembly(tid).reinitNeighborFaceRef(neighbor_elem, neighbor_side, tolerance, pts, weights);
+
+  // Actually get the dof indices in the moose variables
+  systemBaseNonlinear().prepareNeighbor(tid);
+  systemBaseAuxiliary().prepareNeighbor(tid);
+
+  // With the dof indices set in the moose variables, now let's properly size
+  // our local residuals/Jacobians
+  assembly(tid).prepareNeighbor();
+
+  // Let's finally compute our variable values!
+  systemBaseNonlinear().reinitNeighborFace(neighbor_elem, neighbor_side, bnd_id, tid);
+  systemBaseAuxiliary().reinitNeighborFace(neighbor_elem, neighbor_side, bnd_id, tid);
+}
+
+void
+SubProblem::reinitLowerDElemRef(const Elem * elem,
+                                const std::vector<Point> * const pts,
+                                const std::vector<Real> * const weights,
+                                THREAD_ID tid)
+{
+  // - Set our _current_lower_d_elem for proper dof index getting in the moose variables
+  // - Reinitialize all of our lower-d FE objects so we have current phi, dphi, etc. data
+  assembly(tid).reinitLowerDElemRef(elem, pts, weights);
+
+  // Actually get the dof indices in the moose variables
+  systemBaseNonlinear().prepareLowerD(tid);
+  systemBaseAuxiliary().prepareLowerD(tid);
+
+  // With the dof indices set in the moose variables, now let's properly size
+  // our local residuals/Jacobians
+  assembly(tid).prepareLowerD();
+
+  // Let's finally compute our variable values!
+  systemBaseNonlinear().reinitLowerD(tid);
+  systemBaseAuxiliary().reinitLowerD(tid);
+}
+
+void
+SubProblem::reinitMortarElem(const Elem * elem, THREAD_ID tid)
+{
+  assembly(tid).reinitMortarElem(elem);
 }

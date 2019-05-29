@@ -7,17 +7,19 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef DATAIO_H
-#define DATAIO_H
+#pragma once
 
 // MOOSE includes
+#include "DualReal.h"
 #include "MooseTypes.h"
 #include "HashMap.h"
 #include "MooseError.h"
 #include "Backup.h"
+#include "RankTwoTensor.h"
+#include "RankThreeTensor.h"
+#include "RankFourTensor.h"
+#include "MooseADWrapper.h"
 
-#include "libmesh/vector_value.h"
-#include "libmesh/tensor_value.h"
 #include "libmesh/parallel.h"
 #ifdef LIBMESH_HAVE_CXX11_TYPE_TRAITS
 #include <type_traits>
@@ -33,7 +35,10 @@
 #include <memory>
 
 // Forward declarations
-class ColumnMajorMatrix;
+template <typename>
+class ColumnMajorMatrixTempl;
+typedef ColumnMajorMatrixTempl<Real> ColumnMajorMatrix;
+
 namespace libMesh
 {
 template <typename T>
@@ -42,7 +47,12 @@ template <typename T>
 class DenseMatrix;
 template <typename T>
 class DenseVector;
+template <typename T>
+class VectorValue;
+template <typename T>
+class TensorValue;
 class Elem;
+class Point;
 }
 
 /**
@@ -144,8 +154,8 @@ inline void loadHelper(std::istream & stream, HashMap<P, Q> & data, void * conte
 template <typename T>
 inline void dataStore(std::ostream & stream, T & v, void * /*context*/);
 
-// global store functions
-
+// DO NOT MODIFY THE NEXT LINE - It is used by MOOSEDocs
+// *************** Global Store Declarations *****************
 template <typename T>
 inline void
 dataStore(std::ostream & stream, T & v, void * /*context*/)
@@ -155,7 +165,7 @@ dataStore(std::ostream & stream, T & v, void * /*context*/)
                 "Cannot serialize a class that has virtual "
                 "members!\nWrite a custom dataStore() "
                 "template specialization!\n\n");
-  static_assert(std::is_trivially_copyable<T>::value || std::is_same<T, Point>::value,
+  static_assert(std::is_trivially_copyable<T>::value,
                 "Cannot serialize a class that is not trivially copyable!\nWrite a custom "
                 "dataStore() template specialization!\n\n");
 #endif
@@ -172,6 +182,8 @@ dataStore(std::ostream & /*stream*/, T *& /*v*/, void * /*context*/)
              demangle(typeid(T).name()),
              " *\" as restartable data!\nWrite a custom dataStore() template specialization!\n\n");
 }
+
+void dataStore(std::ostream & stream, Point & p, void * context);
 
 template <typename T, typename U>
 inline void
@@ -316,17 +328,7 @@ void dataStore(std::ostream & stream, Real & v, void * /*context*/);
 template <>
 void dataStore(std::ostream & stream, std::string & v, void * /*context*/);
 template <>
-void dataStore(std::ostream & stream, NumericVector<Real> & v, void * /*context*/);
-template <>
-void dataStore(std::ostream & stream, DenseVector<Real> & v, void * /*context*/);
-template <>
-void dataStore(std::ostream & stream, DenseMatrix<Real> & v, void * /*context*/);
-template <>
 void dataStore(std::ostream & stream, ColumnMajorMatrix & v, void * /*context*/);
-template <>
-void dataStore(std::ostream & stream, RealTensorValue & v, void * /*context*/);
-template <>
-void dataStore(std::ostream & stream, RealVectorValue & v, void * /*context*/);
 template <>
 void dataStore(std::ostream & stream, const Elem *& e, void * context);
 template <>
@@ -339,9 +341,95 @@ template <>
 void dataStore(std::ostream & stream, std::stringstream & s, void * context);
 template <>
 void dataStore(std::ostream & stream, std::stringstream *& s, void * context);
+template <>
+void dataStore(std::ostream & stream, DualReal & dn, void * context);
 
-// global load functions
+template <std::size_t N>
+inline void
+dataStore(std::ostream & stream, DualReal (&dn)[N], void * context)
+{
+  for (std::size_t i = 0; i < N; ++i)
+    dataStore(stream, dn[i], context);
+}
 
+template <typename T>
+void
+dataStore(std::ostream & stream, NumericVector<T> & v, void * context)
+{
+  v.close();
+
+  numeric_index_type size = v.local_size();
+
+  for (numeric_index_type i = v.first_local_index(); i < v.first_local_index() + size; i++)
+  {
+    T r = v(i);
+    dataStore(stream, r, context);
+  }
+}
+
+template <typename T>
+void
+dataStore(std::ostream & stream, DenseVector<T> & v, void * context)
+{
+  unsigned int m = v.size();
+  stream.write((char *)&m, sizeof(m));
+  for (unsigned int i = 0; i < v.size(); i++)
+  {
+    T r = v(i);
+    dataStore(stream, r, context);
+  }
+}
+
+template <typename T>
+void dataStore(std::ostream & stream, TensorValue<T> & v, void * context);
+
+template <typename T>
+void dataStore(std::ostream & stream, DenseMatrix<T> & v, void * context);
+
+template <typename T>
+void dataStore(std::ostream & stream, VectorValue<T> & v, void * context);
+
+template <typename T>
+void
+dataStore(std::ostream & stream, RankTwoTensorTempl<T> & rtt, void * context)
+{
+  dataStore(stream, rtt._coords, context);
+}
+
+template <typename T>
+void
+dataStore(std::ostream & stream, RankThreeTensorTempl<T> & rtt, void * context)
+{
+  dataStore(stream, rtt._vals, context);
+}
+
+template <typename T>
+void
+dataStore(std::ostream & stream, RankFourTensorTempl<T> & rft, void * context)
+{
+  dataStore(stream, rft._vals, context);
+}
+
+template <typename T>
+inline void
+dataStore(std::ostream & stream, MooseADWrapper<T> & dn_wrapper, void * context)
+{
+  dataStore(stream, dn_wrapper.value(), context);
+  if (dn_wrapper._dual_number)
+  {
+    unsigned int m = 1;
+    stream.write((char *)&m, sizeof(m));
+    dataStore(stream, *dn_wrapper._dual_number, context);
+  }
+  else
+  {
+    unsigned int m = 0;
+    stream.write((char *)&m, sizeof(m));
+  }
+}
+
+// DO NOT MODIFY THE NEXT LINE - It is used by MOOSEDocs
+// *************** Global Load Declarations *****************
 template <typename T>
 inline void
 dataLoad(std::istream & stream, T & v, void * /*context*/)
@@ -494,17 +582,7 @@ void dataLoad(std::istream & stream, Real & v, void * /*context*/);
 template <>
 void dataLoad(std::istream & stream, std::string & v, void * /*context*/);
 template <>
-void dataLoad(std::istream & stream, NumericVector<Real> & v, void * /*context*/);
-template <>
-void dataLoad(std::istream & stream, DenseVector<Real> & v, void * /*context*/);
-template <>
-void dataLoad(std::istream & stream, DenseMatrix<Real> & v, void * /*context*/);
-template <>
 void dataLoad(std::istream & stream, ColumnMajorMatrix & v, void * /*context*/);
-template <>
-void dataLoad(std::istream & stream, RealTensorValue & v, void * /*context*/);
-template <>
-void dataLoad(std::istream & stream, RealVectorValue & v, void * /*context*/);
 template <>
 void dataLoad(std::istream & stream, const Elem *& e, void * context);
 template <>
@@ -517,6 +595,81 @@ template <>
 void dataLoad(std::istream & stream, std::stringstream & s, void * context);
 template <>
 void dataLoad(std::istream & stream, std::stringstream *& s, void * context);
+template <>
+void dataLoad(std::istream & stream, DualReal & dn, void * context);
+
+template <typename T>
+void
+dataLoad(std::istream & stream, NumericVector<T> & v, void * context)
+{
+  numeric_index_type size = v.local_size();
+  for (numeric_index_type i = v.first_local_index(); i < v.first_local_index() + size; i++)
+  {
+    T r = 0;
+    dataLoad(stream, r, context);
+    v.set(i, r);
+  }
+  v.close();
+}
+
+template <typename T>
+void
+dataLoad(std::istream & stream, DenseVector<T> & v, void * context)
+{
+  unsigned int n = 0;
+  stream.read((char *)&n, sizeof(n));
+  v.resize(n);
+  for (unsigned int i = 0; i < n; i++)
+  {
+    T r = 0;
+    dataLoad(stream, r, context);
+    v(i) = r;
+  }
+}
+
+template <typename T>
+void dataLoad(std::istream & stream, TensorValue<T> & v, void * context);
+
+template <typename T>
+void dataLoad(std::istream & stream, DenseMatrix<T> & v, void * context);
+
+template <typename T>
+void dataLoad(std::istream & stream, VectorValue<T> & v, void * context);
+
+template <typename T>
+void
+dataLoad(std::istream & stream, RankTwoTensorTempl<T> & rtt, void * context)
+{
+  dataLoad(stream, rtt._coords, context);
+}
+
+template <typename T>
+void
+dataLoad(std::istream & stream, RankThreeTensorTempl<T> & rtt, void * context)
+{
+  dataLoad(stream, rtt._vals, context);
+}
+
+template <typename T>
+void
+dataLoad(std::istream & stream, RankFourTensorTempl<T> & rft, void * context)
+{
+  dataLoad(stream, rft._vals, context);
+}
+
+template <typename T>
+inline void
+dataLoad(std::istream & stream, MooseADWrapper<T> & dn_wrapper, void * context)
+{
+  dataLoad(stream, dn_wrapper.value(), context);
+  unsigned int n = 0;
+  stream.read((char *)&n, sizeof(n));
+  if (n)
+  {
+    dn_wrapper._dual_number = libmesh_make_unique<typename MooseADWrapper<T>::DNType>();
+    dataLoad(stream, *dn_wrapper._dual_number, context);
+  }
+}
 
 // Scalar Helper Function
 template <typename P>
@@ -667,6 +820,8 @@ dataLoad(std::istream & stream, Backup *& backup, void * context)
     dataLoad(stream, backup->_restartable_data[i], context);
 }
 
+void dataLoad(std::istream & stream, Point & p, void * context);
+
 /**
  * The following methods are specializations for using the libMesh::Parallel::packed_range_*
  * routines
@@ -737,4 +892,3 @@ public:
 
 } // namespace libMesh
 
-#endif /* DATAIO_H */

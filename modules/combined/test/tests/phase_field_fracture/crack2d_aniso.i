@@ -1,8 +1,9 @@
+#This input uses PhaseField-Nonconserved Action to add phase field fracture bulk rate kernels
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 20
-  ny = 10
+  nx = 40
+  ny = 20
   ymax = 0.5
 []
 
@@ -19,29 +20,23 @@
   displacements = 'disp_x disp_y'
 []
 
-[Variables]
-  [./disp_x]
-  [../]
-  [./disp_y]
-  [../]
-[]
-
 [Modules]
   [./TensorMechanics]
     [./Master]
       [./All]
         add_variables = true
         strain = SMALL
-        additional_generate_output = stress_yy
+        additional_generate_output = 'strain_yy stress_yy'
+        planar_formulation = PLANE_STRAIN
       [../]
     [../]
   [../]
   [./PhaseField]
     [./Nonconserved]
       [./c]
-        free_energy = E_el
-        mobility = L
+        free_energy = F
         kappa = kappa_op
+        mobility = L
       [../]
     [../]
   [../]
@@ -59,6 +54,12 @@
     variable = disp_y
     component = 1
     c = c
+  [../]
+  [./off_disp]
+    type = AllenCahnElasticEnergyOffDiag
+    variable = c
+    displacements = 'disp_x disp_y'
+    mob_name = L
   [../]
 []
 
@@ -78,7 +79,7 @@
   [./xfix]
     type = PresetBC
     variable = disp_x
-    boundary = top
+    boundary = right
     value = 0
   [../]
 []
@@ -87,13 +88,21 @@
   [./pfbulkmat]
     type = GenericConstantMaterial
     prop_names = 'gc_prop l visco'
-    prop_values = '1e-3 0.08 1e-4'
+    prop_values = '1e-3 0.05 1e-6'
+  [../]
+  [./elasticity_tensor]
+    type = ComputeElasticityTensor
+    C_ijkl = '127.0 70.8 70.8 127.0 70.8 127.0 73.55 73.55 73.55'
+    fill_method = symmetric9
+    euler_angle_1 = 30
+    euler_angle_2 = 0
+    euler_angle_3 = 0
   [../]
   [./define_mobility]
     type = ParsedMaterial
     material_property_names = 'gc_prop visco'
     f_name = L
-    function = '1/(gc_prop * visco)'
+    function = '1.0/(gc_prop * visco)'
   [../]
   [./define_kappa]
     type = ParsedMaterial
@@ -101,19 +110,54 @@
     f_name = kappa_op
     function = 'gc_prop * l'
   [../]
-  [./elastic]
+  [./damage_stress]
     type = ComputeLinearElasticPFFractureStress
     c = c
+    E_name = 'elastic_energy'
+    D_name = 'degradation'
+    F_name = 'local_fracture_energy'
+    decomposition_type = stress_spectral
+    use_current_history_variable = true
   [../]
-  [./elasticity_tensor]
-    type = ComputeElasticityTensor
-    C_ijkl = '120.0 80.0'
-    fill_method = symmetric_isotropic
+  [./degradation]
+    type = DerivativeParsedMaterial
+    f_name = degradation
+    args = 'c'
+    function = '(1.0-c)^2*(1.0 - eta) + eta'
+    constant_names       = 'eta'
+    constant_expressions = '1.0e-6'
+    derivative_order = 2
+  [../]
+  [./local_fracture_energy]
+    type = DerivativeParsedMaterial
+    f_name = local_fracture_energy
+    args = 'c'
+    material_property_names = 'gc_prop l'
+    function = 'c^2 * gc_prop / 2 / l'
+    derivative_order = 2
+  [../]
+  [./fracture_driving_energy]
+    type = DerivativeSumMaterial
+    args = c
+    sum_materials = 'elastic_energy local_fracture_energy'
+    derivative_order = 2
+    f_name = F
+  [../]
+[]
+
+[Postprocessors]
+  [./av_stress_yy]
+    type = ElementAverageValue
+    variable = stress_yy
+  [../]
+  [./av_strain_yy]
+    type = SideAverageValue
+    variable = disp_y
+    boundary = top
   [../]
 []
 
 [Preconditioning]
-  active = 'smp'
   [./smp]
     type = SMP
     full = true
@@ -124,19 +168,18 @@
   type = Transient
 
   solve_type = PJFNK
-  petsc_options_iname = '-pc_type -ksp_gmres_restart -sub_ksp_type -sub_pc_type -pc_asm_overlap'
-  petsc_options_value = 'asm      31                  preonly       lu           1'
+  petsc_options_iname = '-pc_type -pc_factor_mat_solving_package'
+  petsc_options_value = 'lu superlu_dist'
 
-  nl_rel_tol = 1e-9
+  nl_rel_tol = 1e-8
   l_tol = 1e-4
   l_max_its = 100
-  nl_max_its = 30
+  nl_max_its = 10
 
   dt = 5e-5
-  num_steps = 1
+  num_steps = 2
 []
 
 [Outputs]
   exodus = true
-  print_perf_log = true
 []

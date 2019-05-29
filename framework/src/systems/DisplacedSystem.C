@@ -10,6 +10,9 @@
 #include "DisplacedSystem.h"
 #include "DisplacedProblem.h"
 
+#include "libmesh/transient_system.h"
+#include "libmesh/explicit_system.h"
+
 DisplacedSystem::DisplacedSystem(DisplacedProblem & problem,
                                  SystemBase & undisplaced_system,
                                  const std::string & name,
@@ -34,4 +37,46 @@ DisplacedSystem::getVector(const std::string & name)
     return _sys.get_vector(name);
   else
     return _undisplaced_system.getVector(name);
+}
+
+void
+DisplacedSystem::addTimeIntegrator(std::shared_ptr<TimeIntegrator> ti)
+{
+  _time_integrator = ti;
+}
+
+NumericVector<Number> &
+DisplacedSystem::solutionOld()
+{
+  return *_sys.old_local_solution;
+}
+
+NumericVector<Number> &
+DisplacedSystem::solutionOlder()
+{
+  return *_sys.older_local_solution;
+}
+
+const NumericVector<Number> &
+DisplacedSystem::solutionOld() const
+{
+  return *_sys.old_local_solution;
+}
+
+const NumericVector<Number> &
+DisplacedSystem::solutionOlder() const
+{
+  return *_sys.older_local_solution;
+}
+
+System &
+DisplacedSystem::system()
+{
+  return _sys;
+}
+
+const System &
+DisplacedSystem::system() const
+{
+  return _sys;
 }

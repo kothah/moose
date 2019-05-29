@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef KERNEL_H
-#define KERNEL_H
+#pragma once
 
 #include "KernelBase.h"
 #include "MooseVariableInterface.h"
@@ -45,6 +44,11 @@ public:
 
   virtual MooseVariable & variable() override { return _var; }
 
+  /**
+   * Compute this Kernel's contribution to the residual at the current quadrature point
+   */
+  virtual Real computeQpResidual() = 0;
+
 protected:
   /// This is a regular kernel so we cast to a regular MooseVariable
   MooseVariable & _var;
@@ -66,12 +70,5 @@ protected:
 
   /// Holds the solution gradient at the current quadrature points
   const VariableGradient & _grad_u;
-
-  /// Time derivative of u
-  const VariableValue & _u_dot;
-
-  /// Derivative of u_dot with respect to u
-  const VariableValue & _du_dot_du;
 };
 
-#endif /* KERNEL_H */

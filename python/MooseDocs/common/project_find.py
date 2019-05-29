@@ -1,8 +1,16 @@
-#pylint:disable=missing-docstring, unused-argument
-import MooseDocs
-from . import exceptions
+#:pylint: disable=missing-docstring
+#* This file is part of the MOOSE framework
+#* https://www.mooseframework.org
+#*
+#* All rights reserved, see COPYRIGHT for full restrictions
+#* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+#*
+#* Licensed under LGPL 2.1, please see LICENSE for details
+#* https://www.gnu.org/licenses/lgpl-2.1.html
 
-def project_find(filename, mincout=None, maxcount=None, exc=exceptions.MooseDocsException):
+import MooseDocs
+
+def project_find(filename):
     """
     Utility for finding files within a project based on 'git ls-files', see MooseDocs.__init__.py.
 

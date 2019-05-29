@@ -7,12 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEPRECONDITIONER_H
-#define MOOSEPRECONDITIONER_H
+#pragma once
 
 // MOOSE includes
 #include "MooseObject.h"
 #include "Restartable.h"
+#include "PerfGraphInterface.h"
 
 // Forward declarations
 class FEProblemBase;
@@ -31,7 +31,7 @@ InputParameters validParams<MoosePreconditioner>();
 /**
  * Base class for MOOSE preconditioners.
  */
-class MoosePreconditioner : public MooseObject, public Restartable
+class MoosePreconditioner : public MooseObject, public Restartable, public PerfGraphInterface
 {
 public:
   MoosePreconditioner(const InputParameters & params);
@@ -53,5 +53,3 @@ protected:
   /// Subproblem this preconditioner is part of
   FEProblemBase & _fe_problem;
 };
-
-#endif /* MOOSEPRECONDITIONER_H */

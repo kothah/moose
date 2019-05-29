@@ -90,7 +90,7 @@
   [./temperature]
     type = PorousFlowTemperature
   [../]
-  [./ppss_qp]
+  [./ppss]
     type = PorousFlow1PhaseFullySaturated
     porepressure = pp
   [../]
@@ -126,8 +126,6 @@
   [./andy]
     type = SMP
     full = true
-    petsc_options_iname = '-ksp_type -pc_type -snes_atol -snes_rtol -snes_max_it -pc_factor_shift_type'
-    petsc_options_value = 'bcgs lu 1E-15 1E-10 10000 NONZERO'
   [../]
 []
 

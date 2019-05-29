@@ -7,14 +7,17 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MULTIAPPNEARESTNODETRANSFER_H
-#define MULTIAPPNEARESTNODETRANSFER_H
+#pragma once
 
 // MOOSE includes
-#include "MultiAppTransfer.h"
+#include "MultiAppFieldTransfer.h"
 
 // Forward declarations
 class MultiAppNearestNodeTransfer;
+namespace libMesh
+{
+class DofObject;
+}
 
 template <>
 InputParameters validParams<MultiAppNearestNodeTransfer>();
@@ -22,12 +25,10 @@ InputParameters validParams<MultiAppNearestNodeTransfer>();
 /**
  * Copy the value to the target domain from the nearest node in the source domain.
  */
-class MultiAppNearestNodeTransfer : public MultiAppTransfer
+class MultiAppNearestNodeTransfer : public MultiAppFieldTransfer
 {
 public:
   MultiAppNearestNodeTransfer(const InputParameters & parameters);
-
-  virtual void initialSetup() override;
 
   virtual void execute() override;
 
@@ -50,7 +51,7 @@ protected:
    * @return The maximum distance between the point p and the eight corners of
    * the bounding box bbox.
    */
-  Real bboxMaxDistance(Point p, BoundingBox bbox);
+  Real bboxMaxDistance(const Point & p, const BoundingBox & bbox);
 
   /**
    * Return the distance between the given point and the nearest corner of the
@@ -60,12 +61,11 @@ protected:
    * @return The minimum distance between the point p and the eight corners of
    * the bounding box bbox.
    */
-  Real bboxMinDistance(Point p, BoundingBox bbox);
+  Real bboxMinDistance(const Point & p, const BoundingBox & bbox);
 
-  void getLocalNodes(MooseMesh * mesh, std::vector<Node *> & local_nodes);
-
-  AuxVariableName _to_var_name;
-  VariableName _from_var_name;
+  void getLocalEntities(MooseMesh * mesh,
+                        std::vector<std::pair<Point, DofObject *>> & local_entities,
+                        bool nodal);
 
   /// If true then node connections will be cached
   bool _fixed_meshes;
@@ -84,4 +84,3 @@ protected:
   std::map<dof_id_type, unsigned int> & _cached_qp_inds;
 };
 
-#endif /* MULTIAPPNEARESTNODETRANSFER_H */

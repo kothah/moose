@@ -7,7 +7,17 @@
     mesh_mode = REPLICATED
     issues = "#7885"
     design = "InterfaceKernels/index.md"
-    requirement = "The InterfaceKernel system shall operate with coupled variables in 2D."
+    requirement = "The InterfaceKernel system shall operate with coupled variables in 2D. "
+                  "This uses a penalty implementation that is optimally convergent."
+  [../]
+
+  [./test_dot]
+    type = 'Exodiff'
+    input = 'coupled_value_coupled_flux_dot.i'
+    exodiff = 'coupled_value_coupled_flux_dot_out.e'
+    issues = "#12372"
+    design = "InterfaceKernels/index.md"
+    requirement = "Allow the interface to impose the same time derivative on two neighboring variables. This uses a penalty implementation that is optimally convergent."
   [../]
 
   [./jacobian_test]
@@ -15,6 +25,7 @@
     input = coupled_value_coupled_flux.i
     expect_out = '\nNo errors detected. :-\)\n'
     recover = false
+    petsc_version = '<3.9.0 || >=3.9.4'
     mesh_mode = REPLICATED
     prereq = test
     issues = "#7437"
@@ -30,8 +41,18 @@
     input = 'coupled_value_coupled_flux.i'
     cli_args = 'Preconditioning/smp/type=FDP'
     issues = '#10375'
-    design = 'Preconditioning/FDP.md'
+    design = '/FiniteDifferencePreconditioner.md'
     requirement = 'The finite difference preconditioner shall work in parallel.'
     allow_warnings = true
   [../]
+
+  [./vector_2d]
+    type = 'Exodiff'
+    input = 'vector_2d.i'
+    exodiff = 'vector_2d_out.e'
+    mesh_mode = REPLICATED
+    issues = "#13354"
+    design = "InterfaceKernels/index.md"
+    requirement = "The InterfaceKernel system shall support Vector Finite Elements in 2D."
+    [../]
 []

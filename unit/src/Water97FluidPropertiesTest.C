@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "Water97FluidPropertiesTest.h"
+#include "SinglePhaseFluidPropertiesTestUtils.h"
 
 /**
  * Test that the fluid name is correctly returned
@@ -323,27 +324,27 @@ TEST_F(Water97FluidPropertiesTest, properties)
   T1 = 300.0;
   T2 = 500.0;
 
-  REL_TEST(_fp->rho(p0, T0), 1.0 / 0.00100215168, tol);
-  REL_TEST(_fp->rho(p1, T1), 1.0 / 0.000971180894, tol);
-  REL_TEST(_fp->rho(p2, T2), 1.0 / 0.00120241800, tol);
-  REL_TEST(_fp->h(p0, T0), 115.331273e3, tol);
-  REL_TEST(_fp->h(p1, T1), 184.142828e3, tol);
-  REL_TEST(_fp->h(p2, T2), 975.542239e3, tol);
-  REL_TEST(_fp->e(p0, T0), 112.324818e3, tol);
-  REL_TEST(_fp->e(p1, T1), 106.448356e3, tol);
-  REL_TEST(_fp->e(p2, T2), 971.934985e3, tol);
-  REL_TEST(_fp->s(p0, T0), 0.392294792e3, tol);
-  REL_TEST(_fp->s(p1, T1), 0.368563852e3, tol);
-  REL_TEST(_fp->s(p2, T2), 2.58041912e3, tol);
-  REL_TEST(_fp->cp(p0, T0), 4.17301218e3, tol);
-  REL_TEST(_fp->cp(p1, T1), 4.01008987e3, tol);
-  REL_TEST(_fp->cp(p2, T2), 4.65580682e3, tol);
-  REL_TEST(_fp->c(p0, T0), 1507.73921, tol);
-  REL_TEST(_fp->c(p1, T1), 1634.69054, tol);
-  REL_TEST(_fp->c(p2, T2), 1240.71337, tol);
+  REL_TEST(_fp->rho_from_p_T(p0, T0), 1.0 / 0.00100215168, tol);
+  REL_TEST(_fp->rho_from_p_T(p1, T1), 1.0 / 0.000971180894, tol);
+  REL_TEST(_fp->rho_from_p_T(p2, T2), 1.0 / 0.00120241800, tol);
+  REL_TEST(_fp->h_from_p_T(p0, T0), 115.331273e3, tol);
+  REL_TEST(_fp->h_from_p_T(p1, T1), 184.142828e3, tol);
+  REL_TEST(_fp->h_from_p_T(p2, T2), 975.542239e3, tol);
+  REL_TEST(_fp->e_from_p_T(p0, T0), 112.324818e3, tol);
+  REL_TEST(_fp->e_from_p_T(p1, T1), 106.448356e3, tol);
+  REL_TEST(_fp->e_from_p_T(p2, T2), 971.934985e3, tol);
+  REL_TEST(_fp->s_from_p_T(p0, T0), 0.392294792e3, tol);
+  REL_TEST(_fp->s_from_p_T(p1, T1), 0.368563852e3, tol);
+  REL_TEST(_fp->s_from_p_T(p2, T2), 2.58041912e3, tol);
+  REL_TEST(_fp->cp_from_p_T(p0, T0), 4.17301218e3, tol);
+  REL_TEST(_fp->cp_from_p_T(p1, T1), 4.01008987e3, tol);
+  REL_TEST(_fp->cp_from_p_T(p2, T2), 4.65580682e3, tol);
+  REL_TEST(_fp->c_from_p_T(p0, T0), 1507.73921, tol);
+  REL_TEST(_fp->c_from_p_T(p1, T1), 1634.69054, tol);
+  REL_TEST(_fp->c_from_p_T(p2, T2), 1240.71337, tol);
 
   // Lower tolerance for cv as it is compared with values from NIST
-  REL_TEST(_fp->cv(p0, T0), 4.1207e3, REL_TOL_EXTERNAL_VALUE);
+  REL_TEST(_fp->cv_from_p_T(p0, T0), 4.1207e3, REL_TOL_EXTERNAL_VALUE);
 
   // Region 2 properties
   p0 = 3.5e3;
@@ -353,27 +354,27 @@ TEST_F(Water97FluidPropertiesTest, properties)
   T1 = 700.0;
   T2 = 700.0;
 
-  REL_TEST(_fp->rho(p0, T0), 1.0 / 39.4913866, tol);
-  REL_TEST(_fp->rho(p1, T1), 1.0 / 92.3015898, tol);
-  REL_TEST(_fp->rho(p2, T2), 1.0 / 0.00542946619, tol);
-  REL_TEST(_fp->h(p0, T0), 2549.91145e3, tol);
-  REL_TEST(_fp->h(p1, T1), 3335.68375e3, tol);
-  REL_TEST(_fp->h(p2, T2), 2631.49474e3, tol);
-  REL_TEST(_fp->e(p0, T0), 2411.6916e3, tol);
-  REL_TEST(_fp->e(p1, T1), 3012.62819e3, tol);
-  REL_TEST(_fp->e(p2, T2), 2468.61076e3, tol);
-  REL_TEST(_fp->s(p0, T0), 8.52238967e3, tol);
-  REL_TEST(_fp->s(p1, T1), 10.1749996e3, tol);
-  REL_TEST(_fp->s(p2, T2), 5.17540298e3, tol);
-  REL_TEST(_fp->cp(p0, T0), 1.91300162e3, tol);
-  REL_TEST(_fp->cp(p1, T1), 2.08141274e3, tol);
-  REL_TEST(_fp->cp(p2, T2), 10.3505092e3, tol);
-  REL_TEST(_fp->c(p0, T0), 427.920172, tol);
-  REL_TEST(_fp->c(p1, T1), 644.289068, tol);
-  REL_TEST(_fp->c(p2, T2), 480.386523, tol);
+  REL_TEST(_fp->rho_from_p_T(p0, T0), 1.0 / 39.4913866, tol);
+  REL_TEST(_fp->rho_from_p_T(p1, T1), 1.0 / 92.3015898, tol);
+  REL_TEST(_fp->rho_from_p_T(p2, T2), 1.0 / 0.00542946619, tol);
+  REL_TEST(_fp->h_from_p_T(p0, T0), 2549.91145e3, tol);
+  REL_TEST(_fp->h_from_p_T(p1, T1), 3335.68375e3, tol);
+  REL_TEST(_fp->h_from_p_T(p2, T2), 2631.49474e3, tol);
+  REL_TEST(_fp->e_from_p_T(p0, T0), 2411.6916e3, tol);
+  REL_TEST(_fp->e_from_p_T(p1, T1), 3012.62819e3, tol);
+  REL_TEST(_fp->e_from_p_T(p2, T2), 2468.61076e3, tol);
+  REL_TEST(_fp->s_from_p_T(p0, T0), 8.52238967e3, tol);
+  REL_TEST(_fp->s_from_p_T(p1, T1), 10.1749996e3, tol);
+  REL_TEST(_fp->s_from_p_T(p2, T2), 5.17540298e3, tol);
+  REL_TEST(_fp->cp_from_p_T(p0, T0), 1.91300162e3, tol);
+  REL_TEST(_fp->cp_from_p_T(p1, T1), 2.08141274e3, tol);
+  REL_TEST(_fp->cp_from_p_T(p2, T2), 10.3505092e3, tol);
+  REL_TEST(_fp->c_from_p_T(p0, T0), 427.920172, tol);
+  REL_TEST(_fp->c_from_p_T(p1, T1), 644.289068, tol);
+  REL_TEST(_fp->c_from_p_T(p2, T2), 480.386523, tol);
 
   // Lower tolerance for cv as it is compared with values from NIST
-  REL_TEST(_fp->cv(p0, T0), 1.4415e3, REL_TOL_EXTERNAL_VALUE);
+  REL_TEST(_fp->cv_from_p_T(p0, T0), 1.4415e3, REL_TOL_EXTERNAL_VALUE);
 
   // Region 3 properties
   p0 = 25.5837018e6;
@@ -384,27 +385,27 @@ TEST_F(Water97FluidPropertiesTest, properties)
   T2 = 750.0;
 
   // Note: lower tolerance in this region as density is calculated using backwards equation
-  REL_TEST(_fp->rho(p0, T0), 500.0, 1.0e-5);
-  REL_TEST(_fp->rho(p1, T1), 200.0, 1.0e-5);
-  REL_TEST(_fp->rho(p2, T2), 500.0, 1.0e-5);
-  REL_TEST(_fp->h(p0, T0), 1863.43019e3, 1.0e-5);
-  REL_TEST(_fp->h(p1, T1), 2375.12401e3, 1.0e-5);
-  REL_TEST(_fp->h(p2, T2), 2258.68845e3, 1.0e-5);
-  REL_TEST(_fp->e(p0, T0), 1812.26279e3, 1.0e-5);
-  REL_TEST(_fp->e(p1, T1), 2263.65868e3, 1.0e-5);
-  REL_TEST(_fp->e(p2, T2), 2102.06932e3, 1.0e-5);
-  REL_TEST(_fp->s(p0, T0), 4.05427273e3, 1.0e-5);
-  REL_TEST(_fp->s(p1, T1), 4.85438792e3, 1.0e-5);
-  REL_TEST(_fp->s(p2, T2), 4.46971906e3, 1.0e-5);
-  REL_TEST(_fp->cp(p0, T0), 13.8935717e3, 1.0e-4);
-  REL_TEST(_fp->cp(p1, T1), 44.6579342e3, 1.0e-5);
-  REL_TEST(_fp->cp(p2, T2), 6.34165359e3, 1.0e-5);
-  REL_TEST(_fp->c(p0, T0), 502.005554, 1.0e-5);
-  REL_TEST(_fp->c(p1, T1), 383.444594, 1.0e-5);
-  REL_TEST(_fp->c(p2, T2), 760.696041, 1.0e-5);
+  REL_TEST(_fp->rho_from_p_T(p0, T0), 500.0, 1.0e-5);
+  REL_TEST(_fp->rho_from_p_T(p1, T1), 200.0, 1.0e-5);
+  REL_TEST(_fp->rho_from_p_T(p2, T2), 500.0, 1.0e-5);
+  REL_TEST(_fp->h_from_p_T(p0, T0), 1863.43019e3, 1.0e-5);
+  REL_TEST(_fp->h_from_p_T(p1, T1), 2375.12401e3, 1.0e-5);
+  REL_TEST(_fp->h_from_p_T(p2, T2), 2258.68845e3, 1.0e-5);
+  REL_TEST(_fp->e_from_p_T(p0, T0), 1812.26279e3, 1.0e-5);
+  REL_TEST(_fp->e_from_p_T(p1, T1), 2263.65868e3, 1.0e-5);
+  REL_TEST(_fp->e_from_p_T(p2, T2), 2102.06932e3, 1.0e-5);
+  REL_TEST(_fp->s_from_p_T(p0, T0), 4.05427273e3, 1.0e-5);
+  REL_TEST(_fp->s_from_p_T(p1, T1), 4.85438792e3, 1.0e-5);
+  REL_TEST(_fp->s_from_p_T(p2, T2), 4.46971906e3, 1.0e-5);
+  REL_TEST(_fp->cp_from_p_T(p0, T0), 13.8935717e3, 1.0e-4);
+  REL_TEST(_fp->cp_from_p_T(p1, T1), 44.6579342e3, 1.0e-5);
+  REL_TEST(_fp->cp_from_p_T(p2, T2), 6.34165359e3, 1.0e-5);
+  REL_TEST(_fp->c_from_p_T(p0, T0), 502.005554, 1.0e-5);
+  REL_TEST(_fp->c_from_p_T(p1, T1), 383.444594, 1.0e-5);
+  REL_TEST(_fp->c_from_p_T(p2, T2), 760.696041, 1.0e-5);
 
   // Lower tolerance for cv as it is compared with values from NIST
-  REL_TEST(_fp->cv(p0, T0), 3.1910e3, REL_TOL_EXTERNAL_VALUE);
+  REL_TEST(_fp->cv_from_p_T(p0, T0), 3.1910e3, REL_TOL_EXTERNAL_VALUE);
 
   // Region 5 properties
   p0 = 0.5e6;
@@ -414,27 +415,27 @@ TEST_F(Water97FluidPropertiesTest, properties)
   T1 = 1500.0;
   T2 = 2000.0;
 
-  REL_TEST(_fp->rho(p0, T0), 1.0 / 1.38455090, tol);
-  REL_TEST(_fp->rho(p1, T1), 1.0 / 0.0230761299, tol);
-  REL_TEST(_fp->rho(p2, T2), 1.0 / 0.0311385219, tol);
-  REL_TEST(_fp->h(p0, T0), 5219.76855e3, tol);
-  REL_TEST(_fp->h(p1, T1), 5167.23514e3, tol);
-  REL_TEST(_fp->h(p2, T2), 6571.22604e3, tol);
-  REL_TEST(_fp->e(p0, T0), 4527.4931e3, tol);
-  REL_TEST(_fp->e(p1, T1), 4474.95124e3, tol);
-  REL_TEST(_fp->e(p2, T2), 5637.07038e3, tol);
-  REL_TEST(_fp->s(p0, T0), 9.65408875e3, tol);
-  REL_TEST(_fp->s(p1, T1), 7.72970133e3, tol);
-  REL_TEST(_fp->s(p2, T2), 8.53640523e3, tol);
-  REL_TEST(_fp->cp(p0, T0), 2.61609445e3, tol);
-  REL_TEST(_fp->cp(p1, T1), 2.72724317e3, tol);
-  REL_TEST(_fp->cp(p2, T2), 2.88569882e3, tol);
-  REL_TEST(_fp->c(p0, T0), 917.06869, tol);
-  REL_TEST(_fp->c(p1, T1), 928.548002, tol);
-  REL_TEST(_fp->c(p2, T2), 1067.36948, tol);
+  REL_TEST(_fp->rho_from_p_T(p0, T0), 1.0 / 1.38455090, tol);
+  REL_TEST(_fp->rho_from_p_T(p1, T1), 1.0 / 0.0230761299, tol);
+  REL_TEST(_fp->rho_from_p_T(p2, T2), 1.0 / 0.0311385219, tol);
+  REL_TEST(_fp->h_from_p_T(p0, T0), 5219.76855e3, tol);
+  REL_TEST(_fp->h_from_p_T(p1, T1), 5167.23514e3, tol);
+  REL_TEST(_fp->h_from_p_T(p2, T2), 6571.22604e3, tol);
+  REL_TEST(_fp->e_from_p_T(p0, T0), 4527.4931e3, tol);
+  REL_TEST(_fp->e_from_p_T(p1, T1), 4474.95124e3, tol);
+  REL_TEST(_fp->e_from_p_T(p2, T2), 5637.07038e3, tol);
+  REL_TEST(_fp->s_from_p_T(p0, T0), 9.65408875e3, tol);
+  REL_TEST(_fp->s_from_p_T(p1, T1), 7.72970133e3, tol);
+  REL_TEST(_fp->s_from_p_T(p2, T2), 8.53640523e3, tol);
+  REL_TEST(_fp->cp_from_p_T(p0, T0), 2.61609445e3, tol);
+  REL_TEST(_fp->cp_from_p_T(p1, T1), 2.72724317e3, tol);
+  REL_TEST(_fp->cp_from_p_T(p2, T2), 2.88569882e3, tol);
+  REL_TEST(_fp->c_from_p_T(p0, T0), 917.06869, tol);
+  REL_TEST(_fp->c_from_p_T(p1, T1), 928.548002, tol);
+  REL_TEST(_fp->c_from_p_T(p2, T2), 1067.36948, tol);
 
   // Lower tolerance for cv as it is compared with values from NIST
-  REL_TEST(_fp->cv(p0, T0), 2.1534e3, REL_TOL_EXTERNAL_VALUE);
+  REL_TEST(_fp->cv_from_p_T(p0, T0), 2.1534e3, REL_TOL_EXTERNAL_VALUE);
 
   // Viscosity
   REL_TEST(_fp->mu_from_rho_T(998.0, 298.15), 889.735100e-6, tol);
@@ -449,56 +450,56 @@ TEST_F(Water97FluidPropertiesTest, properties)
   REL_TEST(_fp->mu_from_rho_T(100.0, 1173.15), 47.640433e-6, tol);
   REL_TEST(_fp->mu_from_rho_T(400.0, 1173.15), 64.154608e-6, tol);
 
-  ABS_TEST(_fp->mu(1e6, 298.15), 889.898581797e-6, 2e-8);
-  ABS_TEST(_fp->mu(2e6, 298.15), 889.763899645e-6, 1e-8);
-  ABS_TEST(_fp->mu(1e6, 373.15), 281.825180491e-6, 1e-8);
-  ABS_TEST(_fp->mu(2e6, 373.15), 282.09550632e-6, 1e-8);
-  ABS_TEST(_fp->mu(1e6, 433.15), 170.526801634e-6, 1e-8);
-  ABS_TEST(_fp->mu(2e6, 433.15), 170.780193827e-6, 1e-8);
-  ABS_TEST(_fp->mu(1e6, 873.15), 3.2641885983e-5, 1e-12);
-  ABS_TEST(_fp->mu(2e6, 873.15), 3.26820969808e-5, 1e-12);
-  ABS_TEST(_fp->mu(1e6, 1173.15), 4.42374919686e-5, 1e-12);
-  ABS_TEST(_fp->mu(2e6, 1173.15), 4.42823959629e-5, 1e-12);
+  ABS_TEST(_fp->mu_from_p_T(1e6, 298.15), 889.898581797e-6, 2e-8);
+  ABS_TEST(_fp->mu_from_p_T(2e6, 298.15), 889.763899645e-6, 1e-8);
+  ABS_TEST(_fp->mu_from_p_T(1e6, 373.15), 281.825180491e-6, 1e-8);
+  ABS_TEST(_fp->mu_from_p_T(2e6, 373.15), 282.09550632e-6, 1e-8);
+  ABS_TEST(_fp->mu_from_p_T(1e6, 433.15), 170.526801634e-6, 1e-8);
+  ABS_TEST(_fp->mu_from_p_T(2e6, 433.15), 170.780193827e-6, 1e-8);
+  ABS_TEST(_fp->mu_from_p_T(1e6, 873.15), 3.2641885983e-5, 1e-12);
+  ABS_TEST(_fp->mu_from_p_T(2e6, 873.15), 3.26820969808e-5, 1e-12);
+  ABS_TEST(_fp->mu_from_p_T(1e6, 1173.15), 4.42374919686e-5, 1e-12);
+  ABS_TEST(_fp->mu_from_p_T(2e6, 1173.15), 4.42823959629e-5, 1e-12);
 
   // Thermal conductivity
-  REL_TEST(_fp->k(1.0e6, 323.15), 0.641, 1.0e-4);
-  REL_TEST(_fp->k(20.0e6, 623.15), 0.4541, 1.0e-4);
-  REL_TEST(_fp->k(50.0e6, 773.15), 0.2055, 1.0e-4);
+  REL_TEST(_fp->k_from_p_T(1.0e6, 323.15), 0.641, 1.0e-4);
+  REL_TEST(_fp->k_from_p_T(20.0e6, 623.15), 0.4541, 1.0e-4);
+  REL_TEST(_fp->k_from_p_T(50.0e6, 773.15), 0.2055, 1.0e-4);
 
-  ABS_TEST(_fp->k(1.0e6, 323.15), 0.640972, 5e-7);
-  ABS_TEST(_fp->k(20.0e6, 623.15), 0.454131, 7e-7);
-  ABS_TEST(_fp->k(50.0e6, 773.15), 0.205485, 5e-7);
+  ABS_TEST(_fp->k_from_p_T(1.0e6, 323.15), 0.640972, 5e-7);
+  ABS_TEST(_fp->k_from_p_T(20.0e6, 623.15), 0.454131, 7e-7);
+  ABS_TEST(_fp->k_from_p_T(50.0e6, 773.15), 0.205485, 5e-7);
 
   // Backwards equation T(p,h)
   // Region 1
-  REL_TEST(_fp->temperature_from_ph(3.0e6, 500.0e3), 0.391798509e3, tol);
-  REL_TEST(_fp->temperature_from_ph(80.0e6, 500.0e3), 0.378108626e3, tol);
-  REL_TEST(_fp->temperature_from_ph(80.0e6, 1500.0e3), 0.611041229e3, tol);
+  REL_TEST(_fp->T_from_p_h(3.0e6, 500.0e3), 0.391798509e3, tol);
+  REL_TEST(_fp->T_from_p_h(80.0e6, 500.0e3), 0.378108626e3, tol);
+  REL_TEST(_fp->T_from_p_h(80.0e6, 1500.0e3), 0.611041229e3, tol);
 
   // Region 2 (subregion a)
-  REL_TEST(_fp->temperature_from_ph(1.0e3, 3000.0e3), 0.534433241e3, tol);
-  REL_TEST(_fp->temperature_from_ph(3.0e6, 3000.0e3), 0.575373370e3, tol);
-  REL_TEST(_fp->temperature_from_ph(3.0e6, 4000.0e3), 0.101077577e4, tol);
+  REL_TEST(_fp->T_from_p_h(1.0e3, 3000.0e3), 0.534433241e3, tol);
+  REL_TEST(_fp->T_from_p_h(3.0e6, 3000.0e3), 0.575373370e3, tol);
+  REL_TEST(_fp->T_from_p_h(3.0e6, 4000.0e3), 0.101077577e4, tol);
 
   // Region 2 (subregion b)
-  REL_TEST(_fp->temperature_from_ph(5.0e6, 3500.0e3), 0.801299102e3, tol);
-  REL_TEST(_fp->temperature_from_ph(5.0e6, 4000.0e3), 0.101531583e4, tol);
-  REL_TEST(_fp->temperature_from_ph(25.0e6, 3500.0e3), 0.875279054e3, tol);
+  REL_TEST(_fp->T_from_p_h(5.0e6, 3500.0e3), 0.801299102e3, tol);
+  REL_TEST(_fp->T_from_p_h(5.0e6, 4000.0e3), 0.101531583e4, tol);
+  REL_TEST(_fp->T_from_p_h(25.0e6, 3500.0e3), 0.875279054e3, tol);
 
   // Region 2 (subregion c)
-  REL_TEST(_fp->temperature_from_ph(40.0e6, 2700.0e3), 0.743056411e3, tol);
-  REL_TEST(_fp->temperature_from_ph(60.0e6, 2700.0e3), 0.791137067e3, tol);
-  REL_TEST(_fp->temperature_from_ph(60.0e6, 3200.0e3), 0.882756860e3, tol);
+  REL_TEST(_fp->T_from_p_h(40.0e6, 2700.0e3), 0.743056411e3, tol);
+  REL_TEST(_fp->T_from_p_h(60.0e6, 2700.0e3), 0.791137067e3, tol);
+  REL_TEST(_fp->T_from_p_h(60.0e6, 3200.0e3), 0.882756860e3, tol);
 
   // Region 3 (subregion a)
-  REL_TEST(_fp->temperature_from_ph(20.0e6, 1700.0e3), 0.6293083892e3, tol);
-  REL_TEST(_fp->temperature_from_ph(50.0e6, 2000.0e3), 0.6905718338e3, tol);
-  REL_TEST(_fp->temperature_from_ph(100.0e6, 2100.0e3), 0.7336163014e3, tol);
+  REL_TEST(_fp->T_from_p_h(20.0e6, 1700.0e3), 0.6293083892e3, tol);
+  REL_TEST(_fp->T_from_p_h(50.0e6, 2000.0e3), 0.6905718338e3, tol);
+  REL_TEST(_fp->T_from_p_h(100.0e6, 2100.0e3), 0.7336163014e3, tol);
 
   // Region 3 (subregion b)
-  REL_TEST(_fp->temperature_from_ph(20.0e6, 2500.0e3), 0.6418418053e3, tol);
-  REL_TEST(_fp->temperature_from_ph(50.0e6, 2400.0e3), 0.7351848618e3, tol);
-  REL_TEST(_fp->temperature_from_ph(100.0e6, 2700.0e3), 0.8420460876e3, tol);
+  REL_TEST(_fp->T_from_p_h(20.0e6, 2500.0e3), 0.6418418053e3, tol);
+  REL_TEST(_fp->T_from_p_h(50.0e6, 2400.0e3), 0.7351848618e3, tol);
+  REL_TEST(_fp->T_from_p_h(100.0e6, 2700.0e3), 0.8420460876e3, tol);
 }
 
 /**
@@ -512,23 +513,23 @@ TEST_F(Water97FluidPropertiesTest, derivatives)
   // Region 1
   Real p = 3.0e6;
   Real T = 300.0;
-  DERIV_TEST(_fp->rho, _fp->rho_dpT, p, T, tol);
-  DERIV_TEST(_fp->e, _fp->e_dpT, p, T, tol);
-  DERIV_TEST(_fp->h, _fp->h_dpT, p, T, tol);
+  DERIV_TEST(_fp->rho_from_p_T, p, T, tol);
+  DERIV_TEST(_fp->e_from_p_T, p, T, tol);
+  DERIV_TEST(_fp->h_from_p_T, p, T, tol);
 
   // Region 2
   p = 3.5e3;
   T = 300.0;
-  DERIV_TEST(_fp->rho, _fp->rho_dpT, p, T, tol);
-  DERIV_TEST(_fp->e, _fp->e_dpT, p, T, tol);
-  DERIV_TEST(_fp->h, _fp->h_dpT, p, T, tol);
+  DERIV_TEST(_fp->rho_from_p_T, p, T, tol);
+  DERIV_TEST(_fp->e_from_p_T, p, T, tol);
+  DERIV_TEST(_fp->h_from_p_T, p, T, tol);
 
   // Region 3
   p = 26.0e6;
   T = 650.0;
-  DERIV_TEST(_fp->rho, _fp->rho_dpT, p, T, 1.0e-2);
-  DERIV_TEST(_fp->e, _fp->e_dpT, p, T, 1.0e-2);
-  DERIV_TEST(_fp->h, _fp->h_dpT, p, T, 1.0e-2);
+  DERIV_TEST(_fp->rho_from_p_T, p, T, 1.0e-2);
+  DERIV_TEST(_fp->e_from_p_T, p, T, 1.0e-2);
+  DERIV_TEST(_fp->h_from_p_T, p, T, 1.0e-2);
 
   // Region 4 (saturation curve)
   T = 300.0;
@@ -536,16 +537,16 @@ TEST_F(Water97FluidPropertiesTest, derivatives)
 
   Real dpSat_dT_fd = (_fp->vaporPressure(T + dT) - _fp->vaporPressure(T - dT)) / (2.0 * dT);
   Real pSat = 0.0, dpSat_dT = 0.0;
-  _fp->vaporPressure_dT(T, pSat, dpSat_dT);
+  _fp->vaporPressure(T, pSat, dpSat_dT);
 
   REL_TEST(dpSat_dT, dpSat_dT_fd, 1.0e-6);
 
   // Region 5
   p = 30.0e6;
   T = 1500.0;
-  DERIV_TEST(_fp->rho, _fp->rho_dpT, p, T, tol);
-  DERIV_TEST(_fp->e, _fp->e_dpT, p, T, tol);
-  DERIV_TEST(_fp->h, _fp->h_dpT, p, T, tol);
+  DERIV_TEST(_fp->rho_from_p_T, p, T, tol);
+  DERIV_TEST(_fp->e_from_p_T, p, T, tol);
+  DERIV_TEST(_fp->h_from_p_T, p, T, tol);
 
   // Viscosity
   Real rho = 998.0, drho_dp = 0.0, drho_dT = 0.0;
@@ -555,7 +556,7 @@ TEST_F(Water97FluidPropertiesTest, derivatives)
   Real dmu_drho_fd =
       (_fp->mu_from_rho_T(rho + drho, T) - _fp->mu_from_rho_T(rho - drho, T)) / (2.0 * drho);
   Real mu = 0.0, dmu_drho = 0.0, dmu_dT = 0.0;
-  _fp->mu_drhoT_from_rho_T(rho, T, drho_dT, mu, dmu_drho, dmu_dT);
+  _fp->mu_from_rho_T(rho, T, drho_dT, mu, dmu_drho, dmu_dT);
 
   ABS_TEST(mu, _fp->mu_from_rho_T(rho, T), 1.0e-15);
   REL_TEST(dmu_drho, dmu_drho_fd, 1.0e-6);
@@ -563,10 +564,10 @@ TEST_F(Water97FluidPropertiesTest, derivatives)
   // To properly test derivative wrt temperature, use p and T and calculate density,
   // so that the change in density wrt temperature is included
   p = 1.0e6;
-  _fp->rho_dpT(p, T, rho, drho_dp, drho_dT);
-  _fp->mu_drhoT_from_rho_T(rho, T, drho_dT, mu, dmu_drho, dmu_dT);
-  Real dmu_dT_fd = (_fp->mu_from_rho_T(_fp->rho(p, T + dT), T + dT) -
-                    _fp->mu_from_rho_T(_fp->rho(p, T - dT), T - dT)) /
+  _fp->rho_from_p_T(p, T, rho, drho_dp, drho_dT);
+  _fp->mu_from_rho_T(rho, T, drho_dT, mu, dmu_drho, dmu_dT);
+  Real dmu_dT_fd = (_fp->mu_from_rho_T(_fp->rho_from_p_T(p, T + dT), T + dT) -
+                    _fp->mu_from_rho_T(_fp->rho_from_p_T(p, T - dT), T - dT)) /
                    (2.0 * dT);
 
   REL_TEST(dmu_dT, dmu_dT_fd, 1.0e-6);
@@ -574,11 +575,35 @@ TEST_F(Water97FluidPropertiesTest, derivatives)
   // Check derivative of viscosity wrt pressure
   Real dp = 1.0e1;
 
-  Real dmu_dp_fd = (_fp->mu(p + dp, T) - _fp->mu(p - dp, T)) / (2.0 * dp);
+  Real dmu_dp_fd = (_fp->mu_from_p_T(p + dp, T) - _fp->mu_from_p_T(p - dp, T)) / (2.0 * dp);
   Real dmu_dp = 0.0;
-  _fp->mu_dpT(p, T, mu, dmu_dp, dmu_dT);
+  _fp->mu_from_p_T(p, T, mu, dmu_dp, dmu_dT);
 
   REL_TEST(dmu_dp, dmu_dp_fd, 1.0e-5);
+
+  // Check derivatives of temperature calculated using pressure and enthalpy using AD
+  DualReal adp = 3.0e6;
+  adp.derivatives()[0] = 1.0;
+
+  DualReal adh = 4.0e6;
+  adh.derivatives()[1] = 1.0;
+
+  DualReal adT = _ad_fp->T_from_p_h(adp, adh);
+
+  REL_TEST(adT.value(), 0.101077577e4, 1.0e-8);
+
+  Real dT_dp_fd = (_fp->T_from_p_h(adp.value() + dp, adh.value()) -
+                   _fp->T_from_p_h(adp.value() - dp, adh.value())) /
+                  (2.0 * dp);
+
+  REL_TEST(adT.derivatives()[0], dT_dp_fd, tol);
+
+  const Real dh = 1.0;
+  Real dT_dh_fd = (_fp->T_from_p_h(adp.value(), adh.value() + dh) -
+                   _fp->T_from_p_h(adp.value(), adh.value() - dh)) /
+                  (2.0 * dh);
+
+  REL_TEST(adT.derivatives()[1], dT_dh_fd, tol);
 }
 
 /**
@@ -589,6 +614,36 @@ TEST_F(Water97FluidPropertiesTest, combined)
 {
   const Real p = 1.0e6;
   const Real T = 300.0;
+  const Real tol = REL_TOL_CONSISTENCY;
 
-  combinedProperties(_fp, p, T, REL_TOL_SAVED_VALUE);
+  // Single property methods
+  Real rho, drho_dp, drho_dT;
+  _fp->rho_from_p_T(p, T, rho, drho_dp, drho_dT);
+  Real mu, dmu_dp, dmu_dT;
+  _fp->mu_from_p_T(p, T, mu, dmu_dp, dmu_dT);
+  Real e, de_dp, de_dT;
+  _fp->e_from_p_T(p, T, e, de_dp, de_dT);
+
+  // Combined property methods
+  Real rho2, drho2_dp, drho2_dT, mu2, dmu2_dp, dmu2_dT, e2, de2_dp, de2_dT;
+  _fp->rho_mu_from_p_T(p, T, rho2, mu2);
+
+  ABS_TEST(rho, rho2, tol);
+  ABS_TEST(mu, mu2, tol);
+
+  _fp->rho_mu_from_p_T(p, T, rho2, drho2_dp, drho2_dT, mu2, dmu2_dp, dmu2_dT);
+  ABS_TEST(rho, rho2, tol);
+  ABS_TEST(drho_dp, drho2_dp, tol);
+  ABS_TEST(drho_dT, drho2_dT, tol);
+  ABS_TEST(mu, mu2, tol);
+  ABS_TEST(dmu_dp, dmu2_dp, tol);
+  ABS_TEST(dmu_dT, dmu2_dT, tol);
+
+  _fp->rho_e_from_p_T(p, T, rho2, drho2_dp, drho2_dT, e2, de2_dp, de2_dT);
+  ABS_TEST(rho, rho2, tol);
+  ABS_TEST(drho_dp, drho2_dp, tol);
+  ABS_TEST(drho_dT, drho2_dT, tol);
+  ABS_TEST(e, e2, tol);
+  ABS_TEST(de_dp, de2_dp, tol);
+  ABS_TEST(de_dT, de2_dT, tol);
 }

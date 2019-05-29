@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef DARCYTHERMOMECHAPP_H
-#define DARCYTHERMOMECHAPP_H
+#pragma once
 
 #include "MooseApp.h"
 
@@ -23,7 +22,6 @@ public:
   DarcyThermoMechApp(InputParameters parameters);
 
   static void registerApps();
-  static void associateSyntax(Syntax & syntax, ActionFactory & action_factory);
+  static void registerAll(Factory & factory, ActionFactory & action_factory, Syntax & syntax);
 };
 
-#endif // DARCYTHERMOMECHAPP_H

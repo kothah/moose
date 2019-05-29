@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef DEPENDENCYRESOLVER_H
-#define DEPENDENCYRESOLVER_H
+#pragma once
 
 // MOOSE includes
 #include "Moose.h"
@@ -65,6 +64,18 @@ public:
   void insertDependency(const T & key, const T & value);
 
   /**
+   * Delete a dependency (only the edge) between items in the resolver. If either item is orphaned
+   * due to the deletion of the edge, the items are inserted into the independent items set so they
+   * will still come out when running the resolver.
+   */
+  void deleteDependency(const T & key, const T & value);
+
+  /**
+   * Removes dependencies of the given key. Does not fixup the graph or change indpendent items.
+   */
+  void deleteDependenciesOfKey(const T & key);
+
+  /**
    * Add an independent item to the set
    */
   void addItem(const T & value);
@@ -107,6 +118,11 @@ public:
    */
   bool dependsOn(const std::vector<T> & keys, const T & value);
 
+  /**
+   * Returns a vector of values that the given key depends on
+   */
+  const std::vector<T> & getValues(const T & key);
+
   bool operator()(const T & a, const T & b);
 
 private:
@@ -122,6 +138,9 @@ private:
   /// This is our main data structure a multimap that contains any number of dependencies in a key = value format
   std::multimap<T, T> _depends;
 
+  /// Used to avoid duplicate tracking of identical insertions of dependencies
+  std::set<std::pair<T, T>> _unique_deps;
+
   /// Extra items that need to come out in the sorted list but contain no dependencies
   std::vector<T> _independent_items;
 
@@ -135,6 +154,9 @@ private:
 
   /// The sorted vector (if requested)
   std::vector<T> _ordered_items_vector;
+
+  /// List of values that a given key depends upon
+  std::vector<T> _values_vector;
 };
 
 template <typename T>
@@ -196,12 +218,17 @@ template <typename T>
 void
 DependencyResolver<T>::insertDependency(const T & key, const T & value)
 {
+  auto k = std::make_pair(key, value);
+  if (_unique_deps.count(k) > 0)
+    return;
+  _unique_deps.insert(k);
+
   if (dependsOn(value, key))
   {
     throw CyclicDependencyException<T>(
         "DependencyResolver: attempt to insert dependency will result in cyclic graph", _depends);
   }
-  _depends.insert(std::make_pair(key, value));
+  _depends.insert(k);
   if (std::find(_ordering_vector.begin(), _ordering_vector.end(), key) == _ordering_vector.end())
     _ordering_vector.push_back(key);
   if (std::find(_ordering_vector.begin(), _ordering_vector.end(), value) == _ordering_vector.end())
@@ -210,9 +237,53 @@ DependencyResolver<T>::insertDependency(const T & key, const T & value)
 
 template <typename T>
 void
+DependencyResolver<T>::deleteDependency(const T & key, const T & value)
+{
+  std::pair<const int, int> k = std::make_pair(key, value);
+  _unique_deps.erase(k);
+
+  // We don't want to remove every entry in the multimap with this key. We need to find the exact
+  // entry (e.g. the key/value pair).
+  auto eq_range = _depends.equal_range(key);
+  for (auto it = eq_range.first; it != eq_range.second; ++it)
+    if (*it == k)
+    {
+      _depends.erase(it);
+      break;
+    }
+
+  // Now that we've removed the dependency, we need to see if either one of the items is orphaned.
+  // If it is, we'll need to add those items to the independent set.
+  if (_depends.find(key) == _depends.end())
+    addItem(key);
+
+  bool found = false;
+  for (auto pair_it : _depends)
+    if (pair_it.second == value)
+    {
+      found = true;
+      break;
+    }
+
+  if (!found)
+    addItem(value);
+}
+
+template <typename T>
+void
+DependencyResolver<T>::deleteDependenciesOfKey(const T & key)
+{
+  auto eq_range = _depends.equal_range(key);
+  _depends.erase(eq_range.first, eq_range.second);
+}
+
+template <typename T>
+void
 DependencyResolver<T>::addItem(const T & value)
 {
-  _independent_items.push_back(value);
+  if (std::find(_independent_items.begin(), _independent_items.end(), value) ==
+      _independent_items.end())
+    _independent_items.push_back(value);
   if (std::find(_ordering_vector.begin(), _ordering_vector.end(), value) == _ordering_vector.end())
     _ordering_vector.push_back(value);
 }
@@ -226,6 +297,7 @@ DependencyResolver<T>::clear()
   _ordering_vector.clear();
   _ordered_items.clear();
   _ordered_items_vector.clear();
+  _values_vector.clear();
 }
 
 template <typename T>
@@ -286,7 +358,7 @@ DependencyResolver<T>::getSortedValuesSets()
   _ordered_items.clear();
 
   // Put the independent items into the first set in _ordered_items
-  std::vector<T> next_set(_independent_items);
+  std::vector<T> next_set(_independent_items.begin(), _independent_items.end());
 
   /* Topological Sort */
   while (!depends.empty())
@@ -344,8 +416,7 @@ DependencyResolver<T>::getSortedValuesSets()
     {
 
       /* If the last set difference was empty but there are still items that haven't come out then
-       * there is
-       * a cyclic dependency somewhere in the map
+       * there is a cyclic dependency somewhere in the map.
        */
       if (!depends.empty())
       {
@@ -396,9 +467,8 @@ DependencyResolver<T>::dependsOn(const T & key, const T & value)
     return true;
 
   // recursively call dependsOn on all the things that key depends on
-  std::pair<typename std::multimap<T, T>::iterator, typename std::multimap<T, T>::iterator> ret;
-  ret = _depends.equal_range(key);
-  for (typename std::multimap<T, T>::iterator it = ret.first; it != ret.second; ++it)
+  auto ret = _depends.equal_range(key);
+  for (auto it = ret.first; it != ret.second; ++it)
     if (dependsOn(it->second, value))
       return true;
 
@@ -420,16 +490,28 @@ DependencyResolver<T>::dependsOn(const std::vector<T> & keys, const T & value)
 }
 
 template <typename T>
+const std::vector<T> &
+DependencyResolver<T>::getValues(const T & key)
+{
+  _values_vector.clear();
+
+  auto ret = _depends.equal_range(key);
+
+  for (auto it = ret.first; it != ret.second; ++it)
+    _values_vector.push_back(it->second);
+
+  return _values_vector;
+}
+
+template <typename T>
 bool
 DependencyResolver<T>::operator()(const T & a, const T & b)
 {
   if (_ordered_items_vector.empty())
     getSortedValues();
 
-  typename std::vector<T>::const_iterator a_it =
-      std::find(_ordered_items_vector.begin(), _ordered_items_vector.end(), a);
-  typename std::vector<T>::const_iterator b_it =
-      std::find(_ordered_items_vector.begin(), _ordered_items_vector.end(), b);
+  auto a_it = std::find(_ordered_items_vector.begin(), _ordered_items_vector.end(), a);
+  auto b_it = std::find(_ordered_items_vector.begin(), _ordered_items_vector.end(), b);
 
   /**
    * It's possible that a and/or b are not in the resolver in which case
@@ -451,4 +533,3 @@ DependencyResolver<T>::operator()(const T & a, const T & b)
     return a_it < b_it;
 }
 
-#endif // DEPENDENCYRESOLVER_H

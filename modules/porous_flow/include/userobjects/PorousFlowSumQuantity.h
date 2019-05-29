@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWSUMQUANTITY_H
-#define POROUSFLOWSUMQUANTITY_H
+#pragma once
 
 #include "GeneralUserObject.h"
 
@@ -30,30 +29,29 @@ public:
   PorousFlowSumQuantity(const InputParameters & parameters);
   virtual ~PorousFlowSumQuantity();
 
-  /// sets _total = 0
+  /// Sets _total = 0
   void zero();
 
   /**
-   * adds contrib to _total
+   * Adds contrib to _total
    * @param contrib the amount to add to _total
    */
   void add(Real contrib);
 
-  /// does nothing
+  /// Does nothing
   virtual void initialize() override;
 
-  /// does nothing
+  /// Does nothing
   virtual void execute() override;
 
-  /// does MPI gather on _total
+  /// Does MPI gather on _total
   virtual void finalize() override;
 
-  /// returns _total
+  /// Returns _total
   virtual Real getValue() const;
 
 protected:
-  /// this holds the sum
+  /// This holds the sum
   Real _total;
 };
 
-#endif /* POROUSFLOWSUMQUANTITY_H */

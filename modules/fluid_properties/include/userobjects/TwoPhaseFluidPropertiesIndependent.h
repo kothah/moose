@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TWOPHASEFLUIDPROPERTIESINDEPENDENT_H
-#define TWOPHASEFLUIDPROPERTIESINDEPENDENT_H
+#pragma once
 
 #include "TwoPhaseFluidProperties.h"
 
@@ -32,6 +31,8 @@ public:
   virtual Real p_sat(Real T) const override;
   virtual Real dT_sat_dp(Real p) const override;
 
+  virtual bool supportsPhaseChange() const override { return false; }
+
   /**
    * Calls \c mooseError with a message saying that this class cannot call
    * 2-phase fluid properties.
@@ -39,4 +40,3 @@ public:
   [[noreturn]] void throwNotImplementedError() const;
 };
 
-#endif /* TWOPHASEFLUIDPROPERTIESINDEPENDENT_H */

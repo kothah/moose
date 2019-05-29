@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWPROPERTYAUX_H
-#define POROUSFLOWPROPERTYAUX_H
+#pragma once
 
 #include "AuxKernel.h"
 #include "PorousFlowDictator.h"
@@ -21,7 +20,8 @@ InputParameters validParams<PorousFlowPropertyAux>();
 /**
  * Provides a simple interface to PorousFlow material properties.
  * Note that as all properties are in materials, only elemental
- * AuxVariables can be used
+ * AuxVariables can be used and as such, all properties are evaluated
+ * at the qps only
  */
 class PorousFlowPropertyAux : public AuxKernel
 {
@@ -29,19 +29,19 @@ public:
   PorousFlowPropertyAux(const InputParameters & parameters);
 
 protected:
-  virtual Real computeValue();
+  virtual Real computeValue() override;
 
 private:
-  /// Pressure of each phase (at the qps)
+  /// Pressure of each phase
   const MaterialProperty<std::vector<Real>> * _pressure;
 
-  /// Saturation of each phase (at the qps)
+  /// Saturation of each phase
   const MaterialProperty<std::vector<Real>> * _saturation;
 
-  /// Temperature of the fluid (at the qps)
+  /// Temperature of the fluid
   const MaterialProperty<Real> * _temperature;
 
-  /// Fluid density of each phase (at the qps)
+  /// Fluid density of each phase
   const MaterialProperty<std::vector<Real>> * _fluid_density;
 
   /// Viscosity of each phase
@@ -68,10 +68,16 @@ private:
   /// Mineral-species reacion rate
   const MaterialProperty<std::vector<Real>> * _mineral_reaction_rate;
 
-  /// PorousFlow Dictator UserObject
+  /// Porosity of the media
+  const MaterialProperty<Real> * _porosity;
+
+  /// Permeability of the media
+  const MaterialProperty<RealTensorValue> * _permeability;
+
+  /// PorousFlowDictator UserObject
   const PorousFlowDictator & _dictator;
 
-  /// enum of properties
+  /// Enum of properties
   const enum class PropertyEnum {
     PRESSURE,
     SATURATION,
@@ -80,15 +86,24 @@ private:
     VISCOSITY,
     MASS_FRACTION,
     RELPERM,
+    CAPILLARY_PRESSURE,
     ENTHALPY,
     INTERNAL_ENERGY,
     SECONDARY_CONCENTRATION,
     MINERAL_CONCENTRATION,
-    MINERAL_REACTION_RATE
+    MINERAL_REACTION_RATE,
+    POROSITY,
+    PERMEABILITY
   } _property_enum;
 
   /// Phase index
   const unsigned int _phase;
+
+  /// Liquid phase index
+  const unsigned int _liquid_phase;
+
+  /// Gas phase index
+  const unsigned int _gas_phase;
 
   /// Fluid component index
   const unsigned int _fluid_component;
@@ -98,6 +113,9 @@ private:
 
   /// Mineral species number
   const unsigned int _mineral_species;
+
+  /// Permeability tensor row and column
+  const unsigned int _k_row;
+  const unsigned int _k_col;
 };
 
-#endif // POROUSFLOWPROPERTYAUX_H

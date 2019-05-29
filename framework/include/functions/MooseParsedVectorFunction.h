@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEPARSEDVECTORFUNCTION_H
-#define MOOSEPARSEDVECTORFUNCTION_H
+#pragma once
 
 // MOOSE includes
 #include "Function.h"
@@ -35,13 +34,20 @@ public:
 
   virtual RealVectorValue vectorValue(Real t, const Point & p) override;
 
+  virtual RealVectorValue vectorCurl(Real t, const Point & p) override;
+
   virtual RealGradient gradient(Real t, const Point & p) override;
 
   virtual void initialSetup() override;
 
 protected:
-  /// Storage for gradient input function(s), in format ready for libMesh
+  /// Storage for gradient, vector input function(s), in format ready for libMesh
   std::string _vector_value;
+
+  /// Storage for gradient, curl input function(s), in format ready for libMesh
+  std::string _curl_value;
+
+  /// Pointer to the Parsed function wrapper object for the curl
+  std::unique_ptr<MooseParsedFunctionWrapper> _curl_function_ptr;
 };
 
-#endif // MOOSEPARSEDVECTORFUNCTION_H

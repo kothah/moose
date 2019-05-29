@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEOBJECTWAREHOUSEBASE_H
-#define MOOSEOBJECTWAREHOUSEBASE_H
+#pragma once
 
 // MOOSE includes
 #include "DependencyResolverInterface.h"
@@ -87,6 +86,7 @@ public:
   /**
    * Convenience functions for determining if objects exist.
    */
+  bool hasObjects(THREAD_ID tid = 0) const;
   bool hasActiveObjects(THREAD_ID tid = 0) const;
   bool hasActiveBlockObjects(THREAD_ID tid = 0) const;
   bool hasActiveBlockObjects(SubdomainID id, THREAD_ID tid = 0) const;
@@ -104,6 +104,7 @@ public:
    * Convenience functions for checking/getting specific objects
    */
   bool hasActiveObject(const std::string & name, THREAD_ID tid = 0) const;
+  std::shared_ptr<T> getObject(const std::string & name, THREAD_ID tid = 0) const;
   std::shared_ptr<T> getActiveObject(const std::string & name, THREAD_ID tid = 0) const;
   ///@}
 
@@ -402,6 +403,14 @@ MooseObjectWarehouseBase<T>::getActiveBlockObjects(SubdomainID id, THREAD_ID tid
 
 template <typename T>
 bool
+MooseObjectWarehouseBase<T>::hasObjects(THREAD_ID tid /* = 0*/) const
+{
+  checkThreadID(tid);
+  return !_all_objects[tid].empty();
+}
+
+template <typename T>
+bool
 MooseObjectWarehouseBase<T>::hasActiveObjects(THREAD_ID tid /* = 0*/) const
 {
   checkThreadID(tid);
@@ -457,6 +466,17 @@ MooseObjectWarehouseBase<T>::hasActiveObject(const std::string & name, THREAD_ID
     if (object->name() == name)
       return true;
   return false;
+}
+
+template <typename T>
+std::shared_ptr<T>
+MooseObjectWarehouseBase<T>::getObject(const std::string & name, THREAD_ID tid /* = 0*/) const
+{
+  checkThreadID(tid);
+  for (const auto & object : _all_objects[tid])
+    if (object->name() == name)
+      return object;
+  mooseError("Unable to locate object: ", name, ".");
 }
 
 template <typename T>
@@ -656,10 +676,6 @@ MooseObjectWarehouseBase<T>::sortHelper(std::vector<std::shared_ptr<T>> & object
   if (objects.empty())
     return;
 
-  // Make sure the object is sortable
-  mooseAssert(std::dynamic_pointer_cast<DependencyResolverInterface>(objects[0]),
-              "Objects must inhert from DependencyResolverInterface to be sorted.");
-
   try
   {
     // Sort based on dependencies
@@ -682,4 +698,3 @@ MooseObjectWarehouseBase<T>::checkThreadID(THREAD_ID libmesh_dbg_var(tid)) const
                   << _num_threads << ")");
 }
 
-#endif // MOOSEOBJECTWAREHOUSEBASE_H

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWFULLYSATURATEDMASSTIMEDERIVATIVE_H
-#define POROUSFLOWFULLYSATURATEDMASSTIMEDERIVATIVE_H
+#pragma once
 
 #include "TimeKernel.h"
 #include "PorousFlowDictator.h"
@@ -36,7 +35,7 @@ protected:
   /// Jacobian contribution for the PorousFlow variable pvar
   Real computeQpJac(unsigned int pvar);
 
-  /// PorousFlow UserObject
+  /// PorousFlowDictator UserObject
   const PorousFlowDictator & _dictator;
 
   /// Whether the Variable for this Kernel is a PorousFlow variable
@@ -99,4 +98,3 @@ protected:
   const MaterialProperty<std::vector<RealGradient>> * const _dstrain_rate_dvar;
 };
 
-#endif // POROUSFLOWFULLYSATURATEDMASSTIMEDERIVATIVE_H

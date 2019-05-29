@@ -28,7 +28,7 @@ ProjectMaterialProperties::ProjectMaterialProperties(
     std::vector<std::shared_ptr<MaterialData>> & bnd_material_data,
     MaterialPropertyStorage & material_props,
     MaterialPropertyStorage & bnd_material_props,
-    std::vector<Assembly *> & assembly)
+    std::vector<std::unique_ptr<Assembly>> & assembly)
   : ThreadedElementLoop<ConstElemPointerRange>(fe_problem),
     _refine(refine),
     _fe_problem(fe_problem),
@@ -149,7 +149,7 @@ ProjectMaterialProperties::onInternalSide(const Elem * elem, unsigned int /*side
   {
     for (unsigned int child = 0; child < elem->n_children(); child++)
     {
-      Elem * child_elem = elem->child(child);
+      const Elem * child_elem = elem->child_ptr(child);
 
       for (unsigned int side = 0; side < child_elem->n_sides(); side++)
       {

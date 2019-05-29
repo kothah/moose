@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef FUNCTIONMATERIALPROPERTYDESCRIPTOR_H
-#define FUNCTIONMATERIALPROPERTYDESCRIPTOR_H
+#pragma once
 
 #include "DerivativeMaterialPropertyNameInterface.h"
 #include "Material.h"
@@ -59,7 +58,10 @@ public:
   void setSymbolName(const std::string & n) { _fparser_name = n; };
 
   /// get the property name
-  const std::string getPropertyName() const { return propertyName(_base_name, _derivative_vars); };
+  const std::string getPropertyName() const
+  {
+    return derivativePropertyName(_base_name, _derivative_vars);
+  };
 
   /// get the property reference
   const MaterialProperty<Real> & value() const;
@@ -100,4 +102,3 @@ private:
   MooseObject * _parent;
 };
 
-#endif // FUNCTIONMATERIALPROPERTYDESCRIPTOR_H

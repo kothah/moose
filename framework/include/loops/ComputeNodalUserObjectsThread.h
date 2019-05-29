@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTENODALUserObjectsTHREAD_H
-#define COMPUTENODALUserObjectsTHREAD_H
+#pragma once
 
 #include "ThreadedNodeLoop.h"
 
@@ -21,8 +20,7 @@ class ComputeNodalUserObjectsThread
   : public ThreadedNodeLoop<ConstNodeRange, ConstNodeRange::const_iterator>
 {
 public:
-  ComputeNodalUserObjectsThread(FEProblemBase & fe_problem,
-                                const MooseObjectWarehouse<NodalUserObject> & user_objects);
+  ComputeNodalUserObjectsThread(FEProblemBase & fe_problem, const TheWarehouse::Query & query);
   // Splitting Constructor
   ComputeNodalUserObjectsThread(ComputeNodalUserObjectsThread & x, Threads::split split);
 
@@ -32,9 +30,7 @@ public:
 
   void join(const ComputeNodalUserObjectsThread & /*y*/);
 
-protected:
-  /// Storage for NodalUserObjects (see FEProblemBase::cmputeUserObjects)
-  const MooseObjectWarehouse<NodalUserObject> & _user_objects;
+private:
+  const TheWarehouse::Query _query;
 };
 
-#endif // COMPUTENODALUserObjectsTHREAD_H

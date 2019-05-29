@@ -7,10 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ADDNAVIERSTOKESICSACTION_H
-#define ADDNAVIERSTOKESICSACTION_H
+#pragma once
 
 #include "NSAction.h"
+
+#include "libmesh/vector_value.h"
 
 class AddNavierStokesICsAction;
 
@@ -49,4 +50,3 @@ protected:
   UserObjectName _fp_name;
 };
 
-#endif

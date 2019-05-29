@@ -7,10 +7,9 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef RANKTWOAUX_H
-#define RANKTWOAUX_H
+#pragma once
 
-#include "AuxKernel.h"
+#include "NodalPatchRecovery.h"
 #include "RankTwoTensor.h"
 
 class RankTwoAux;
@@ -24,7 +23,7 @@ class RankTwoAux;
 template <>
 InputParameters validParams<RankTwoAux>();
 
-class RankTwoAux : public AuxKernel
+class RankTwoAux : public NodalPatchRecovery
 {
 public:
   RankTwoAux(const InputParameters & parameters);
@@ -44,4 +43,3 @@ private:
   const unsigned int _selected_qp;
 };
 
-#endif // RANKTWOAUX_H

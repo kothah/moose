@@ -20,20 +20,15 @@
   nz = 2
 []
 
-
 [GlobalParams]
   displacements = 'disp_x disp_y disp_z'
-  order = FIRST
-  family = LAGRANGE
 []
 
 [Variables]
   [./disp_x]
   [../]
-
   [./disp_y]
   [../]
-
   [./disp_z]
   [../]
 []
@@ -124,22 +119,18 @@
 [Materials]
   [./elasticity_tensor]
     type = ComputeIsotropicElasticityTensor
-    block = 0
     youngs_modulus = 2.1e5
     poissons_ratio = 0.3
   [../]
   [./small_strain]
     type = ComputeIncrementalSmallStrain
-    block = 0
     eigenstrain_names = 'eigenstrain1 eigenstrain2'
   [../]
   [./small_stress]
     type = ComputeFiniteStrainElasticStress
-    block = 0
   [../]
   [./thermal_expansion_strain1]
     type = ComputeThermalExpansionEigenstrain
-    block = 0
     stress_free_temperature = 298
     thermal_expansion_coeff = 1.0e-5
     temperature = temp
@@ -147,7 +138,6 @@
   [../]
   [./thermal_expansion_strain2]
     type = ComputeThermalExpansionEigenstrain
-    block = 0
     stress_free_temperature = 298
     thermal_expansion_coeff = 0.3e-5
     temperature = temp
@@ -157,15 +147,7 @@
 
 [Executioner]
   type = Transient
-
-  #Preconditioned JFNK (default)
   solve_type = 'PJFNK'
-
-  petsc_options = '-snes_ksp_ew'
-  petsc_options_iname = '-ksp_gmres_restart'
-  petsc_options_value = '101'
-
-  line_search = 'none'
 
   l_max_its = 50
   nl_max_its = 50
@@ -180,10 +162,9 @@
 []
 
 [Outputs]
- csv = true
- exodus = true
- checkpoint = true
- file_base = multiple_thermal_eigenstrains
+  csv = true
+  exodus = true
+  checkpoint = true
 []
 
 [Postprocessors]

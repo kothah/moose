@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef CRYSTALPLASTICITYSTATEVARIABLE_H
-#define CRYSTALPLASTICITYSTATEVARIABLE_H
+#pragma once
 
 #include "CrystalPlasticityUOBase.h"
 
@@ -25,7 +24,10 @@ class CrystalPlasticityStateVariable : public CrystalPlasticityUOBase
 public:
   CrystalPlasticityStateVariable(const InputParameters & parameters);
 
-  virtual bool updateStateVariable(unsigned int qp, Real dt, std::vector<Real> & val) const;
+  virtual bool updateStateVariable(unsigned int qp,
+                                   Real dt,
+                                   std::vector<Real> & val,
+                                   std::vector<Real> & val_old) const;
   virtual void initSlipSysProps(std::vector<Real> & val, const Point & q_point) const;
 
 protected:
@@ -41,7 +43,6 @@ protected:
   std::vector<const MaterialProperty<std::vector<Real>> *> _mat_prop_state_var_evol_rate_comps;
 
   const MaterialProperty<std::vector<Real>> & _mat_prop_state_var;
-  const MaterialProperty<std::vector<Real>> & _mat_prop_state_var_old;
 
   /// File should contain initial values of the state variable.
   FileName _state_variable_file_name;
@@ -69,4 +70,3 @@ protected:
   std::vector<Real> _scale_factor;
 };
 
-#endif // CRYSTALPLASTICITYSTATEVARIABLE_H

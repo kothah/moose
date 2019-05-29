@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POLYNOMIALFIT_H
-#define POLYNOMIALFIT_H
+#pragma once
 
 #include "LeastSquaresFitBase.h"
 
@@ -33,18 +32,6 @@ public:
 
   virtual Real sample(Real x) override;
 
-  /**
-   * Dump GNUPLOT input files that can be run to show the data points and
-   * function fits
-   */
-  void dumpSampleFile(std::string base_name,
-                      std::string x_label = "X",
-                      std::string y_label = "Y",
-                      float xmin = 0,
-                      float xmax = 0,
-                      float ymin = 0,
-                      float ymax = 0);
-
 protected:
   virtual void fillMatrix() override;
   /// Order of the polynomial
@@ -55,4 +42,3 @@ protected:
   static int _file_number;
 };
 
-#endif // POLYNOMIALFIT_H

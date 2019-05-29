@@ -1,13 +1,15 @@
-/****************************************************************/
-/* MOOSE - Multiphysics Object Oriented Simulation Environment  */
-/*                                                              */
-/*          All contents are licensed under LGPL V2.1           */
-/*             See LICENSE for full restrictions                */
-/****************************************************************/
-#ifndef INERTIALFORCEBEAM_H
-#define INERTIALFORCEBEAM_H
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#include "Kernel.h"
+#pragma once
+
+#include "TimeKernel.h"
 #include "Material.h"
 #include "RankTwoTensor.h"
 
@@ -17,7 +19,7 @@ class InertialForceBeam;
 template <>
 InputParameters validParams<InertialForceBeam>();
 
-class InertialForceBeam : public Kernel
+class InertialForceBeam : public TimeKernel
 {
 public:
   InertialForceBeam(const InputParameters & parameters);
@@ -33,6 +35,15 @@ protected:
   virtual Real computeQpResidual() override { return 0.0; };
 
 private:
+  /// Booleans for validity of params
+  const bool _has_beta;
+  const bool _has_gamma;
+  const bool _has_velocities;
+  const bool _has_rot_velocities;
+  const bool _has_accelerations;
+  const bool _has_rot_accelerations;
+  const bool _has_Ix;
+
   /// Density of the beam
   const MaterialProperty<Real> & _density;
 
@@ -74,6 +85,12 @@ private:
    * i.e., integral of z*dA over the cross-section
    **/
   const VariableValue & _Az;
+
+  /**
+   * Coupled variable for second moment of area of beam in x direction,
+   * i.e., integral of (y^2+z^2)*dA over the cross-section.
+   **/
+  const VariableValue & _Ix;
 
   /**
    * Coupled variable for second moment of area of beam in y direction,
@@ -158,6 +175,15 @@ private:
    * coordinate system
    **/
   RealVectorValue _global_force_0, _global_force_1, _global_moment_0, _global_moment_1;
+
+  /**
+   * Coupled variable for du_dot_du calculated by time integrator
+   **/
+  const VariableValue * _du_dot_du;
+
+  /**
+   * Coupled variable for du_dotdot_du calculated by time integrator
+   **/
+  const VariableValue * _du_dotdot_du;
 };
 
-#endif // INERTIALFORCEBEAM_H

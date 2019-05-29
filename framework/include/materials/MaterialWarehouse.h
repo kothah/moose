@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MATERIALWAREHOUSE_H
-#define MATERIALWAREHOUSE_H
+#pragma once
 
 // MOOSE includes
 #include "MooseObjectWarehouse.h"
@@ -55,11 +54,10 @@ public:
                   THREAD_ID tid = 0);
 
 protected:
-  /// Stroage for neighbor material objects (Block are stored in the base class)
+  /// Storage for neighbor material objects (Block are stored in the base class)
   MooseObjectWarehouse<Material> _neighbor_materials;
 
-  /// Stroage for face material objects (Block are stored in the base class)
+  /// Storage for face material objects (Block are stored in the base class)
   MooseObjectWarehouse<Material> _face_materials;
 };
 
-#endif // MATERIALWAREHOUSE_H

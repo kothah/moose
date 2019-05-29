@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef INTERFACEDIFFUSION_H
-#define INTERFACEDIFFUSION_H
+#pragma once
 
 #include "InterfaceKernel.h"
 
@@ -27,11 +26,10 @@ public:
   InterfaceDiffusion(const InputParameters & parameters);
 
 protected:
-  virtual Real computeQpResidual(Moose::DGResidualType type);
-  virtual Real computeQpJacobian(Moose::DGJacobianType type);
+  virtual Real computeQpResidual(Moose::DGResidualType type) override;
+  virtual Real computeQpJacobian(Moose::DGJacobianType type) override;
 
   const MaterialProperty<Real> & _D;
   const MaterialProperty<Real> & _D_neighbor;
 };
 
-#endif

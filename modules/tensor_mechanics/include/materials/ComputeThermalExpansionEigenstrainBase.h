@@ -7,14 +7,15 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTETHERMALEXPANSIONEIGENSTRAINBASE_H
-#define COMPUTETHERMALEXPANSIONEIGENSTRAINBASE_H
+#pragma once
 
 #include "ComputeEigenstrainBase.h"
 #include "DerivativeMaterialInterface.h"
 
 class ComputeThermalExpansionEigenstrainBase;
-class RankTwoTensor;
+template <typename>
+class RankTwoTensorTempl;
+typedef RankTwoTensorTempl<Real> RankTwoTensor;
 
 template <>
 InputParameters validParams<ComputeThermalExpansionEigenstrainBase>();
@@ -24,7 +25,7 @@ InputParameters validParams<ComputeThermalExpansionEigenstrainBase>();
  * compute eigenstrains due to thermal expansion of a material.
  */
 class ComputeThermalExpansionEigenstrainBase
-    : public DerivativeMaterialInterface<ComputeEigenstrainBase>
+  : public DerivativeMaterialInterface<ComputeEigenstrainBase>
 {
 public:
   ComputeThermalExpansionEigenstrainBase(const InputParameters & parameters);
@@ -48,4 +49,3 @@ protected:
   const VariableValue & _stress_free_temperature;
 };
 
-#endif // COMPUTETHERMALEXPANSIONEIGENSTRAINBASE_H

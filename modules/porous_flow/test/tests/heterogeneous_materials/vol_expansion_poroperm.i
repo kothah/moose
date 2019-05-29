@@ -136,27 +136,27 @@
 
 [AuxKernels]
   [./poromat]
-    type = MaterialRealAux
-    property = PorousFlow_porosity_qp
+    type = PorousFlowPropertyAux
+    property = porosity
     variable = poro
   [../]
   [./perm_x]
-    type = MaterialRealTensorValueAux
-    property = PorousFlow_permeability_qp
+    type = PorousFlowPropertyAux
+    property = permeability
     variable = perm_x
     row = 0
     column = 0
   [../]
   [./perm_y]
-    type = MaterialRealTensorValueAux
-    property = PorousFlow_permeability_qp
+    type = PorousFlowPropertyAux
+    property = permeability
     variable = perm_y
     row = 1
     column = 1
   [../]
   [./perm_z]
-    type = MaterialRealTensorValueAux
-    property = PorousFlow_permeability_qp
+    type = PorousFlowPropertyAux
+    property = permeability
     variable = perm_z
     row = 2
     column = 2
@@ -205,6 +205,7 @@
   [../]
   [./porosity]
     type = PorousFlowPorosity
+    at_nodes = false
     fluid = true
     mechanical = true
     porosity_zero = poro0
@@ -213,6 +214,7 @@
   [../]
   [./permeability]
     type = PorousFlowPermeabilityKozenyCarman
+    at_nodes = false
     k_anisotropy = '1 0 0  0 2 0  0 0 0.1'
     poroperm_function = kozeny_carman_fd2
     f = 0.1

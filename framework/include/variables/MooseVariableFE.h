@@ -7,15 +7,17 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MOOSEVARIABLEFE_H
-#define MOOSEVARIABLEFE_H
+#pragma once
+
+#include "metaphysicl/numberarray.h"
+#include "metaphysicl/dualnumber.h"
 
 #include "MooseTypes.h"
 #include "MooseVariableFEBase.h"
-#include "Assembly.h"
 #include "SubProblem.h"
 #include "SystemBase.h"
 #include "MooseMesh.h"
+#include "MooseVariableData.h"
 
 #include "libmesh/numeric_vector.h"
 #include "libmesh/dof_map.h"
@@ -23,7 +25,8 @@
 #include "libmesh/quadrature.h"
 #include "libmesh/dense_vector.h"
 #include "libmesh/dense_vector.h"
-#include "libmesh/tensor_tools.h"
+
+class TimeIntegrator;
 
 /**
  * Class for stuff related to variables
@@ -33,6 +36,7 @@
 template <typename OutputType>
 class MooseVariableFE : public MooseVariableFEBase
 {
+public:
   typedef OutputType OutputShape;
   typedef OutputType OutputValue;
   typedef typename TensorTools::IncrementRank<OutputShape>::type OutputGradient;
@@ -57,19 +61,19 @@ class MooseVariableFE : public MooseVariableFEBase
   typedef MooseArray<std::vector<OutputShape>> FieldVariableTestCurl;
   typedef MooseArray<std::vector<OutputDivergence>> FieldVariableTestDivergence;
 
-public:
   MooseVariableFE(unsigned int var_num,
                   const FEType & fe_type,
                   SystemBase & sys,
-                  Assembly & assembly,
-                  Moose::VarKindType var_kind);
-  virtual ~MooseVariableFE();
+                  const Assembly & assembly,
+                  Moose::VarKindType var_kind,
+                  THREAD_ID tid);
 
   void clearDofIndices() override;
 
   void prepare() override;
-
   void prepareNeighbor() override;
+  void prepareLowerD() override;
+
   void prepareAux() override;
 
   void reinitNode() override;
@@ -84,355 +88,308 @@ public:
    *
    * Currently hardcoded to true because we always compute the value.
    */
-  bool usesPhi() { return true; }
+  bool usesPhi() const { return true; }
   /**
    * Whether or not this variable is actually using the shape function gradient.
    *
    * Currently hardcoded to true because we always compute the value.
    */
-  bool usesGradPhi() { return true; }
+  bool usesGradPhi() const { return true; }
   /**
    * Whether or not this variable is actually using the shape function value.
    *
    * Currently hardcoded to true because we always compute the value.
    */
-  bool usesPhiNeighbor() { return true; }
+  bool usesPhiNeighbor() const { return true; }
   /**
    * Whether or not this variable is actually using the shape function gradient.
    *
    * Currently hardcoded to true because we always compute the value.
    */
-  bool usesGradPhiNeighbor() { return true; }
+  bool usesGradPhiNeighbor() const { return true; }
   /**
    * Whether or not this variable is computing any second derivatives.
    */
-  bool usesSecondPhi()
-  {
-    return _need_second || _need_second_old || _need_second_older || _need_second_previous_nl;
-  }
+  bool usesSecondPhi() const;
+
   /**
    * Whether or not this variable is actually using the shape function second derivative on a
    * neighbor.
    */
-  bool usesSecondPhiNeighbor()
-  {
-    return _need_second_neighbor || _need_second_old_neighbor || _need_second_older_neighbor;
-  }
+  bool usesSecondPhiNeighbor() const;
+
   /**
    * Whether or not this variable is computing any second derivatives.
    */
-  bool computingSecond() { return usesSecondPhi(); }
+  bool computingSecond() const { return usesSecondPhi(); }
+
   /**
    * Whether or not this variable is computing the curl
    */
-  bool computingCurl() { return _need_curl || _need_curl_old; }
+  bool computingCurl() const;
 
   const std::set<SubdomainID> & activeSubdomains() const override;
   bool activeOnSubdomain(SubdomainID subdomain) const override;
 
-  bool isNodal() const override { return _is_nodal; }
+  bool isNodal() const override { return _element_data->isNodal(); }
   bool isVector() const override;
-  const Node *& node() const { return _node; }
-  virtual dof_id_type & nodalDofIndex() override { return _nodal_dof_index; }
-  bool isNodalDefined() const { return _has_dofs; }
+  const Node * const & node() const { return _element_data->node(); }
+  const dof_id_type & nodalDofIndex() const override { return _element_data->nodalDofIndex(); }
+  bool isNodalDefined() const;
 
-  const Node *& nodeNeighbor() const { return _node_neighbor; }
-  virtual dof_id_type & nodalDofIndexNeighbor() override { return _nodal_dof_index_neighbor; }
-  bool isNodalNeighborDefined() const { return _neighbor_has_dofs; }
+  const Node * const & nodeNeighbor() const { return _neighbor_data->node(); }
+  const dof_id_type & nodalDofIndexNeighbor() const override
+  {
+    return _neighbor_data->nodalDofIndex();
+  }
+  bool isNodalNeighborDefined() const;
 
-  const Elem *& currentElem() const override { return _elem; }
+  const Elem * const & currentElem() const override { return _element_data->currentElem(); }
 
   /**
    * Current side this variable is being evaluated on
    */
-  unsigned int & currentSide() const { return _current_side; }
+  const unsigned int & currentSide() const { return _element_data->currentSide(); }
 
   /**
    * Current neighboring element
    */
-  const Elem *& neighbor() const { return _neighbor; }
+  const Elem * const & neighbor() const { return _neighbor_data->currentElem(); }
 
-  const MooseArray<Point> & normals() const override { return _normals; }
+  virtual void prepareIC() override;
 
-  const DenseVector<Number> & solutionDoFs() override
-  {
-    _need_solution_dofs = true;
-    return _solution_dofs;
-  }
-  const DenseVector<Number> & solutionDoFsOld() override
-  {
-    _need_solution_dofs_old = true;
-    return _solution_dofs_old;
-  }
-  const DenseVector<Number> & solutionDoFsOlder() override
-  {
-    _need_solution_dofs_older = true;
-    return _solution_dofs_older;
-  }
-  const DenseVector<Number> & solutionDoFsNeighbor() override
-  {
-    _need_solution_dofs_neighbor = true;
-    return _solution_dofs_neighbor;
-  }
-  const DenseVector<Number> & solutionDoFsOldNeighbor() override
-  {
-    _need_solution_dofs_old_neighbor = true;
-    return _solution_dofs_old_neighbor;
-  }
-  const DenseVector<Number> & solutionDoFsOlderNeighbor() override
-  {
-    _need_solution_dofs_older_neighbor = true;
-    return _solution_dofs_older_neighbor;
-  }
+  const FieldVariablePhiValue & phi() const { return _element_data->phi(); }
+  const FieldVariablePhiGradient & gradPhi() const { return _element_data->gradPhi(); }
+  const FieldVariablePhiSecond & secondPhi() const;
+  const FieldVariablePhiCurl & curlPhi() const;
 
-  void prepareIC();
+  const FieldVariablePhiValue & phiFace() const { return _element_data->phiFace(); }
+  const FieldVariablePhiGradient & gradPhiFace() const { return _element_data->gradPhiFace(); }
+  const FieldVariablePhiSecond & secondPhiFace() const;
+  const FieldVariablePhiCurl & curlPhiFace() const;
 
-  const FieldVariablePhiValue & phi() { return _phi; }
-  const FieldVariablePhiGradient & gradPhi() { return _grad_phi; }
-  const FieldVariablePhiSecond & secondPhi()
+  const FieldVariablePhiValue & phiNeighbor() const { return _neighbor_data->phi(); }
+  const FieldVariablePhiGradient & gradPhiNeighbor() const { return _neighbor_data->gradPhi(); }
+  const FieldVariablePhiSecond & secondPhiNeighbor() const;
+  const FieldVariablePhiCurl & curlPhiNeighbor() const;
+
+  const FieldVariablePhiValue & phiFaceNeighbor() const { return _neighbor_data->phiFace(); }
+  const FieldVariablePhiGradient & gradPhiFaceNeighbor() const
   {
-    _second_phi = &_assembly.feSecondPhi<OutputType>(_fe_type);
-    return *_second_phi;
+    return _neighbor_data->gradPhiFace();
   }
-  const FieldVariablePhiCurl & curlPhi()
+  const FieldVariablePhiSecond & secondPhiFaceNeighbor() const;
+  const FieldVariablePhiCurl & curlPhiFaceNeighbor() const;
+
+  const FieldVariablePhiValue & phiLower() const { return _lower_data->phi(); }
+  const FieldVariablePhiGradient & gradPhiLower() const { return _lower_data->gradPhi(); }
+
+  template <ComputeStage compute_stage>
+  const typename VariableTestGradientType<OutputType, compute_stage>::type & adGradPhi()
   {
-    _curl_phi = &_assembly.feCurlPhi<OutputType>(_fe_type);
-    return *_curl_phi;
+    return _element_data->template adGradPhi<compute_stage>();
   }
 
-  const FieldVariablePhiValue & phiFace() { return _phi_face; }
-  const FieldVariablePhiGradient & gradPhiFace() { return _grad_phi_face; }
-  const FieldVariablePhiSecond & secondPhiFace()
+  template <ComputeStage compute_stage>
+  const typename VariableTestGradientType<OutputType, compute_stage>::type & adGradPhiFace()
   {
-    _second_phi_face = &_assembly.feSecondPhiFace<OutputType>(_fe_type);
-    return *_second_phi_face;
-  }
-  const FieldVariablePhiCurl & curlPhiFace()
-  {
-    _curl_phi_face = &_assembly.feCurlPhiFace<OutputType>(_fe_type);
-    return *_curl_phi_face;
-  }
-
-  const FieldVariablePhiValue & phiNeighbor() { return _phi_neighbor; }
-  const FieldVariablePhiGradient & gradPhiNeighbor() { return _grad_phi_neighbor; }
-  const FieldVariablePhiSecond & secondPhiNeighbor()
-  {
-    _second_phi_neighbor = &_assembly.feSecondPhiNeighbor<OutputType>(_fe_type);
-    return *_second_phi_neighbor;
-  }
-  const FieldVariablePhiCurl & curlPhiNeighbor()
-  {
-    _curl_phi_neighbor = &_assembly.feCurlPhiNeighbor<OutputType>(_fe_type);
-    return *_curl_phi_neighbor;
-  }
-
-  const FieldVariablePhiValue & phiFaceNeighbor() { return _phi_face_neighbor; }
-  const FieldVariablePhiGradient & gradPhiFaceNeighbor() { return _grad_phi_face_neighbor; }
-  const FieldVariablePhiSecond & secondPhiFaceNeighbor()
-  {
-    _second_phi_face_neighbor = &_assembly.feSecondPhiFaceNeighbor<OutputType>(_fe_type);
-    return *_second_phi_face_neighbor;
-  }
-  const FieldVariablePhiCurl & curlPhiFaceNeighbor()
-  {
-    _curl_phi_face_neighbor = &_assembly.feCurlPhiFaceNeighbor<OutputType>(_fe_type);
-    return *_curl_phi_face_neighbor;
+    return _element_data->template adGradPhiFace<compute_stage>();
   }
 
   // damping
-  FieldVariableValue & increment() { return _increment; }
+  const FieldVariableValue & increment() const { return _element_data->increment(); }
 
-  const FieldVariableValue & sln() { return _u; }
-  const FieldVariableValue & slnOld()
+  const FieldVariableValue & vectorTagValue(TagID tag)
   {
-    _need_u_old = true;
-    return _u_old;
+    return _element_data->vectorTagValue(tag);
   }
-  const FieldVariableValue & slnOlder()
+  const FieldVariableValue & matrixTagValue(TagID tag)
   {
-    _need_u_older = true;
-    return _u_older;
-  }
-  const FieldVariableValue & slnPreviousNL()
-  {
-    _need_u_previous_nl = true;
-    return _u_previous_nl;
-  }
-  const FieldVariableGradient & gradSln() { return _grad_u; }
-  const FieldVariableGradient & gradSlnOld()
-  {
-    _need_grad_old = true;
-    return _grad_u_old;
-  }
-  const FieldVariableGradient & gradSlnOlder()
-  {
-    _need_grad_older = true;
-    return _grad_u_older;
-  }
-  const FieldVariableGradient & gradSlnPreviousNL()
-  {
-    _need_grad_previous_nl = true;
-    return _grad_u_previous_nl;
-  }
-  const FieldVariableGradient & gradSlnDot()
-  {
-    _need_grad_dot = true;
-    return _grad_u_dot;
-  }
-  const FieldVariableSecond & secondSln()
-  {
-    _need_second = true;
-    secondPhi();
-    secondPhiFace();
-    return _second_u;
-  }
-  const FieldVariableSecond & secondSlnOld()
-  {
-    _need_second_old = true;
-    secondPhi();
-    secondPhiFace();
-    return _second_u_old;
-  }
-  const FieldVariableSecond & secondSlnOlder()
-  {
-    _need_second_older = true;
-    secondPhi();
-    secondPhiFace();
-    return _second_u_older;
-  }
-  const FieldVariableSecond & secondSlnPreviousNL()
-  {
-    _need_second_previous_nl = true;
-    secondPhi();
-    secondPhiFace();
-    return _second_u_previous_nl;
-  }
-  const FieldVariableValue & curlSln()
-  {
-    _need_curl = true;
-    return _curl_u;
-  }
-  const FieldVariableValue & curlSlnOld()
-  {
-    _need_curl_old = true;
-    return _curl_u_old;
-  }
-  const FieldVariableValue & curlSlnOlder()
-  {
-    _need_curl_older = true;
-    return _curl_u_older;
+    return _element_data->matrixTagValue(tag);
   }
 
-  const FieldVariableValue & uDot() { return _u_dot; }
-  const VariableValue & duDotDu() { return _du_dot_du; }
+  /// element solutions
+  const FieldVariableValue & sln() const { return _element_data->sln(Moose::Current); }
+  const FieldVariableValue & slnOld() const { return _element_data->sln(Moose::Old); }
+  const FieldVariableValue & slnOlder() const { return _element_data->sln(Moose::Older); }
+  const FieldVariableValue & slnPreviousNL() const { return _element_data->sln(Moose::PreviousNL); }
 
-  const FieldVariableValue & slnNeighbor() { return _u_neighbor; }
-  const FieldVariableValue & slnOldNeighbor()
+  /// element gradients
+  const FieldVariableGradient & gradSln() const { return _element_data->gradSln(Moose::Current); }
+  const FieldVariableGradient & gradSlnOld() const { return _element_data->gradSln(Moose::Old); }
+  const FieldVariableGradient & gradSlnOlder() const
   {
-    _need_u_old_neighbor = true;
-    return _u_old_neighbor;
+    return _element_data->gradSln(Moose::Older);
   }
-  const FieldVariableValue & slnOlderNeighbor()
+  const FieldVariableGradient & gradSlnPreviousNL() const
   {
-    _need_u_older_neighbor = true;
-    return _u_older_neighbor;
-  }
-  const FieldVariableValue & slnPreviousNLNeighbor()
-  {
-    _need_u_previous_nl_neighbor = true;
-    return _u_previous_nl_neighbor;
-  }
-  const FieldVariableGradient & gradSlnNeighbor() { return _grad_u_neighbor; }
-  const FieldVariableGradient & gradSlnOldNeighbor()
-  {
-    _need_grad_old_neighbor = true;
-    return _grad_u_old_neighbor;
-  }
-  const FieldVariableGradient & gradSlnOlderNeighbor()
-  {
-    _need_grad_older_neighbor = true;
-    return _grad_u_older_neighbor;
-  }
-  const FieldVariableGradient & gradSlnPreviousNLNeighbor()
-  {
-    _need_grad_previous_nl_neighbor = true;
-    return _grad_u_previous_nl_neighbor;
-  }
-  const FieldVariableGradient & gradSlnNeighborDot()
-  {
-    _need_grad_neighbor_dot = true;
-    return _grad_u_neighbor_dot;
-  }
-  const FieldVariableSecond & secondSlnNeighbor()
-  {
-    _need_second_neighbor = true;
-    secondPhiFaceNeighbor();
-    return _second_u_neighbor;
-  }
-  const FieldVariableSecond & secondSlnOldNeighbor()
-  {
-    _need_second_old_neighbor = true;
-    secondPhiFaceNeighbor();
-    return _second_u_old_neighbor;
-  }
-  const FieldVariableSecond & secondSlnOlderNeighbor()
-  {
-    _need_second_older_neighbor = true;
-    secondPhiFaceNeighbor();
-    return _second_u_older_neighbor;
-  }
-  const FieldVariableSecond & secondSlnPreviousNLNeighbor()
-  {
-    _need_second_previous_nl_neighbor = true;
-    secondPhiFaceNeighbor();
-    return _second_u_previous_nl_neighbor;
+    return _element_data->gradSln(Moose::PreviousNL);
   }
 
-  const FieldVariableCurl & curlSlnNeighbor()
+  /// element gradient dots
+  const FieldVariableGradient & gradSlnDot() const { return _element_data->gradSlnDot(); }
+  const FieldVariableGradient & gradSlnDotDot() const { return _element_data->gradSlnDotDot(); }
+
+  /// element seconds
+  const FieldVariableSecond & secondSln() const { return _element_data->secondSln(Moose::Current); }
+  const FieldVariableSecond & secondSlnOld() const { return _element_data->secondSln(Moose::Old); }
+  const FieldVariableSecond & secondSlnOlder() const
   {
-    _need_curl_neighbor = true;
-    curlPhiFaceNeighbor();
-    return _curl_u_neighbor;
+    return _element_data->secondSln(Moose::Older);
   }
-  const FieldVariableCurl & curlSlnOldNeighbor()
+  const FieldVariableSecond & secondSlnPreviousNL() const
   {
-    _need_curl_old_neighbor = true;
-    curlPhiFaceNeighbor();
-    return _curl_u_old_neighbor;
-  }
-  const FieldVariableCurl & curlSlnOlderNeighbor()
-  {
-    _need_curl_older_neighbor = true;
-    curlPhiFaceNeighbor();
-    return _curl_u_older_neighbor;
+    return _element_data->secondSln(Moose::PreviousNL);
   }
 
-  const FieldVariableValue & uDotNeighbor() { return _u_dot_neighbor; }
-  const VariableValue & duDotDuNeighbor() { return _du_dot_du_neighbor; }
+  /// element curls
+  const FieldVariableCurl & curlSln() const { return _element_data->curlSln(Moose::Current); }
+  const FieldVariableCurl & curlSlnOld() const { return _element_data->curlSln(Moose::Old); }
+  const FieldVariableCurl & curlSlnOlder() const { return _element_data->curlSln(Moose::Older); }
 
-  /**
-   * Helper function for computing values
-   */
-  virtual void computeValuesHelper(QBase *& qrule,
-                                   const FieldVariablePhiValue & phi,
-                                   const FieldVariablePhiGradient & grad_phi,
-                                   const FieldVariablePhiSecond *& second_phi,
-                                   const FieldVariablePhiCurl *& curl_phi);
+  /// AD
+  template <ComputeStage compute_stage>
+  const typename VariableValueType<OutputType, compute_stage>::type & adSln() const
+  {
+    return _element_data->template adSln<compute_stage>();
+  }
+  template <ComputeStage compute_stage>
+  const typename VariableGradientType<OutputType, compute_stage>::type & adGradSln() const
+  {
+    return _element_data->template adGradSln<compute_stage>();
+  }
+  template <ComputeStage compute_stage>
+  const typename VariableSecondType<OutputType, compute_stage>::type & adSecondSln() const
+  {
+    return _element_data->template adSecondSln<compute_stage>();
+  }
+  template <ComputeStage compute_stage>
+  const typename VariableValueType<OutputType, compute_stage>::type & adUDot() const
+  {
+    return _element_data->template adUDot<compute_stage>();
+  }
 
-  /**
-   * Helper function for computing values
-   */
-  virtual void computeNeighborValuesHelper(QBase *& qrule,
-                                           const FieldVariablePhiValue & phi,
-                                           const FieldVariablePhiGradient & grad_phi,
-                                           const FieldVariablePhiSecond *& second_phi);
+  /// neighbor AD
+  template <ComputeStage compute_stage>
+  const typename VariableValueType<OutputType, compute_stage>::type & adSlnNeighbor() const
+  {
+    return _neighbor_data->template adSln<compute_stage>();
+  }
+  template <ComputeStage compute_stage>
+  const typename VariableGradientType<OutputType, compute_stage>::type & adGradSlnNeighbor() const
+  {
+    return _neighbor_data->template adGradSln<compute_stage>();
+  }
+  template <ComputeStage compute_stage>
+  const typename VariableSecondType<OutputType, compute_stage>::type & adSecondSlnNeighbor() const
+  {
+    return _neighbor_data->template adSecondSln<compute_stage>();
+  }
+  template <ComputeStage compute_stage>
+  const typename VariableValueType<OutputType, compute_stage>::type & adUDotNeighbor() const
+  {
+    return _neighbor_data->template adUDot<compute_stage>();
+  }
 
+  /// element dots
+  const FieldVariableValue & uDot() const { return _element_data->uDot(); }
+  const FieldVariableValue & uDotDot() const { return _element_data->uDotDot(); }
+  const FieldVariableValue & uDotOld() const { return _element_data->uDotOld(); }
+  const FieldVariableValue & uDotDotOld() const { return _element_data->uDotDotOld(); }
+  const VariableValue & duDotDu() const { return _element_data->duDotDu(); }
+  const VariableValue & duDotDotDu() const { return _element_data->duDotDotDu(); }
+
+  /// neighbor solutions
+  const FieldVariableValue & slnNeighbor() const { return _neighbor_data->sln(Moose::Current); }
+  const FieldVariableValue & slnOldNeighbor() const { return _neighbor_data->sln(Moose::Old); }
+  const FieldVariableValue & slnOlderNeighbor() const { return _neighbor_data->sln(Moose::Older); }
+  const FieldVariableValue & slnPreviousNLNeighbor() const
+  {
+    return _neighbor_data->sln(Moose::PreviousNL);
+  }
+
+  /// neighbor solution gradients
+  const FieldVariableGradient & gradSlnNeighbor() const
+  {
+    return _neighbor_data->gradSln(Moose::Current);
+  }
+  const FieldVariableGradient & gradSlnOldNeighbor() const
+  {
+    return _neighbor_data->gradSln(Moose::Old);
+  }
+  const FieldVariableGradient & gradSlnOlderNeighbor() const
+  {
+    return _neighbor_data->gradSln(Moose::Older);
+  }
+  const FieldVariableGradient & gradSlnPreviousNLNeighbor() const
+  {
+    return _neighbor_data->gradSln(Moose::PreviousNL);
+  }
+
+  /// neighbor grad dots
+  const FieldVariableGradient & gradSlnNeighborDot() const { return _neighbor_data->gradSlnDot(); }
+  const FieldVariableGradient & gradSlnNeighborDotDot() const
+  {
+    return _neighbor_data->gradSlnDotDot();
+  }
+
+  /// neighbor solution seconds
+  const FieldVariableSecond & secondSlnNeighbor() const
+  {
+    return _neighbor_data->secondSln(Moose::Current);
+  }
+  const FieldVariableSecond & secondSlnOldNeighbor() const
+  {
+    return _neighbor_data->secondSln(Moose::Old);
+  }
+  const FieldVariableSecond & secondSlnOlderNeighbor() const
+  {
+    return _neighbor_data->secondSln(Moose::Older);
+  }
+  const FieldVariableSecond & secondSlnPreviousNLNeighbor() const
+  {
+    return _neighbor_data->secondSln(Moose::PreviousNL);
+  }
+
+  /// neighbor solution curls
+  const FieldVariableCurl & curlSlnNeighbor() const
+  {
+    return _neighbor_data->curlSln(Moose::Current);
+  }
+  const FieldVariableCurl & curlSlnOldNeighbor() const
+  {
+    return _neighbor_data->curlSln(Moose::Old);
+  }
+  const FieldVariableCurl & curlSlnOlderNeighbor() const
+  {
+    return _neighbor_data->curlSln(Moose::Older);
+  }
+
+  /// neighbor dots
+  const FieldVariableValue & uDotNeighbor() const { return _neighbor_data->uDot(); }
+  const FieldVariableValue & uDotDotNeighbor() const { return _neighbor_data->uDotDot(); }
+  const FieldVariableValue & uDotOldNeighbor() const { return _neighbor_data->uDotOld(); }
+  const FieldVariableValue & uDotDotOldNeighbor() const { return _neighbor_data->uDotDotOld(); }
+  const VariableValue & duDotDuNeighbor() const { return _neighbor_data->duDotDu(); }
+  const VariableValue & duDotDotDuNeighbor() const { return _neighbor_data->duDotDotDu(); }
+
+  /// lower-d element solution
+  template <ComputeStage compute_stage>
+  const typename VariableValueType<OutputType, compute_stage>::type & adSlnLower() const
+  {
+    return _lower_data->template adSln<compute_stage>();
+  }
+  const FieldVariableValue & slnLower() const { return _lower_data->sln(Moose::Current); }
+
+  /// Actually compute variable values
   virtual void computeElemValues() override;
   virtual void computeElemValuesFace() override;
   virtual void computeNeighborValuesFace() override;
   virtual void computeNeighborValues() override;
-  void setNodalValue(Number value, unsigned int idx = 0) override;
-  void setNodalValue(const DenseVector<Number> & value) override;
+  virtual void computeLowerDValues() override;
+
+  void setNodalValue(OutputType value, unsigned int idx = 0);
+  void setDofValues(const DenseVector<Number> & value) override;
   Number getNodalValue(const Node & node) override;
   Number getNodalValueOld(const Node & node) override;
   Number getNodalValueOlder(const Node & node) override;
@@ -440,12 +397,22 @@ public:
   Number getElementalValueOld(const Elem * elem, unsigned int idx = 0) const override;
   Number getElementalValueOlder(const Elem * elem, unsigned int idx = 0) const override;
 
-  void getDofIndices(const Elem * elem, std::vector<dof_id_type> & dof_indices) override;
-  std::vector<dof_id_type> & dofIndicesNeighbor() override { return _dof_indices_neighbor; }
-  unsigned int numberOfDofsNeighbor() override { return _dof_indices_neighbor.size(); }
+  void getDofIndices(const Elem * elem, std::vector<dof_id_type> & dof_indices) const override;
+  const std::vector<dof_id_type> & dofIndices() const final { return _element_data->dofIndices(); }
+  unsigned int numberOfDofs() const final { return _element_data->numberOfDofs(); }
+  const std::vector<dof_id_type> & dofIndicesNeighbor() const final
+  {
+    return _neighbor_data->dofIndices();
+  }
+  const std::vector<dof_id_type> & dofIndicesLower() const final
+  {
+    return _lower_data->dofIndices();
+  }
+
+  unsigned int numberOfDofsNeighbor() override { return _neighbor_data->dofIndices().size(); }
 
   void insert(NumericVector<Number> & residual) override;
-  void add(NumericVector<Number> & residual);
+  void add(NumericVector<Number> & residual) override;
 
   const MooseArray<Number> & dofValue() override;
   const MooseArray<Number> & dofValues() override;
@@ -458,8 +425,22 @@ public:
   const MooseArray<Number> & dofValuesPreviousNLNeighbor() override;
   const MooseArray<Number> & dofValuesDot() override;
   const MooseArray<Number> & dofValuesDotNeighbor() override;
+  const MooseArray<Number> & dofValuesDotOld() override;
+  const MooseArray<Number> & dofValuesDotOldNeighbor() override;
+  const MooseArray<Number> & dofValuesDotDot() override;
+  const MooseArray<Number> & dofValuesDotDotNeighbor() override;
+  const MooseArray<Number> & dofValuesDotDotOld() override;
+  const MooseArray<Number> & dofValuesDotDotOldNeighbor() override;
   const MooseArray<Number> & dofValuesDuDotDu() override;
   const MooseArray<Number> & dofValuesDuDotDuNeighbor() override;
+  const MooseArray<Number> & dofValuesDuDotDotDu() override;
+  const MooseArray<Number> & dofValuesDuDotDotDuNeighbor() override;
+
+  /**
+   * Return the AD dof values
+   */
+  template <ComputeStage compute_stage>
+  const MooseArray<typename Moose::RealType<compute_stage>::type> & adDofValues();
 
   /**
    * Compute and store incremental change in solution at QPs based on increment_vec
@@ -493,260 +474,96 @@ public:
   /**
    * Return phi size
    */
-  virtual size_t phiSize() override { return _phi.size(); }
+  virtual size_t phiSize() const final { return _element_data->phiSize(); }
   /**
    * Return phiFace size
    */
-  virtual size_t phiFaceSize() override { return _phi_face.size(); }
+  virtual size_t phiFaceSize() const final { return _element_data->phiFaceSize(); }
   /**
    * Return phiNeighbor size
    */
-  virtual size_t phiNeighborSize() override { return _phi_neighbor.size(); }
+  virtual size_t phiNeighborSize() const final { return _neighbor_data->phiSize(); }
   /**
    * Return phiFaceNeighbor size
    */
-  virtual size_t phiFaceNeighborSize() override { return _phi_face_neighbor.size(); }
+  virtual size_t phiFaceNeighborSize() const final { return _neighbor_data->phiFaceSize(); }
 
+  size_t phiLowerSize() const final { return _lower_data->phiSize(); }
+
+  /**
+   * Methods for retrieving values of variables at the nodes
+   */
   const OutputType & nodalValue();
   const OutputType & nodalValueOld();
   const OutputType & nodalValueOlder();
   const OutputType & nodalValuePreviousNL();
   const OutputType & nodalValueDot();
+  const OutputType & nodalValueDotDot();
+  const OutputType & nodalValueDotOld();
+  const OutputType & nodalValueDotDotOld();
   const OutputType & nodalValueDuDotDu();
+  const OutputType & nodalValueDuDotDotDu();
   const OutputType & nodalValueNeighbor();
   const OutputType & nodalValueOldNeighbor();
   const OutputType & nodalValueOlderNeighbor();
   const OutputType & nodalValuePreviousNLNeighbor();
   const OutputType & nodalValueDotNeighbor();
+  const OutputType & nodalValueDotDotNeighbor();
+  const OutputType & nodalValueDotOldNeighbor();
+  const OutputType & nodalValueDotDotOldNeighbor();
   const OutputType & nodalValueDuDotDuNeighbor();
+  const OutputType & nodalValueDuDotDotDuNeighbor();
+
+  /**
+   * Methods for retrieving values of variables at the nodes in a MooseArray for AuxKernelBase
+   */
+  const MooseArray<OutputType> & nodalValueArray()
+  {
+    return _element_data->nodalValueArray(Moose::Current);
+  }
+  const MooseArray<OutputType> & nodalValueOldArray()
+  {
+    return _element_data->nodalValueArray(Moose::Old);
+  }
+  const MooseArray<OutputType> & nodalValueOlderArray()
+  {
+    return _element_data->nodalValueArray(Moose::Older);
+  }
+
   const MooseArray<Real> & nodalVectorTagValue(TagID tag);
   const MooseArray<Real> & nodalMatrixTagValue(TagID tag);
+
+  template <ComputeStage compute_stage>
+  const typename Moose::ValueType<OutputType, compute_stage>::type & adNodalValue();
 
   virtual void computeNodalValues() override;
   virtual void computeNodalNeighborValues() override;
 
 protected:
-  /// Our assembly
-  Assembly & _assembly;
+  const Assembly & _assembly;
 
-  /// Thread ID
-  THREAD_ID _tid;
+  /// Holder for all the data associated with the "main" element
+  std::unique_ptr<MooseVariableData<OutputType>> _element_data;
 
-  /// Quadrature rule for interior
-  QBase *& _qrule;
-  /// Quadrature rule for the face
-  QBase *& _qrule_face;
-  /// Quadrature rule for the neighbor
-  QBase *& _qrule_neighbor;
+  /// Holder for all the data associated with the neighbor element
+  std::unique_ptr<MooseVariableData<OutputType>> _neighbor_data;
 
-  /// current element
-  const Elem *& _elem;
-  /// the side of the current element (valid when doing face assembly)
-  unsigned int & _current_side;
-
-  /// neighboring element
-  const Elem *& _neighbor;
-
-  /// DOF indices (neighbor)
-  std::vector<dof_id_type> _dof_indices_neighbor;
-
-  bool _need_u_old;
-  bool _need_u_older;
-  bool _need_u_previous_nl;
-
-  bool _need_grad_old;
-  bool _need_grad_older;
-  bool _need_grad_previous_nl;
-  bool _need_grad_dot;
-
-  bool _need_second;
-  bool _need_second_old;
-  bool _need_second_older;
-  bool _need_second_previous_nl;
-
-  bool _need_curl;
-  bool _need_curl_old;
-  bool _need_curl_older;
-
-  bool _need_u_old_neighbor;
-  bool _need_u_older_neighbor;
-  bool _need_u_previous_nl_neighbor;
-
-  bool _need_grad_old_neighbor;
-  bool _need_grad_older_neighbor;
-  bool _need_grad_previous_nl_neighbor;
-  bool _need_grad_neighbor_dot;
-
-  bool _need_second_neighbor;
-  bool _need_second_old_neighbor;
-  bool _need_second_older_neighbor;
-  bool _need_second_previous_nl_neighbor;
-
-  bool _need_curl_neighbor;
-  bool _need_curl_old_neighbor;
-  bool _need_curl_older_neighbor;
-
-  bool _need_solution_dofs;
-  bool _need_solution_dofs_old;
-  bool _need_solution_dofs_older;
-  bool _need_solution_dofs_neighbor;
-  bool _need_solution_dofs_old_neighbor;
-  bool _need_solution_dofs_older_neighbor;
-
-  bool _need_dof_values;
-  bool _need_dof_values_old;
-  bool _need_dof_values_older;
-  bool _need_dof_values_previous_nl;
-  bool _need_dof_values_dot;
-  bool _need_dof_du_dot_du;
-  bool _need_dof_values_neighbor;
-  bool _need_dof_values_old_neighbor;
-  bool _need_dof_values_older_neighbor;
-  bool _need_dof_values_previous_nl_neighbor;
-  bool _need_dof_values_dot_neighbor;
-  bool _need_dof_du_dot_du_neighbor;
-
-  bool _need_vector_tag_dof_u;
-  bool _need_matrix_tag_dof_u;
-
-  /// Normals at QPs on faces
-  const MooseArray<Point> & _normals;
-
-  /// if variable is nodal
-  bool _is_nodal;
-  /// If we have dofs
-  bool _has_dofs;
-  /// If the neighor has dofs
-  bool _neighbor_has_dofs;
-
-  /// If true, the nodal value gets inserted on calling insert()
-  bool _has_nodal_value;
-  bool _has_nodal_value_neighbor;
-
-  const Node *& _node;
-  const Node *& _node_neighbor;
-
-  dof_id_type _nodal_dof_index;
-  dof_id_type _nodal_dof_index_neighbor;
-
-  // dof solution stuff (which for nodal variables corresponds to values at the nodes)
-
-  MooseArray<Real> _dof_values;
-  MooseArray<Real> _dof_values_old;
-  MooseArray<Real> _dof_values_older;
-  MooseArray<Real> _dof_values_previous_nl;
-
-  // Dof values of tagged vectors
-  std::vector<MooseArray<Real>> _vector_tags_dof_u;
-  // Dof values of the diagonal of tagged matrices
-  std::vector<MooseArray<Real>> _matrix_tags_dof_u;
-
-  /// nodal values of u_dot
-  MooseArray<Real> _dof_values_dot;
-  /// nodal values of derivative of u_dot wrt u
-  MooseArray<Real> _dof_du_dot_du;
-
-  MooseArray<Real> _dof_values_neighbor;
-  MooseArray<Real> _dof_values_old_neighbor;
-  MooseArray<Real> _dof_values_older_neighbor;
-  MooseArray<Real> _dof_values_previous_nl_neighbor;
-  MooseArray<Real> _dof_values_dot_neighbor;
-  MooseArray<Real> _dof_du_dot_du_neighbor;
-
-  /// local elemental DoFs
-  DenseVector<Number> _solution_dofs;
-  DenseVector<Number> _solution_dofs_old;
-  DenseVector<Number> _solution_dofs_older;
-  DenseVector<Number> _solution_dofs_neighbor;
-  DenseVector<Number> _solution_dofs_old_neighbor;
-  DenseVector<Number> _solution_dofs_older_neighbor;
-
-  // Shape function values, gradients, second derivatives
-  const FieldVariablePhiValue & _phi;
-  const FieldVariablePhiGradient & _grad_phi;
-  const FieldVariablePhiSecond * _second_phi;
-  const FieldVariablePhiCurl * _curl_phi;
-
-  // Values, gradients and second derivatives of shape function on faces
-  const FieldVariablePhiValue & _phi_face;
-  const FieldVariablePhiGradient & _grad_phi_face;
-  const FieldVariablePhiSecond * _second_phi_face;
-  const FieldVariablePhiCurl * _curl_phi_face;
-
-  // Values, gradients and second derivatives of shape function
-  const FieldVariablePhiValue & _phi_neighbor;
-  const FieldVariablePhiGradient & _grad_phi_neighbor;
-  const FieldVariablePhiSecond * _second_phi_neighbor;
-  const FieldVariablePhiCurl * _curl_phi_neighbor;
-
-  // Values, gradients and second derivatives of shape function on faces
-  const FieldVariablePhiValue & _phi_face_neighbor;
-  const FieldVariablePhiGradient & _grad_phi_face_neighbor;
-  const FieldVariablePhiSecond * _second_phi_face_neighbor;
-  const FieldVariablePhiCurl * _curl_phi_face_neighbor;
-
-  FieldVariableValue _u, _u_bak;
-  FieldVariableValue _u_old, _u_old_bak;
-  FieldVariableValue _u_older, _u_older_bak;
-  FieldVariableValue _u_previous_nl;
-  FieldVariableGradient _grad_u, _grad_u_bak;
-  FieldVariableGradient _grad_u_old, _grad_u_old_bak;
-  FieldVariableGradient _grad_u_older, _grad_u_older_bak;
-  FieldVariableGradient _grad_u_previous_nl;
-  FieldVariableGradient _grad_u_dot;
-  FieldVariableSecond _second_u, _second_u_bak;
-  FieldVariableSecond _second_u_old, _second_u_old_bak;
-  FieldVariableSecond _second_u_older, _second_u_older_bak;
-  FieldVariableSecond _second_u_previous_nl;
-  FieldVariableCurl _curl_u, _curl_u_bak;
-  FieldVariableCurl _curl_u_old, _curl_u_old_bak;
-  FieldVariableCurl _curl_u_older;
-
-  FieldVariableValue _u_neighbor;
-  FieldVariableValue _u_old_neighbor;
-  FieldVariableValue _u_older_neighbor;
-  FieldVariableValue _u_previous_nl_neighbor;
-  FieldVariableGradient _grad_u_neighbor;
-  FieldVariableGradient _grad_u_old_neighbor;
-  FieldVariableGradient _grad_u_older_neighbor;
-  FieldVariableGradient _grad_u_previous_nl_neighbor;
-  FieldVariableGradient _grad_u_neighbor_dot;
-  FieldVariableSecond _second_u_neighbor;
-  FieldVariableSecond _second_u_old_neighbor;
-  FieldVariableSecond _second_u_older_neighbor;
-  FieldVariableSecond _second_u_previous_nl_neighbor;
-  FieldVariableCurl _curl_u_neighbor;
-  FieldVariableCurl _curl_u_old_neighbor;
-  FieldVariableCurl _curl_u_older_neighbor;
-
-  // time derivatives
-
-  /// u_dot (time derivative)
-  FieldVariableValue _u_dot, _u_dot_bak;
-  FieldVariableValue _u_dot_neighbor, _u_dot_bak_neighbor;
-
-  /// derivative of u_dot wrt u
-  VariableValue _du_dot_du, _du_dot_du_bak;
-  VariableValue _du_dot_du_neighbor, _du_dot_du_bak_neighbor;
-
-  /// Continuity type of the variable
-  FEContinuity _continuity;
-
-  /// Increment in the variable used in dampers
-  FieldVariableValue _increment;
-
-  /// Nodal values
-  OutputType _nodal_value;
-  OutputType _nodal_value_old;
-  OutputType _nodal_value_older;
-  OutputType _nodal_value_previous_nl;
-
-  /// nodal values of u_dot
-  OutputType _nodal_value_dot;
-
-  friend class NodeFaceConstraint;
-  friend class ValueThresholdMarker;
-  friend class ValueRangeMarker;
+  /// Holder for all the data associated with the lower dimeensional element
+  std::unique_ptr<MooseVariableData<OutputType>> _lower_data;
 };
 
-#endif /* MOOSEVARIABLEFE_H */
+template <typename OutputType>
+template <ComputeStage compute_stage>
+inline const MooseArray<typename Moose::RealType<compute_stage>::type> &
+MooseVariableFE<OutputType>::adDofValues()
+{
+  return _element_data->template adDofValues<compute_stage>();
+}
+
+template <typename OutputType>
+template <ComputeStage compute_stage>
+inline const typename Moose::ValueType<OutputType, compute_stage>::type &
+MooseVariableFE<OutputType>::adNodalValue()
+{
+  return _element_data->template adNodalValue<compute_stage>();
+}

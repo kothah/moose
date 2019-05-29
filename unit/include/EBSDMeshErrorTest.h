@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef EBSDMESHERRORTEST_H
-#define EBSDMESHERRORTEST_H
+#pragma once
 
 // CPPUnit includes
 #include "gtest_include.h"
@@ -43,6 +42,7 @@ protected:
       InputParameters params = validParams<EBSDMesh>();
       params.addPrivateParam("_moose_app", _app.get());
       params.set<std::string>("_object_name") = oss.str();
+      params.set<std::string>("_type") = "EBSDMesh";
 
       // set a single parameter
       params.set<T>(param_list[i]) = T(1.0);
@@ -72,4 +72,3 @@ protected:
   Factory * _factory;
 };
 
-#endif // EBSDMESHERRORTEST_H

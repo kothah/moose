@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWTEMPERATURE_H
-#define POROUSFLOWTEMPERATURE_H
+#pragma once
 
 #include "DerivativeMaterialInterface.h"
 #include "PorousFlowMaterial.h"
@@ -42,7 +41,7 @@ protected:
   /// Whether the temperature coupled variable is a PorousFlow variable
   const bool _temperature_is_PF;
 
-  /// the PorousFlow variable number of the temperature
+  /// The PorousFlow variable number of the temperature
   const unsigned int _t_var_num;
 
   /// Computed temperature at quadpoints or nodes
@@ -61,4 +60,3 @@ protected:
   MaterialProperty<std::vector<RealGradient>> * const _dgrad_temperature_dv;
 };
 
-#endif // POROUSFLOWTEMPERATURE_H

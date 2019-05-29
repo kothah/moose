@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWDISPERSIVEFLUX_H
-#define POROUSFLOWDISPERSIVEFLUX_H
+#pragma once
 
 #include "Kernel.h"
 #include "PorousFlowDictator.h"
@@ -74,7 +73,7 @@ protected:
   /// Derivative of the diffusion coefficients wrt PorousFlow variables
   const MaterialProperty<std::vector<std::vector<std::vector<Real>>>> & _ddiffusion_coeff_dvar;
 
-  /// PorousFlow Dictator UserObject
+  /// PorousFlowDictator UserObject
   const PorousFlowDictator & _dictator;
 
   /// Index of the fluid component that this kernel acts on
@@ -104,7 +103,7 @@ protected:
   /// Derivative of permeability wrt PorousFlow variables
   const MaterialProperty<std::vector<RealTensorValue>> & _dpermeability_dvar;
 
-  /// d(permeabiity)/d(grad(porous-flow variable))
+  /// d(permeabiity)/d(grad(PorousFlow variable))
   const MaterialProperty<std::vector<std::vector<RealTensorValue>>> & _dpermeability_dgradvar;
 
   /// Gradient of the pore pressure in each phase
@@ -126,4 +125,3 @@ protected:
   const std::vector<Real> _disp_trans;
 };
 
-#endif // POROUSFLOWDISPERSIVEFLUX_H

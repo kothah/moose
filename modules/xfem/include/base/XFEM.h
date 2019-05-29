@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef XFEM_H
-#define XFEM_H
+#pragma once
 
 #include "ElementPairLocator.h"
 #include "ElementFragmentAlgorithm.h"
@@ -165,15 +164,7 @@ public:
 
   void getCrackTipOrigin(std::map<unsigned int, const Elem *> & elem_id_crack_tip,
                          std::vector<Point> & crack_front_points);
-  // void update_crack_propagation_direction(const Elem* elem, Point direction);
-  // void clear_crack_propagation_direction();
-  /**
-   * Set and get xfem cut data and type
-   */
-  std::vector<Real> & getXFEMCutData();
-  void setXFEMCutData(std::vector<Real> & cut_data);
-  std::string & getXFEMCutType();
-  void setXFEMCutType(std::string & cut_type);
+
   Xfem::XFEM_QRULE & getXFEMQRule();
   void setXFEMQRule(std::string & xfem_qrule);
   void setCrackGrowthMethod(bool use_crack_growth_increment, Real crack_growth_increment);
@@ -251,6 +242,11 @@ public:
   void getFragmentFaces(const Elem * elem,
                         EFAElement3D * CEMElem,
                         std::vector<std::vector<Point>> & frag_faces) const;
+
+  const std::map<const Elem *, std::vector<Point>> & getCrackTipOriginMap() const
+  {
+    return _elem_crack_origin_direction_map;
+  }
 
 private:
   bool _has_secondary_cut;
@@ -389,4 +385,3 @@ private:
   std::vector<dof_id_type> getNodeSolutionDofs(const Node * node, SystemBase & sys) const;
 };
 
-#endif // XFEM_H

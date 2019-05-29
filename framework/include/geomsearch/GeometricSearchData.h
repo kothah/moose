@@ -7,11 +7,15 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef GEOMETRICSEARCHDATA_H
-#define GEOMETRICSEARCHDATA_H
+#pragma once
 
+// MOOSE includes
 #include "MooseTypes.h"
 
+// libMesh includes
+#include "libmesh/enum_order.h"
+
+// C++ includes
 #include <map>
 
 // Forward Declarations
@@ -31,7 +35,6 @@ public:
     NEAREST_NODE,
     PENETRATION,
     QUADRATURE,
-    MORTAR,
     ELEMENTPAIR
   };
 
@@ -44,10 +47,6 @@ public:
   PenetrationLocator & getQuadraturePenetrationLocator(const BoundaryName & master,
                                                        const BoundaryName & slave,
                                                        Order order = FIRST);
-  PenetrationLocator & getMortarPenetrationLocator(const BoundaryName & master,
-                                                   const BoundaryName & slave,
-                                                   Moose::ConstraintType side_type,
-                                                   Order order = FIRST);
 
   NearestNodeLocator & getNearestNodeLocator(const BoundaryName & master,
                                              const BoundaryName & slave);
@@ -58,13 +57,6 @@ public:
                                                        const BoundaryName & slave);
   NearestNodeLocator & getQuadratureNearestNodeLocator(const unsigned int master_id,
                                                        const unsigned int slave_id);
-
-  NearestNodeLocator & getMortarNearestNodeLocator(const BoundaryName & domain,
-                                                   const BoundaryName & slave,
-                                                   Moose::ConstraintType side_type);
-  NearestNodeLocator & getMortarNearestNodeLocator(const unsigned int master_id,
-                                                   const unsigned int slave_id,
-                                                   Moose::ConstraintType side_type);
 
   void addElementPairLocator(const unsigned int & interface_id,
                              std::shared_ptr<ElementPairLocator> epl);
@@ -111,12 +103,6 @@ protected:
   /// A mapping of the real boundary id to the slave boundary ids
   std::map<unsigned int, unsigned int> _slave_to_qslave;
 
-  /// These are _real_ boundaries that have quadrature nodes on them.
-  std::set<std::pair<unsigned int, unsigned int>> _mortar_boundaries;
-
-  /// A mapping of the real boundary id to the slave boundary ids for mortar spaces
-  std::map<unsigned int, unsigned int> _boundary_to_mortarboundary;
-
 private:
   /**
    * Add Quadrature Nodes to the Mesh in support of Quadrature based penetration location and
@@ -126,16 +112,6 @@ private:
    * @param qslave_id The "fictitious" slave_id that is going to be used for this quadrature nodeset
    */
   void generateQuadratureNodes(unsigned int slave_id, unsigned int qslave_id);
-
-  /**
-   * Add Quadrature Nodes to the Mesh in support of mortar based penetration location and nearest
-   * node searching.
-   *
-   * @param master_id The id of the master node
-   * @param slave_id The actual slave_id (the one in the mesh)
-   * @param qslave_id The "fictitious" slave_id that is going to be used for this quadrature nodeset
-   */
-  void generateMortarNodes(unsigned int master_id, unsigned int slave_id, unsigned int qslave_id);
 
   /**
    * Update the positions of the quadrature nodes.
@@ -151,16 +127,5 @@ private:
    * Denotes whether this is the first time the geometric search objects have been updated.
    */
   bool _first;
-
-  /**
-   * Update the positions of the quadrature nodes for mortar interfaces
-   */
-  void updateMortarNodes();
-
-  /**
-   * Completely redo quadrature nodes for mortar interfaces
-   */
-  void reinitMortarNodes();
 };
 
-#endif // GEOMETRICSEARCHDATA_H

@@ -7,16 +7,18 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef BRINEFLUIDPROPERTIES_H
-#define BRINEFLUIDPROPERTIES_H
+#pragma once
 
-#include "MultiComponentFluidPropertiesPT.h"
+#include "MultiComponentFluidProperties.h"
 #include "Water97FluidProperties.h"
 
 class BrineFluidProperties;
 
 template <>
 InputParameters validParams<BrineFluidProperties>();
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
 
 /**
  * Brine (NaCl in H2O) fluid properties as a function of pressure (Pa),
@@ -33,7 +35,7 @@ InputParameters validParams<BrineFluidProperties>();
  * Note: uses water thermal conductivity from IAPWS rather than the correlation
  * given by Phillips et al.
  */
-class BrineFluidProperties : public MultiComponentFluidPropertiesPT
+class BrineFluidProperties : public MultiComponentFluidProperties
 {
 public:
   BrineFluidProperties(const InputParameters & parameters);
@@ -51,6 +53,7 @@ public:
    * @return average molar mass (kg/mol)
    */
   Real molarMass(Real xnacl) const;
+  FPDualReal molarMass(const FPDualReal & xnacl) const;
 
   /**
    * NaCl molar mass
@@ -64,64 +67,61 @@ public:
    */
   Real molarMassH2O() const;
 
-  virtual Real rho(Real pressure, Real temperature, Real xnacl) const override;
+  virtual Real rho_from_p_T_X(Real pressure, Real temperature, Real xnacl) const override;
 
-  virtual void rho_dpTx(Real pressure,
-                        Real temperature,
-                        Real xnacl,
-                        Real & rho,
-                        Real & drho_dp,
-                        Real & drho_dT,
-                        Real & drho_dx) const override;
+  FPDualReal rho_from_p_T_X(const FPDualReal & pressure,
+                            const FPDualReal & temperature,
+                            const FPDualReal & xnacl) const override;
 
-  virtual Real mu(Real pressure, Real temperature, Real xnacl) const override;
+  virtual void rho_from_p_T_X(Real pressure,
+                              Real temperature,
+                              Real xnacl,
+                              Real & rho,
+                              Real & drho_dp,
+                              Real & drho_dT,
+                              Real & drho_dx) const override;
 
-  virtual void mu_dpTx(Real pressure,
-                       Real temperature,
-                       Real xnacl,
-                       Real & mu,
-                       Real & dmu_dp,
-                       Real & dmu_dT,
-                       Real & dmu_dx) const override;
+  virtual Real mu_from_p_T_X(Real pressure, Real temperature, Real xnacl) const override;
 
-  virtual void
-  rho_mu(Real pressure, Real temperature, Real xnacl, Real & rho, Real & mu) const override;
+  virtual void mu_from_p_T_X(Real pressure,
+                             Real temperature,
+                             Real xnacl,
+                             Real & mu,
+                             Real & dmu_dp,
+                             Real & dmu_dT,
+                             Real & dmu_dx) const override;
 
-  virtual void rho_mu_dpTx(Real pressure,
-                           Real temperature,
-                           Real xnacl,
-                           Real & rho,
-                           Real & drho_dp,
-                           Real & drho_dT,
-                           Real & drho_dx,
-                           Real & mu,
-                           Real & dmu_dp,
-                           Real & dmu_dT,
-                           Real & dmu_dx) const override;
+  FPDualReal h_from_p_T_X(const FPDualReal & pressure,
+                          const FPDualReal & temperature,
+                          const FPDualReal & xnacl) const override;
 
-  virtual Real h(Real pressure, Real temperature, Real xnacl) const override;
+  virtual Real h_from_p_T_X(Real pressure, Real temperature, Real xnacl) const override;
 
-  virtual void h_dpTx(Real pressure,
-                      Real temperature,
-                      Real xnacl,
-                      Real & h,
-                      Real & dh_dp,
-                      Real & dh_dT,
-                      Real & dh_dx) const override;
+  virtual void h_from_p_T_X(Real pressure,
+                            Real temperature,
+                            Real xnacl,
+                            Real & h,
+                            Real & dh_dp,
+                            Real & dh_dT,
+                            Real & dh_dx) const override;
 
-  virtual Real cp(Real pressure, Real temperature, Real xnacl) const override;
+  virtual Real cp_from_p_T_X(Real pressure, Real temperature, Real xnacl) const override;
 
-  virtual Real e(Real pressure, Real temperature, Real xnacl) const override;
+  FPDualReal e_from_p_T_X(const FPDualReal & pressure,
+                          const FPDualReal & temperature,
+                          const FPDualReal & xnacl) const override;
 
-  virtual void e_dpTx(Real pressure,
-                      Real temperature,
-                      Real xnacl,
-                      Real & e,
-                      Real & de_dp,
-                      Real & de_dT,
-                      Real & de_dx) const override;
+  virtual Real e_from_p_T_X(Real pressure, Real temperature, Real xnacl) const override;
 
-  virtual Real k(Real pressure, Real temperature, Real xnacl) const override;
+  virtual void e_from_p_T_X(Real pressure,
+                            Real temperature,
+                            Real xnacl,
+                            Real & e,
+                            Real & de_dp,
+                            Real & de_dT,
+                            Real & de_dx) const override;
+
+  virtual Real k_from_p_T_X(Real pressure, Real temperature, Real xnacl) const override;
 
   /**
    * Brine vapour pressure
@@ -155,7 +155,7 @@ public:
   static const unsigned int WATER = 0;
   static const unsigned int NACL = 1;
 
-  virtual const SinglePhaseFluidPropertiesPT & getComponent(unsigned int component) const override;
+  virtual const SinglePhaseFluidProperties & getComponent(unsigned int component) const override;
 
 protected:
   /**
@@ -171,16 +171,20 @@ protected:
    * @return mole fraction (mol/mol)
    */
   Real massFractionToMoleFraction(Real xnacl) const;
+  FPDualReal massFractionToMoleFraction(const FPDualReal & xnacl) const;
 
   /// Water97FluidProperties UserObject
-  const SinglePhaseFluidPropertiesPT * _water_fp;
+  const SinglePhaseFluidProperties * _water_fp;
   /// NaClFluidProperties UserObject
-  const SinglePhaseFluidPropertiesPT * _nacl_fp;
+  const SinglePhaseFluidProperties * _nacl_fp;
 
   /// Molar mass of NaCl (kg/mol)
   Real _Mnacl;
   /// Molar mass of water (H2O) (kg/mol)
   Real _Mh2o;
+  /// Flag to indicate whether to calculate derivatives in water_fp
+  mutable bool _water_fp_derivs;
 };
 
-#endif /* BRINEFLUIDPROPERTIES_H */
+#pragma GCC diagnostic pop
+

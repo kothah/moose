@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWCAPILLARYPRESSUREBC_H
-#define POROUSFLOWCAPILLARYPRESSUREBC_H
+#pragma once
 
 #include "PorousFlowCapillaryPressure.h"
 
@@ -29,13 +28,13 @@ class PorousFlowCapillaryPressureBC : public PorousFlowCapillaryPressure
 public:
   PorousFlowCapillaryPressureBC(const InputParameters & parameters);
 
-  virtual Real capillaryPressureCurve(Real saturation) const override;
-  virtual Real dCapillaryPressureCurve(Real saturation) const override;
-  virtual Real d2CapillaryPressureCurve(Real saturation) const override;
+  virtual Real capillaryPressureCurve(Real saturation, unsigned qp = 0) const override;
+  virtual Real dCapillaryPressureCurve(Real saturation, unsigned qp = 0) const override;
+  virtual Real d2CapillaryPressureCurve(Real saturation, unsigned qp = 0) const override;
 
-  virtual Real effectiveSaturation(Real pc) const override;
-  virtual Real dEffectiveSaturation(Real pc) const override;
-  virtual Real d2EffectiveSaturation(Real pc) const override;
+  virtual Real effectiveSaturation(Real pc, unsigned qp = 0) const override;
+  virtual Real dEffectiveSaturation(Real pc, unsigned qp = 0) const override;
+  virtual Real d2EffectiveSaturation(Real pc, unsigned qp = 0) const override;
 
 protected:
   /// Brooks-Corey exponent lambda
@@ -44,4 +43,3 @@ protected:
   const Real _pe;
 };
 
-#endif // POROUSFLOWCAPILLARYPRESSUREBC_H

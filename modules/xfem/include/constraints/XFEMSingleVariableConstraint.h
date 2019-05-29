@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef XFEMEQUALVALUECONSTRAINT_H
-#define XFEMEQUALVALUECONSTRAINT_H
+#pragma once
 
 // MOOSE includes
 #include "ElemElemConstraint.h"
@@ -58,4 +57,3 @@ protected:
   std::shared_ptr<XFEM> _xfem;
 };
 
-#endif /* XFEMEQUALVALUECONSTRAINT_H_ */

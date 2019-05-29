@@ -8,9 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 // MOOSE includes
-#include "DisplacedProblem.h"
 
-#include "Assembly.h"
 #include "AuxiliarySystem.h"
 #include "FEProblem.h"
 #include "MooseApp.h"
@@ -20,6 +18,8 @@
 #include "ResetDisplacedMeshThread.h"
 #include "SubProblem.h"
 #include "UpdateDisplacedMeshThread.h"
+#include "Assembly.h"
+#include "DisplacedProblem.h"
 
 #include "libmesh/numeric_vector.h"
 
@@ -51,14 +51,23 @@ DisplacedProblem::DisplacedProblem(const InputParameters & parameters)
                    _mproblem.getAuxiliarySystem(),
                    _mproblem.getAuxiliarySystem().name() + "_displaced",
                    Moose::VAR_AUXILIARY),
-    _geometric_search_data(_mproblem, _mesh)
+    _geometric_search_data(_mproblem, _mesh),
+    _eq_init_timer(registerTimedSection("eq::init", 2)),
+    _update_mesh_timer(registerTimedSection("updateMesh", 3)),
+    _sync_solutions_timer(registerTimedSection("syncSolutions", 5)),
+    _update_geometric_search_timer(registerTimedSection("updateGeometricSearch", 3))
 {
+  // Possibly turn off default ghosting in libMesh
+  _eq.enable_default_ghosting(_default_ghosting);
+
   // TODO: Move newAssemblyArray further up to SubProblem so that we can use it here
   unsigned int n_threads = libMesh::n_threads();
 
   _assembly.reserve(n_threads);
   for (unsigned int i = 0; i < n_threads; ++i)
     _assembly.emplace_back(libmesh_make_unique<Assembly>(_displaced_nl, i));
+
+  _displaced_nl.addTimeIntegrator(_mproblem.getNonlinearSystemBase().getSharedTimeIntegrator());
 }
 
 bool
@@ -93,21 +102,31 @@ void
 DisplacedProblem::init()
 {
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); ++tid)
+  {
     _assembly[tid]->init(_mproblem.couplingMatrix());
+    std::vector<unsigned> disp_numbers;
+    for (const auto & disp_string : _displacements)
+    {
+      const auto & disp_variable = getVariable(tid, disp_string);
+      if (disp_variable.kind() == Moose::VarKindType::VAR_NONLINEAR)
+        disp_numbers.push_back(disp_variable.number());
+    }
+    _assembly[tid]->assignDisplacements(std::move(disp_numbers));
+  }
 
   _displaced_nl.dofMap().attach_extra_send_list_function(&extraSendList, &_displaced_nl);
   _displaced_aux.dofMap().attach_extra_send_list_function(&extraSendList, &_displaced_aux);
 
   _displaced_nl.init();
+
   _displaced_aux.init();
 
-  Moose::perf_log.push("DisplacedProblem::init::eq.init()", "Setup");
-  _eq.init();
-  Moose::perf_log.pop("DisplacedProblem::init::eq.init()", "Setup");
+  {
+    TIME_SECTION(_eq_init_timer);
+    _eq.init();
+  }
 
-  Moose::perf_log.push("DisplacedProblem::init::meshChanged()", "Setup");
   _mesh.meshChanged();
-  Moose::perf_log.pop("DisplacedProblem::init::meshChanged()", "Setup");
 }
 
 void
@@ -132,6 +151,8 @@ DisplacedProblem::restoreOldSolutions()
 void
 DisplacedProblem::syncSolutions()
 {
+  TIME_SECTION(_sync_solutions_timer);
+
   (*_displaced_nl.sys().solution) = *_mproblem.getNonlinearSystemBase().currentSolution();
   (*_displaced_aux.sys().solution) = *_mproblem.getAuxiliarySystem().currentSolution();
   _displaced_nl.update();
@@ -142,6 +163,8 @@ void
 DisplacedProblem::syncSolutions(const NumericVector<Number> & soln,
                                 const NumericVector<Number> & aux_soln)
 {
+  TIME_SECTION(_sync_solutions_timer);
+
   (*_displaced_nl.sys().solution) = soln;
   (*_displaced_aux.sys().solution) = aux_soln;
   _displaced_nl.update();
@@ -151,7 +174,7 @@ DisplacedProblem::syncSolutions(const NumericVector<Number> & soln,
 void
 DisplacedProblem::updateMesh()
 {
-  Moose::perf_log.push("updateDisplacedMesh()", "Execution");
+  TIME_SECTION(_update_mesh_timer);
 
   syncSolutions();
 
@@ -184,15 +207,13 @@ DisplacedProblem::updateMesh()
 
   // Since the Mesh changed, update the PointLocator object used by DiracKernels.
   _dirac_kernel_info.updatePointLocator(_mesh);
-
-  Moose::perf_log.pop("updateDisplacedMesh()", "Execution");
 }
 
 void
 DisplacedProblem::updateMesh(const NumericVector<Number> & soln,
                              const NumericVector<Number> & aux_soln)
 {
-  Moose::perf_log.push("updateDisplacedMesh()", "Execution");
+  TIME_SECTION(_update_mesh_timer);
 
   syncSolutions(soln, aux_soln);
 
@@ -214,8 +235,6 @@ DisplacedProblem::updateMesh(const NumericVector<Number> & soln,
 
   // Since the Mesh changed, update the PointLocator object used by DiracKernels.
   _dirac_kernel_info.updatePointLocator(_mesh);
-
-  Moose::perf_log.pop("updateDisplacedMesh()", "Execution");
 }
 
 TagID
@@ -243,7 +262,7 @@ DisplacedProblem::vectorTagExists(TagID tag)
 }
 
 unsigned int
-DisplacedProblem::numVectorTags()
+DisplacedProblem::numVectorTags() const
 {
   return _mproblem.numVectorTags();
 }
@@ -285,7 +304,7 @@ DisplacedProblem::matrixTagExists(TagID tag_id)
 }
 
 unsigned int
-DisplacedProblem::numMatrixTags()
+DisplacedProblem::numMatrixTags() const
 {
   return _mproblem.numMatrixTags();
 }
@@ -408,7 +427,9 @@ DisplacedProblem::prepare(const Elem * elem, THREAD_ID tid)
 
   _displaced_nl.prepare(tid);
   _displaced_aux.prepare(tid);
-  _assembly[tid]->prepare();
+  if (!_mproblem.hasJacobian() || !_mproblem.constJacobian())
+    _assembly[tid]->prepareJacobianBlock();
+  _assembly[tid]->prepareResidual();
 }
 
 void
@@ -506,7 +527,8 @@ DisplacedProblem::reinitElem(const Elem * elem, THREAD_ID tid)
 void
 DisplacedProblem::reinitElemPhys(const Elem * elem,
                                  const std::vector<Point> & phys_points_in_elem,
-                                 THREAD_ID tid)
+                                 THREAD_ID tid,
+                                 bool)
 {
   _assembly[tid]->reinitAtPhysical(elem, phys_points_in_elem);
 
@@ -792,6 +814,8 @@ DisplacedProblem::prepareNeighborShapes(unsigned int var, THREAD_ID tid)
 void
 DisplacedProblem::updateGeomSearch(GeometricSearchData::GeometricSearchType type)
 {
+  TIME_SECTION(_update_geometric_search_timer);
+
   _geometric_search_data.update(type);
 }
 

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTERSPHERICALSMALLSTRAIN_H
-#define COMPUTERSPHERICALSMALLSTRAIN_H
+#pragma once
 
 #include "ComputeSmallStrain.h"
 
@@ -28,8 +27,6 @@ class ComputeRSphericalSmallStrain : public ComputeSmallStrain
 public:
   ComputeRSphericalSmallStrain(const InputParameters & parameters);
 
-protected:
   virtual void computeProperties() override;
 };
 
-#endif // COMPUTERSPHERICALSMALLSTRAIN_H

@@ -161,6 +161,17 @@ InputParameters::operator+=(const InputParameters & rhs)
 void
 InputParameters::addCoupledVar(const std::string & name, Real value, const std::string & doc_string)
 {
+  addParam<std::vector<VariableName>>(name, doc_string);
+  _coupled_vars.insert(name);
+  _params[name]._coupled_default.assign(1, value);
+  _params[name]._have_coupled_default = true;
+}
+
+void
+InputParameters::addCoupledVar(const std::string & name,
+                               const std::vector<Real> & value,
+                               const std::string & doc_string)
+{
   // std::vector<VariableName>(1, Moose::stringify(value)),
   addParam<std::vector<VariableName>>(name, doc_string);
   _coupled_vars.insert(name);
@@ -283,7 +294,8 @@ InputParameters::isPrivate(const std::string & name) const
 }
 
 void
-InputParameters::declareControllable(const std::string & input_names)
+InputParameters::declareControllable(const std::string & input_names,
+                                     std::set<ExecFlagType> execute_flags)
 {
   std::vector<std::string> names;
   MooseUtils::tokenize<std::string>(input_names, names, 1, " ");
@@ -291,7 +303,10 @@ InputParameters::declareControllable(const std::string & input_names)
   {
     auto map_iter = _params.find(name);
     if (map_iter != _params.end()) // error is handled by checkParams method
+    {
       map_iter->second._controllable = true;
+      map_iter->second._controllable_flags = execute_flags;
+    }
     else
       mooseError("The input parameter '",
                  name,
@@ -303,6 +318,12 @@ bool
 InputParameters::isControllable(const std::string & name)
 {
   return _params.count(name) > 0 && _params[name]._controllable;
+}
+
+const std::set<ExecFlagType> &
+InputParameters::getControllableExecuteOnTypes(const std::string & name)
+{
+  return _params[name]._controllable_flags;
 }
 
 void
@@ -320,10 +341,12 @@ InputParameters::registerBuildableTypes(const std::string & names)
 }
 
 void
-InputParameters::registerRelationshipManagers(const std::string & names)
+InputParameters::addRelationshipManager(
+    const std::string & name,
+    Moose::RelationshipManagerType rm_type,
+    Moose::RelationshipManagerInputParameterCallback input_parameter_callback)
 {
-  _buildable_rm_types.clear();
-  MooseUtils::tokenize(names, _buildable_rm_types, 1, " \t\n\v\f\r"); // tokenize on whitespace
+  _buildable_rm_types.emplace_back(name, rm_type, input_parameter_callback);
 }
 
 const std::vector<std::string> &
@@ -332,7 +355,9 @@ InputParameters::getBuildableTypes() const
   return _buildable_types;
 }
 
-const std::vector<std::string> &
+const std::vector<std::tuple<std::string,
+                             Moose::RelationshipManagerType,
+                             Moose::RelationshipManagerInputParameterCallback>> &
 InputParameters::getBuildableRelationshipManagerTypes() const
 {
   return _buildable_rm_types;
@@ -443,14 +468,15 @@ InputParameters::hasDefaultCoupledValue(const std::string & coupling_name) const
 }
 
 void
-InputParameters::defaultCoupledValue(const std::string & coupling_name, Real value)
+InputParameters::defaultCoupledValue(const std::string & coupling_name, Real value, unsigned int i)
 {
-  _params[coupling_name]._coupled_default = value;
+  _params[coupling_name]._coupled_default.resize(i + 1);
+  _params[coupling_name]._coupled_default[i] = value;
   _params[coupling_name]._have_coupled_default = true;
 }
 
 Real
-InputParameters::defaultCoupledValue(const std::string & coupling_name) const
+InputParameters::defaultCoupledValue(const std::string & coupling_name, unsigned int i) const
 {
   auto value_it = _params.find(coupling_name);
 
@@ -463,7 +489,18 @@ InputParameters::defaultCoupledValue(const std::string & coupling_name) const
                "variable added with params.addRequiredCoupledVar() \n 3. The call to get the "
                "coupled value should have been properly guarded with isCoupled()\n");
 
-  return value_it->second._coupled_default;
+  return value_it->second._coupled_default.at(i);
+}
+
+unsigned int
+InputParameters::numberDefaultCoupledValues(const std::string & coupling_name) const
+{
+  auto value_it = _params.find(coupling_name);
+  if (value_it == _params.end())
+    mooseError("Attempted to retrieve default value for coupled variable '",
+               coupling_name,
+               "' when none was provided.");
+  return value_it->second._coupled_default.size();
 }
 
 std::map<std::string, std::pair<std::string, std::string>>
@@ -648,7 +685,8 @@ InputParameters::applyParameters(const InputParameters & common,
 
 void
 InputParameters::applySpecificParameters(const InputParameters & common,
-                                         const std::vector<std::string> & include)
+                                         const std::vector<std::string> & include,
+                                         bool allow_private)
 {
   // Loop through the common parameters
   for (const auto & it : common)
@@ -661,7 +699,7 @@ InputParameters::applySpecificParameters(const InputParameters & common,
     if (std::find(include.begin(), include.end(), common_name) == include.end())
       continue;
 
-    applyParameter(common, common_name);
+    applyParameter(common, common_name, allow_private);
   }
 
   // Loop through the coupled variables
@@ -692,7 +730,13 @@ InputParameters::applyCoupledVar(const InputParameters & common, const std::stri
   if (hasCoupledValue(var_name))
   {
     if (common.hasDefaultCoupledValue(var_name))
-      addCoupledVar(var_name, common.defaultCoupledValue(var_name), common.getDocString(var_name));
+    {
+      // prepare a vector of default coupled values
+      std::vector<Real> defaults(common.numberDefaultCoupledValues(var_name));
+      for (unsigned int j = 0; j < common.numberDefaultCoupledValues(var_name); ++j)
+        defaults[j] = common.defaultCoupledValue(var_name, j);
+      addCoupledVar(var_name, defaults, common.getDocString(var_name));
+    }
     else if (common.hasCoupledValue(var_name))
       addCoupledVar(var_name, common.getDocString(var_name));
   }
@@ -702,7 +746,9 @@ InputParameters::applyCoupledVar(const InputParameters & common, const std::stri
 }
 
 void
-InputParameters::applyParameter(const InputParameters & common, const std::string & common_name)
+InputParameters::applyParameter(const InputParameters & common,
+                                const std::string & common_name,
+                                bool allow_private)
 {
   // Disable the display of deprecated message when applying common parameters, this avoids a dump
   // of messages
@@ -711,12 +757,12 @@ InputParameters::applyParameter(const InputParameters & common, const std::strin
   // Extract the properties from the local parameter for the current common parameter name
   const bool local_exist = _values.find(common_name) != _values.end();
   const bool local_set = _params.count(common_name) > 0 && !_params[common_name]._set_by_add_param;
-  const bool local_priv = isPrivate(common_name);
+  const bool local_priv = allow_private ? false : isPrivate(common_name);
   const bool local_valid = isParamValid(common_name);
 
   // Extract the properties from the common parameter
   const bool common_exist = common._values.find(common_name) != common._values.end();
-  const bool common_priv = common.isPrivate(common_name);
+  const bool common_priv = allow_private ? false : common.isPrivate(common_name);
   const bool common_valid = common.isParamValid(common_name);
 
   /* In order to apply common parameter 4 statements must be satisfied

@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWCAPILLARYPRESSURERSC_H
-#define POROUSFLOWCAPILLARYPRESSURERSC_H
+#pragma once
 
 #include "PorousFlowCapillaryPressure.h"
 
@@ -25,13 +24,13 @@ class PorousFlowCapillaryPressureRSC : public PorousFlowCapillaryPressure
 public:
   PorousFlowCapillaryPressureRSC(const InputParameters & parameters);
 
-  virtual Real capillaryPressureCurve(Real saturation) const override;
-  virtual Real dCapillaryPressureCurve(Real saturation) const override;
-  virtual Real d2CapillaryPressureCurve(Real saturation) const override;
+  virtual Real capillaryPressureCurve(Real saturation, unsigned qp = 0) const override;
+  virtual Real dCapillaryPressureCurve(Real saturation, unsigned qp = 0) const override;
+  virtual Real d2CapillaryPressureCurve(Real saturation, unsigned qp = 0) const override;
 
-  virtual Real effectiveSaturation(Real pc) const override;
-  virtual Real dEffectiveSaturation(Real pc) const override;
-  virtual Real d2EffectiveSaturation(Real pc) const override;
+  virtual Real effectiveSaturation(Real pc, unsigned qp = 0) const override;
+  virtual Real dEffectiveSaturation(Real pc, unsigned qp = 0) const override;
+  virtual Real d2EffectiveSaturation(Real pc, unsigned qp = 0) const override;
 
 protected:
   /// Oil viscosity (which must be twice the water viscocity in this formulation)
@@ -44,4 +43,3 @@ protected:
   const Real _scale;
 };
 
-#endif // POROUSFLOWCAPILLARYPRESSURERSC_H

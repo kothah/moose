@@ -7,12 +7,13 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef SUBDOMAINBOUNDINGBOX_H
-#define SUBDOMAINBOUNDINGBOX_H
+#pragma once
 
 // MOOSE includes
 #include "MooseEnum.h"
 #include "MeshModifier.h"
+
+#include "libmesh/bounding_box.h"
 
 // Forward declerations
 class SubdomainBoundingBox;
@@ -50,4 +51,3 @@ private:
   BoundingBox _bounding_box;
 };
 
-#endif // SUBDOMAINBOUDINGBOX_H

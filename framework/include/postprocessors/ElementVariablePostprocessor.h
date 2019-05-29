@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ELEMENTVARIABLEPOSTPROCESSOR_H
-#define ELEMENTVARIABLEPOSTPROCESSOR_H
+#pragma once
 
 #include "ElementPostprocessor.h"
 #include "MooseVariableInterface.h"
@@ -37,11 +36,7 @@ protected:
   /// Holds the solution gradient at the current quadrature points
   const VariableGradient & _grad_u;
 
-  /// Holds the solution derivative at the current quadrature points
-  const VariableValue & _u_dot;
-
   /// The current quadrature point
   unsigned int _qp;
 };
 
-#endif

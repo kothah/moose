@@ -7,12 +7,14 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MULTIAPP_H
-#define MULTIAPP_H
+#pragma once
 
 #include "MooseObject.h"
 #include "SetupInterface.h"
 #include "Restartable.h"
+
+#include "libmesh/communicator.h"
+#include "libmesh/point.h"
 
 class MultiApp;
 class UserObject;
@@ -59,6 +61,14 @@ public:
 
   virtual void preExecute() {}
 
+  /**
+   * Method called towards the end of the simulation to execute on final.
+   */
+  virtual void finalize();
+
+  /**
+   * Method called at the end of the simulation (after finalize)
+   */
   virtual void postExecute();
 
   /**
@@ -67,13 +77,6 @@ public:
   void setupPositions();
 
   virtual void initialSetup() override;
-
-  /**
-   * Method that reports whether the application has been fully solved or not.
-   * Most transient multiapps are never fully solved, however this method can be
-   * overridden in derived classes.
-   */
-  virtual bool isSolved() const { return false; }
 
   /**
    * Gets called just before transfers are done _to_ the MultiApp
@@ -102,16 +105,7 @@ public:
    * which is called either directly from solveStep() for loose coupling cases
    * or through finishStep() for Picard coupling cases)
    */
-  virtual void incrementTStep() {}
-
-  /**
-   * Deprecated method. Use finishStep
-   */
-  virtual void advanceStep()
-  {
-    mooseDeprecated("advanceStep() is deprecated; please use finishStep() instead");
-    finishStep();
-  }
+  virtual void incrementTStep(Real /*target_time*/) {}
 
   /**
    * Calls multi-apps executioners' endStep and postStep methods which creates output and advances
@@ -313,6 +307,13 @@ protected:
   /// call back executed right before app->runInputFile()
   virtual void preRunInputFile();
 
+  /** Method to aid in getting the "cli_args" parameters.
+   *
+   * The method is virtual because it is needed to allow for batch runs within the stochastic tools
+   * module, see SamplerFullSolveMultiApp for an example.
+   */
+  virtual std::string getCommandLineArgsParamHelper(unsigned int local_app);
+
   /**
    * Initialize the MultiApp by creating the provided number of apps.
    *
@@ -347,11 +348,14 @@ protected:
   /// The number of the first app on this processor
   unsigned int _first_local_app;
 
-  /// The comm that was passed to us specifying our pool of processors
-  MPI_Comm _orig_comm;
+  /// The original comm handle
+  const MPI_Comm & _orig_comm;
+
+  /// The communicator object that holds the MPI_Comm that we're going to use
+  libMesh::Parallel::Communicator _my_communicator;
 
   /// The MPI communicator this object is going to use.
-  MPI_Comm _my_comm;
+  MPI_Comm & _my_comm;
 
   /// The number of processors in the original comm
   int _orig_num_procs;
@@ -386,6 +390,9 @@ protected:
   /// Whether or not to move the output of the MultiApp into position
   bool _output_in_position;
 
+  /// The offset time so the MultiApp local time relative to the global time
+  const Real _global_time_offset;
+
   /// The time at which to reset apps
   Real _reset_time;
 
@@ -412,6 +419,9 @@ protected:
 
   /// Backups for each local App
   SubAppBackups & _backups;
+
+  /// Storage for command line arguments
+  const std::vector<std::string> & _cli_args;
 };
 
 template <>
@@ -443,5 +453,3 @@ dataLoad(std::istream & stream, SubAppBackups & backups, void * context)
 
   multi_app->restore();
 }
-
-#endif // MULTIAPP_H

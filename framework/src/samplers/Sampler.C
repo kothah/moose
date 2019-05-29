@@ -22,8 +22,11 @@ validParams<Sampler>()
   InputParameters params = validParams<MooseObject>();
   params += validParams<SetupInterface>();
   params += validParams<DistributionInterface>();
-
   params.addClassDescription("A base class for distribution sampling.");
+
+  ExecFlagEnum & exec_enum = params.set<ExecFlagEnum>("execute_on", true);
+  exec_enum.addAvailableFlags(EXEC_PRE_MULTIAPP_SETUP);
+
   params.addRequiredParam<std::vector<DistributionName>>(
       "distributions", "The names of distributions that you want to sample.");
   params.addParam<unsigned int>("seed", 0, "Random number generator initial seed");
@@ -67,6 +70,10 @@ Sampler::reinit(const std::vector<DenseMatrix<Real>> & data)
     _total_rows += mat.m();
     _offsets.push_back(_total_rows);
   }
+
+  // Update parallel information
+  MooseUtils::linearPartitionItems(
+      _total_rows, n_processors(), processor_id(), _local_rows, _local_row_begin, _local_row_end);
 }
 
 std::vector<DenseMatrix<Real>>
@@ -80,7 +87,7 @@ Sampler::getSamples()
   if (_sample_names.empty())
   {
     _sample_names.resize(output.size());
-    for (auto i = beginIndex(output); i < output.size(); ++i)
+    for (MooseIndex(output) i = 0; i < output.size(); ++i)
       _sample_names[i] = "sample_" + std::to_string(i);
   }
   mooseAssert(output.size() == _sample_names.size(),
@@ -127,7 +134,7 @@ Sampler::setSampleNames(const std::vector<std::string> & names)
 }
 
 Sampler::Location
-Sampler::getLocation(unsigned int global_index)
+Sampler::getLocation(dof_id_type global_index)
 {
   if (_offsets.empty())
     reinit(getSamples());
@@ -140,16 +147,49 @@ Sampler::getLocation(unsigned int global_index)
   // The lower_bound method returns the first value "which does not compare less than" the value and
   // upper_bound performs "which compares greater than." The upper_bound -1 method is used here
   // because lower_bound will provide the wrong index, but the method here will provide the correct
-  // index, set the Sampler.GetLocation test in moose/unit/src/Sampler.C for an example.
+  // index, see the Sampler.GetLocation test in moose/unit/src/Sampler.C for an example.
   std::vector<unsigned int>::iterator iter =
       std::upper_bound(_offsets.begin(), _offsets.end(), global_index) - 1;
   return Sampler::Location(std::distance(_offsets.begin(), iter), global_index - *iter);
 }
 
-unsigned int
+dof_id_type
 Sampler::getTotalNumberOfRows()
 {
   if (_total_rows == 0)
     reinit(getSamples());
   return _total_rows;
+}
+
+/**
+ * Return the number of rows local to this processor.
+ */
+dof_id_type
+Sampler::getLocalNumerOfRows()
+{
+  if (_total_rows == 0)
+    reinit(getSamples());
+  return _local_rows;
+}
+
+/**
+ * Return the beginning local row index for this processor
+ */
+dof_id_type
+Sampler::getLocalRowBegin()
+{
+  if (_total_rows == 0)
+    reinit(getSamples());
+  return _local_row_begin;
+}
+
+/**
+ * Return the ending local row index for this processor
+ */
+dof_id_type
+Sampler::getLocalRowEnd()
+{
+  if (_total_rows == 0)
+    reinit(getSamples());
+  return _local_row_end;
 }

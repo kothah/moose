@@ -38,6 +38,10 @@
     order = CONSTANT
     family = MONOMIAL
   [../]
+  [./capillary_pressure]
+    order = CONSTANT
+    family = MONOMIAL
+  [../]
   [./saturation_water]
     order = CONSTANT
     family = MONOMIAL
@@ -98,6 +102,12 @@
     variable = pressure_gas
     property = pressure
     phase = 1
+    execute_on = timestep_end
+  [../]
+  [./capillary_pressure]
+    type = PorousFlowPropertyAux
+    variable = capillary_pressure
+    property = capillary_pressure
     execute_on = timestep_end
   [../]
   [./saturation_water]
@@ -268,20 +278,8 @@
     type = PorousFlowTemperature
     temperature = temperature
   [../]
-  [./temperature_nodal]
-    type = PorousFlowTemperature
-    at_nodes = true
-    temperature = temperature
-  [../]
   [./ppss]
     type = PorousFlow2PhasePS
-    phase0_porepressure = pwater
-    phase1_saturation = sgas
-    capillary_pressure = pc
-  [../]
-  [./ppss_nodal]
-    type = PorousFlow2PhasePS
-    at_nodes = true
     phase0_porepressure = pwater
     phase1_saturation = sgas
     capillary_pressure = pc
@@ -290,29 +288,13 @@
     type = PorousFlowMassFraction
     mass_fraction_vars = 'x0_water x0_gas'
   [../]
-  [./massfrac_nodal]
-    type = PorousFlowMassFraction
-    at_nodes = true
-    mass_fraction_vars = 'x0_water x0_gas'
-  [../]
   [./simple_fluid0]
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid0
     phase = 0
-    at_nodes = true
   [../]
-  [./simple_fluid0_qp]
-    type = PorousFlowSingleComponentFluid
-    fp = simple_fluid0
-    phase = 0
-  [../]
+
   [./simple_fluid1]
-    type = PorousFlowSingleComponentFluid
-    fp = simple_fluid1
-    phase = 1
-    at_nodes = true
-  [../]
-  [./simple_fluid1_qp]
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid1
     phase = 1
@@ -323,32 +305,13 @@
   [../]
   [./relperm0]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 2
     phase = 0
   [../]
   [./relperm1]
     type = PorousFlowRelativePermeabilityCorey
-    at_nodes = true
     n = 3
     phase = 1
-  [../]
-  [./relperm0_qp]
-    type = PorousFlowRelativePermeabilityCorey
-    at_nodes = false
-    n = 2
-    phase = 0
-  [../]
-  [./relperm1_qp]
-    type = PorousFlowRelativePermeabilityCorey
-    at_nodes = false
-    n = 3
-    phase = 1
-  [../]
-  [./porosity_nodal]
-    type = PorousFlowPorosityConst
-    at_nodes = true
-    porosity = 0.1
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
@@ -356,7 +319,6 @@
   [../]
   [./rock_heat]
     type = PorousFlowMatrixInternalEnergy
-    at_nodes = true
     specific_heat_capacity = 1.0
     density = 125
   [../]

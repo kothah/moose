@@ -7,13 +7,14 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PIECEWISEBILINEAR_H
-#define PIECEWISEBILINEAR_H
+#pragma once
 
 #include "Function.h"
 
 class PiecewiseBilinear;
-class ColumnMajorMatrix;
+template <typename>
+class ColumnMajorMatrixTempl;
+typedef ColumnMajorMatrixTempl<Real> ColumnMajorMatrix;
 class BilinearInterpolation;
 
 template <>
@@ -77,4 +78,3 @@ private:
   void parse(std::vector<Real> & x, std::vector<Real> & y, ColumnMajorMatrix & z);
 };
 
-#endif // PIECEWISEBILINEAR_H

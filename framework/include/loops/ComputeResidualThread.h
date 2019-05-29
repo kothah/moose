@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTERESIDUALTHREAD_H
-#define COMPUTERESIDUALTHREAD_H
+#pragma once
 
 #include "ThreadedElementLoop.h"
 #include "MooseObjectTagWarehouse.h"
@@ -19,8 +18,8 @@
 class FEProblemBase;
 class NonlinearSystemBase;
 class IntegratedBCBase;
-class DGKernel;
-class InterfaceKernel;
+class DGKernelBase;
+class InterfaceKernelBase;
 class TimeKernel;
 class KernelBase;
 class Kernel;
@@ -51,13 +50,19 @@ protected:
   unsigned int _num_cached;
 
   /// Reference to BC storage structures
-  const MooseObjectWarehouse<IntegratedBCBase> & _integrated_bcs;
+  MooseObjectTagWarehouse<IntegratedBCBase> & _integrated_bcs;
+
+  MooseObjectWarehouse<IntegratedBCBase> * _ibc_warehouse;
 
   /// Reference to DGKernel storage structure
-  const MooseObjectWarehouse<DGKernel> & _dg_kernels;
+  MooseObjectTagWarehouse<DGKernelBase> & _dg_kernels;
+
+  MooseObjectWarehouse<DGKernelBase> * _dg_warehouse;
 
   /// Reference to interface kernel storage structure
-  const MooseObjectWarehouse<InterfaceKernel> & _interface_kernels;
+  MooseObjectTagWarehouse<InterfaceKernelBase> & _interface_kernels;
+
+  MooseObjectWarehouse<InterfaceKernelBase> * _ik_warehouse;
 
   ///@{
   /// Reference to Kernel storage structures
@@ -66,5 +71,3 @@ protected:
   MooseObjectWarehouse<KernelBase> * _tag_kernels;
   ///@}
 };
-
-#endif // COMPUTERESIDUALTHREAD_H

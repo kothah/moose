@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef HEMFLUIDPROPERTIES_H
-#define HEMFLUIDPROPERTIES_H
+#pragma once
 
 #include "FluidProperties.h"
 
@@ -206,6 +205,48 @@ public:
    * @param enthalpy enthalpy
    */
   virtual Real v_ph(Real pressure, Real enthalpy) const = 0;
+
+  /**
+   * Molar mass [kg/mol]
+   *
+   * @return molar mass
+   */
+  virtual Real molarMass() const;
+
+  /**
+   * Critical pressure
+   * @return critical pressure (Pa)
+   */
+  virtual Real criticalPressure() const;
+
+  /**
+   * Critical temperature
+   * @return critical temperature (K)
+   */
+  virtual Real criticalTemperature() const;
+
+  /**
+   * Critical density
+   * @return critical density (kg/m^3)
+   */
+  virtual Real criticalDensity() const;
+
+  /**
+   * Critical specific internal energy
+   * @return specific internal energy (J/kg)
+   */
+  virtual Real criticalInternalEnergy() const;
+
+  /**
+   * Triple point pressure
+   * @return triple point pressure (Pa)
+   */
+  virtual Real triplePointPressure() const;
+
+  /**
+   * Triple point temperature
+   * @return triple point temperature (K)
+   */
+  virtual Real triplePointTemperature() const;
 };
 
-#endif /* HEMFLUIDPROPERTIES_H */

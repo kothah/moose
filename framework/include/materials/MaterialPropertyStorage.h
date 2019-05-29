@@ -7,12 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef MATERIALPROPERTYSTORAGE_H
-#define MATERIALPROPERTYSTORAGE_H
+#pragma once
 
 #include "Moose.h"
-#include "MaterialProperty.h"
 #include "HashMap.h"
+#include "DataIO.h"
+#include "MaterialProperty.h"
 
 // Forward declarations
 class Material;
@@ -23,6 +23,7 @@ class QpMap;
 namespace libMesh
 {
 class QBase;
+class Elem;
 }
 
 /**
@@ -75,8 +76,8 @@ public:
    * @param input_child_side - the side on the child where material properties will be prolonged
    */
   void prolongStatefulProps(const std::vector<std::vector<QpMap>> & refinement_map,
-                            QBase & qrule,
-                            QBase & qrule_face,
+                            const QBase & qrule,
+                            const QBase & qrule_face,
                             MaterialPropertyStorage & parent_material_props,
                             MaterialData & child_material_data,
                             const Elem & elem,
@@ -98,8 +99,8 @@ public:
    */
   void restrictStatefulProps(const std::vector<std::pair<unsigned int, QpMap>> & coarsening_map,
                              const std::vector<const Elem *> & coarsened_element_children,
-                             QBase & qrule,
-                             QBase & qrule_face,
+                             const QBase & qrule,
+                             const QBase & qrule_face,
                              MaterialData & material_data,
                              const Elem & elem,
                              int input_side = -1);
@@ -125,7 +126,7 @@ public:
    * properties are
    * reused for computing current properties. This is called when solve succeeded.
    */
-  void shift();
+  void shift(const FEProblemBase & fe_problem);
 
   /**
    * Copy material properties from elem_from to elem_to. Thread safe.
@@ -301,4 +302,3 @@ dataLoad(std::istream & stream, MaterialPropertyStorage & storage, void * contex
     dataLoad(stream, storage.propsOlder(), context);
 }
 
-#endif /* MATERIALPROPERTYSTORAGE_H */

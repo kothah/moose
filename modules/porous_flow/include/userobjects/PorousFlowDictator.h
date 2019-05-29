@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWDICTATOR_H
-#define POROUSFLOWDICTATOR_H
+#pragma once
 
 #include "GeneralUserObject.h"
 #include "Coupleable.h"
@@ -85,23 +84,23 @@ public:
    */
   unsigned int numVariables() const;
 
-  /// the number of fluid phases
+  /// The number of fluid phases
   unsigned int numPhases() const;
 
-  /// the number of fluid components
+  /// The number of fluid components
   unsigned int numComponents() const;
 
-  /// the number of aqueous equilibrium secondary species
+  /// The number of aqueous equilibrium secondary species
   unsigned int numAqueousEquilibrium() const;
 
-  /// the number of aqueous kinetic secondary species
+  /// The number of aqueous kinetic secondary species
   unsigned int numAqueousKinetic() const;
 
-  /// the aqueous phase number
+  /// The aqueous phase number
   unsigned int aqueousPhaseNumber() const;
 
   /**
-   * the PorousFlow variable number
+   * The PorousFlow variable number
    * @param moose_var_num the MOOSE variable number
    * eg if porous_flow_vars = 'pwater pgas', and the variables in
    * the simulation are 'energy pwater pgas shape'
@@ -110,7 +109,16 @@ public:
   unsigned int porousFlowVariableNum(unsigned int moose_var_num) const;
 
   /**
-   * returns true if moose_var_num is a porous flow variable
+   * The Moose variable number
+   * @param porous_flow_var_num the PorousFlow variable number
+   * eg if porous_flow_vars = 'pwater pgas', and the variables in
+   * the simulation are 'energy pwater pgas shape'
+   * then mooseVariableNum(1) = 2
+   */
+  unsigned int mooseVariableNum(unsigned int porous_flow_var_num) const;
+
+  /**
+   * Returns true if moose_var_num is a porous flow variable
    * @param moose_var_num the MOOSE variable number
    * eg if porous_flow_vars = 'pwater pgas', and the variables in
    * the simulation are 'energy pwater pgas shape'
@@ -119,7 +127,7 @@ public:
   bool isPorousFlowVariable(unsigned int moose_var_num) const;
 
   /**
-   * returns true if moose_var_num is not a porous flow variabe
+   * Returns true if moose_var_num is not a porous flow variabe
    * @param moose_var_num the MOOSE variable number
    * eg if porous_flow_vars = 'pwater pgas', and the variables in
    * the simulation are 'energy pwater pgas shape'
@@ -128,49 +136,44 @@ public:
   bool notPorousFlowVariable(unsigned int moose_var_num) const;
 
   /**
-   * Dummy pressure variable name for use in derivatives using the
-   * DerivativeMaterialInterface
+   * Whether the porous_flow_vars all have the same FEType or
+   * if no porous_flow_vars were provided
    */
-  const VariableName pressureVariableNameDummy() const;
+  bool consistentFEType() const;
 
   /**
-   * Dummy saturation variable name for use in derivatives using the
-   * DerivativeMaterialInterface
+   * The FEType of the first porous_flow_variable.
+   * Note, this is meaningless if there are no named porous_flow_variables: consistentFEType()
+   * should be used to check this
    */
-  const VariableName saturationVariableNameDummy() const;
-
-  /**
-   * Dummy temperature variable name for use in derivatives using the
-   * DerivativeMaterialInterface
-   */
-  const VariableName temperatureVariableNameDummy() const;
-
-  /**
-   * Dummy mass fraction variable name for use in derivatives using the
-   * DerivativeMaterialInterface
-   */
-  const VariableName massFractionVariableNameDummy() const;
+  FEType feType() const;
 
 protected:
-  /// number of porousflow variables
+  /// Number of PorousFlow variables
   const unsigned int _num_variables;
 
-  /// number of fluid phases
+  /// Number of fluid phases
   const unsigned int _num_phases;
 
-  /// number of fluid components
+  /// Number of fluid components
   const unsigned int _num_components;
 
-  /// number of aqueous-equilibrium secondary species
+  /// Number of aqueous-equilibrium secondary species
   const unsigned int _num_aqueous_equilibrium;
 
-  /// number of aqeuous-kinetic secondary species that are involved in mineralisation
+  /// Number of aqeuous-kinetic secondary species that are involved in mineralisation
   const unsigned int _num_aqueous_kinetic;
 
-  /// aqueous phase number
+  /// Aqueous phase number
   const unsigned int _aqueous_phase_number;
 
 private:
+  /// Whether the porous_flow_vars all have the same fe_type
+  bool _consistent_fe_type;
+
+  /// FE type used by the PorousFlow variables
+  FEType _fe_type;
+
   /// _moose_var_num[i] = the moose variable number corresponding to porous flow variable i
   std::vector<unsigned int> _moose_var_num;
 
@@ -178,4 +181,3 @@ private:
   std::vector<unsigned int> _pf_var_num;
 };
 
-#endif // POROUSFLOWDICTATOR_H

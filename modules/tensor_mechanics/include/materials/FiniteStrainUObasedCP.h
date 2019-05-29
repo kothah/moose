@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef FINITESTRAINUOBASEDCP_H
-#define FINITESTRAINUOBASEDCP_H
+#pragma once
 
 #include "ComputeStressBase.h"
 
@@ -122,7 +121,7 @@ protected:
 
   /**
    * updates the slip rates.
-  */
+   */
   virtual void getSlipRates();
 
   /**
@@ -195,6 +194,9 @@ protected:
   /// Local state variable
   std::vector<std::vector<Real>> _state_vars_old;
 
+  /// Local stored state variable (for sub-stepping)
+  std::vector<std::vector<Real>> _state_vars_old_stored;
+
   /// Local old state variable
   std::vector<std::vector<Real>> _state_vars_prev;
 
@@ -247,6 +249,10 @@ protected:
   MaterialProperty<RankTwoTensor> & _update_rot;
   const MaterialProperty<RankTwoTensor> & _update_rot_old;
 
+  /// Name of the elasticity tensor material property
+  const std::string _elasticity_tensor_name;
+  /// Elasticity tensor material property
+  const MaterialProperty<RankFourTensor> & _elasticity_tensor;
   const MaterialProperty<RankTwoTensor> & _deformation_gradient;
   const MaterialProperty<RankTwoTensor> & _deformation_gradient_old;
 
@@ -267,4 +273,3 @@ protected:
   Real _dfgrd_scale_factor;
 };
 
-#endif // FINITESTRAINUOBASEDCP_H

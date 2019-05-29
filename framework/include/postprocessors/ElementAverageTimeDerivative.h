@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef ELEMENTAVERAGETIMEDERIVATIVE_H
-#define ELEMENTAVERAGETIMEDERIVATIVE_H
+#pragma once
 
 #include "ElementAverageValue.h"
 
@@ -28,6 +27,8 @@ public:
 
 protected:
   virtual Real computeQpIntegral() override;
+
+  /// Holds the solution derivative at the current quadrature points
+  const VariableValue & _u_dot;
 };
 
-#endif

@@ -27,11 +27,6 @@
       type = RandomIC
      [../]
   [../]
-
-  [./disp_x]
-  [../]
-  [./disp_y]
-  [../]
 []
 
 [AuxVariables]

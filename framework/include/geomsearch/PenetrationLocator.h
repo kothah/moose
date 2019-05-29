@@ -7,12 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef PENETRATIONLOCATOR_H
-#define PENETRATIONLOCATOR_H
+#pragma once
 
 // Moose includes
 #include "Restartable.h"
 #include "PenetrationInfo.h"
+#include "PerfGraphInterface.h"
 
 #include "libmesh/vector_value.h"
 #include "libmesh/point.h"
@@ -24,7 +24,7 @@ class MooseMesh;
 class GeometricSearchData;
 class NearestNodeLocator;
 
-class PenetrationLocator : Restartable
+class PenetrationLocator : Restartable, public PerfGraphInterface
 {
 public:
   PenetrationLocator(SubProblem & subproblem,
@@ -99,6 +99,10 @@ protected:
   NORMAL_SMOOTHING_METHOD _normal_smoothing_method;
 
   const Moose::PatchUpdateType _patch_update_strategy; // Contact patch update strategy
+
+  /// Timers
+  PerfID _detect_penetration_timer;
+  PerfID _reinit_timer;
 };
 
 /**
@@ -129,4 +133,3 @@ dataLoad(std::istream & stream, std::map<dof_id_type, PenetrationInfo *> & m, vo
   }
 }
 
-#endif // PENETRATIONLOCATOR_H

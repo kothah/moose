@@ -18,6 +18,8 @@
 #include "libmesh/quadrature_gauss.h"
 #include "libmesh/point_locator_base.h"
 #include "libmesh/enum_point_locator_type.h"
+#include "libmesh/elem.h"
+#include "libmesh/fe_base.h"
 
 registerMooseObject("MooseApp", SideSetsFromPoints);
 
@@ -72,7 +74,7 @@ SideSetsFromPoints::modify()
         continue;
 
       // See if this point is on this side
-      std::unique_ptr<Elem> elem_side = elem->side(side);
+      std::unique_ptr<const Elem> elem_side = elem->side_ptr(side);
 
       if (elem_side->contains_point(_points[i]))
       {

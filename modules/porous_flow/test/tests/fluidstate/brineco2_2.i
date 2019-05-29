@@ -242,22 +242,8 @@
   [./temperature]
     type = PorousFlowTemperature
   [../]
-  [./temperature_nodal]
-    type = PorousFlowTemperature
-    at_nodes = true
-  [../]
   [./brineco2]
-    type = PorousFlowFluidStateBrineCO2
-    gas_porepressure = pgas
-    z = z
-    at_nodes = true
-    temperature_unit = Celsius
-    xnacl = xnacl
-    capillary_pressure = pc
-    fluid_state = fs
-  [../]
-  [./brineco2_qp]
-    type = PorousFlowFluidStateBrineCO2
+    type = PorousFlowFluidState
     gas_porepressure = pgas
     z = z
     temperature_unit = Celsius
@@ -273,18 +259,15 @@
     type = PorousFlowRelativePermeabilityCorey
     n = 2
     phase = 0
-    at_nodes = true
   [../]
   [./relperm1]
     type = PorousFlowRelativePermeabilityCorey
     n = 3
     phase = 1
-    at_nodes = true
   [../]
   [./porosity]
     type = PorousFlowPorosityConst
     porosity = 0.1
-    at_nodes = true
   [../]
 []
 
@@ -392,5 +375,5 @@
   csv = true
   file_base = brineco2_2
   execute_on = 'initial timestep_end'
-  print_perf_log = true
+  perf_graph = true
 []

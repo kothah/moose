@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef COMPUTE2DSMALLSTRAIN_H
-#define COMPUTE2DSMALLSTRAIN_H
+#pragma once
 
 #include "ComputeSmallStrain.h"
 
@@ -28,8 +27,9 @@ class Compute2DSmallStrain : public ComputeSmallStrain
 public:
   Compute2DSmallStrain(const InputParameters & parameters);
 
-protected:
   void initialSetup() override;
+
+protected:
   virtual void computeProperties() override;
   virtual void displacementIntegrityCheck() override;
   virtual Real computeOutOfPlaneStrain() = 0;
@@ -37,4 +37,3 @@ protected:
   const unsigned int _out_of_plane_direction;
 };
 
-#endif // COMPUTE2DSMALLSTRAIN_H

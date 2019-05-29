@@ -53,11 +53,11 @@
 [Modules]
   [./FluidProperties]
     [./idealgas]
-      type = IdealGasFluidPropertiesPT
+      type = IdealGasFluidProperties
       molar_mass = 2.01588e-3
       cv = 10260
       cp = 14400
-      viscosity = 9.4393e-6
+      mu = 9.4393e-6
     [../]
   [../]
 []
@@ -65,14 +65,17 @@
 [Materials]
   [./temperature]
     type = PorousFlowTemperature
+    at_nodes = false
     temperature = temp
   [../]
   [./ppss]
     type = PorousFlow1PhaseFullySaturated
+    at_nodes = false
     porepressure = pp
   [../]
   [./idealgass]
     type = PorousFlowSingleComponentFluid
+    at_nodes = false
     temperature_unit = Celsius
     fp = idealgas
     phase = 0

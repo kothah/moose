@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef SODIUMPROPERTIESTEST_H
-#define SODIUMPROPERTIESTEST_H
+#pragma once
 
 #include "MooseObjectUnitTest.h"
 #include "SodiumProperties.h"
@@ -18,13 +17,10 @@ class SodiumPropertiesTest : public MooseObjectUnitTest
 public:
   SodiumPropertiesTest() : MooseObjectUnitTest("MooseUnitApp")
   {
-    registerObjects(_factory);
     buildObjects();
   }
 
 protected:
-  void registerObjects(Factory & factory) { registerUserObject(SodiumProperties); }
-
   void buildObjects()
   {
     InputParameters uo_pars = _factory.getValidParams("SodiumProperties");
@@ -35,4 +31,3 @@ protected:
   const SodiumProperties * _fp;
 };
 
-#endif // SODIUMPROPERTIESTEST_H

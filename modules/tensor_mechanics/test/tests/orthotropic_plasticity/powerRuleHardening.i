@@ -312,13 +312,13 @@
 []
 
 [Preconditioning]
-  [./fdp]
-    type = FDP
+  [./smp]
+    type = SMP
     full = true
   [../]
 []
 
 [Outputs]
-  print_perf_log = false
+  perf_graph = false
   csv = true
 []

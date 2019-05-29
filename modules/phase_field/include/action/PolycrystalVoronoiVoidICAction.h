@@ -7,8 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POLYCRYSTALVORONOIVOIDICACTION_H
-#define POLYCRYSTALVORONOIVOIDICACTION_H
+#pragma once
 
 #include "InputParameters.h"
 #include "Action.h"
@@ -27,9 +26,9 @@ public:
 protected:
   const unsigned int _op_num;
   const std::string _var_name_base;
+  const FileName _file_name;
 };
 
 template <>
 InputParameters validParams<PolycrystalVoronoiVoidICAction>();
 
-#endif // POLYCRYSTALVORONOIVOIDICACTION_H

@@ -7,10 +7,9 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef TABULATEDFLUIDPROPERTIES_H
-#define TABULATEDFLUIDPROPERTIES_H
+#pragma once
 
-#include "SinglePhaseFluidPropertiesPT.h"
+#include "SinglePhaseFluidProperties.h"
 #include "DelimitedFileReader.h"
 
 class SinglePhaseFluidPropertiesPT;
@@ -19,6 +18,9 @@ class TabulatedFluidProperties;
 
 template <>
 InputParameters validParams<TabulatedFluidProperties>();
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
 
 /**
  * Class for fluid properties read from a file.
@@ -87,7 +89,7 @@ InputParameters validParams<TabulatedFluidProperties>();
  * wrt pressure and temperature) will be calculated using bicubic interpolation, while all
  * remaining fluid properties are calculated using the supplied FluidProperties UserObject.
  */
-class TabulatedFluidProperties : public SinglePhaseFluidPropertiesPT
+class TabulatedFluidProperties : public SinglePhaseFluidProperties
 {
 public:
   TabulatedFluidProperties(const InputParameters & parameters);
@@ -99,62 +101,50 @@ public:
 
   virtual Real molarMass() const override;
 
-  virtual Real rho(Real pressure, Real temperature) const override;
+  virtual Real rho_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual void rho_dpT(
+  virtual void rho_from_p_T(
       Real pressure, Real temperature, Real & rho, Real & drho_dp, Real & drho_dT) const override;
 
-  virtual Real e(Real pressure, Real temperature) const override;
+  virtual Real e_from_p_T(Real pressure, Real temperature) const override;
 
   virtual void
-  e_dpT(Real pressure, Real temperature, Real & e, Real & de_dp, Real & de_dT) const override;
+  e_from_p_T(Real pressure, Real temperature, Real & e, Real & de_dp, Real & de_dT) const override;
 
-  virtual void rho_e_dpT(Real pressure,
-                         Real temperature,
-                         Real & rho,
-                         Real & drho_dp,
-                         Real & drho_dT,
-                         Real & e,
-                         Real & de_dp,
-                         Real & de_dT) const override;
-
-  virtual Real h(Real p, Real T) const override;
+  virtual Real h_from_p_T(Real p, Real T) const override;
 
   virtual void
-  h_dpT(Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const override;
+  h_from_p_T(Real pressure, Real temperature, Real & h, Real & dh_dp, Real & dh_dT) const override;
 
-  virtual Real mu(Real pressure, Real temperature) const override;
+  virtual Real mu_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual void
-  mu_dpT(Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const override;
+  virtual void mu_from_p_T(
+      Real pressure, Real temperature, Real & mu, Real & dmu_dp, Real & dmu_dT) const override;
 
-  virtual void rho_mu(Real pressure, Real temperature, Real & rho, Real & mu) const override;
+  virtual Real cp_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual void rho_mu_dpT(Real pressure,
-                          Real temperature,
-                          Real & rho,
-                          Real & drho_dp,
-                          Real & drho_dT,
-                          Real & mu,
-                          Real & dmu_dp,
-                          Real & dmu_dT) const override;
+  using SinglePhaseFluidProperties::cp_from_p_T;
 
-  virtual Real cp(Real pressure, Real temperature) const override;
+  virtual Real cv_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual Real cv(Real pressure, Real temperature) const override;
+  virtual Real c_from_p_T(Real pressure, Real temperature) const override;
 
-  virtual Real c(Real pressure, Real temperature) const override;
-
-  virtual Real k(Real pressure, Real temperature) const override;
+  virtual Real k_from_p_T(Real pressure, Real temperature) const override;
 
   virtual void
-  k_dpT(Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const override;
+  k_from_p_T(Real pressure, Real temperature, Real & k, Real & dk_dp, Real & dk_dT) const override;
 
-  virtual Real s(Real pressure, Real temperature) const override;
+  virtual Real s_from_p_T(Real pressure, Real temperature) const override;
+
+  virtual void s_from_p_T(Real p, Real T, Real & s, Real & ds_dp, Real & ds_dT) const override;
 
   virtual Real henryConstant(Real temperature) const override;
 
-  virtual void henryConstant_dT(Real temperature, Real & Kh, Real & dKh_dT) const override;
+  virtual void henryConstant(Real temperature, Real & Kh, Real & dKh_dT) const override;
+
+  virtual Real vaporPressure(Real temperature) const override;
+
+  virtual void vaporPressure(Real temperature, Real & psat, Real & dpsat_dT) const override;
 
 protected:
   /**
@@ -213,9 +203,11 @@ protected:
   unsigned int _num_T;
   /// Number of pressure points in the tabulated data
   unsigned int _num_p;
+  /// Whether to save a generated fluid properties file to disk
+  const bool _save_file;
 
   /// SinglePhaseFluidPropertiesPT UserObject
-  const SinglePhaseFluidPropertiesPT & _fp;
+  const SinglePhaseFluidProperties & _fp;
 
   /// List of required column names to be read
   const std::vector<std::string> _required_columns{"pressure", "temperature"};
@@ -250,4 +242,5 @@ protected:
   MooseUtils::DelimitedFileReader _csv_reader;
 };
 
-#endif /* TABULATEDFLUIDPROPERTIES_H */
+#pragma GCC diagnostic pop
+

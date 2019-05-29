@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWHALFCUBICSINK_H
-#define POROUSFLOWHALFCUBICSINK_H
+#pragma once
 
 #include "PorousFlowSinkPTDefiner.h"
 
-// Forward Declarations
 class PorousFlowHalfCubicSink;
 
 template <>
@@ -35,13 +33,13 @@ public:
   PorousFlowHalfCubicSink(const InputParameters & parameters);
 
 protected:
-  /// maximum of the cubic sink
+  /// Maximum of the cubic sink
   const Real _maximum;
 
   /// Denote x = porepressure - center.  Then Flux out = (max/cutoff^3)*(2x + cutoff)(x - cutoff)^2 for cutoff < x < 0.  Flux out = max for x >= 0.  Flux out = 0 for x <= cutoff.
   Function & _cutoff;
 
-  /// center of the cubic sink
+  /// Center of the cubic sink
   const Real _center;
 
   virtual Real multiplier() const override;
@@ -49,4 +47,3 @@ protected:
   virtual Real dmultiplier_dvar(unsigned int pvar) const override;
 };
 
-#endif // POROUSFLOWHALFCUBICSINK_H

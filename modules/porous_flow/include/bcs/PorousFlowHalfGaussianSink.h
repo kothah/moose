@@ -7,12 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef POROUSFLOWHALFGAUSSIANSINK_H
-#define POROUSFLOWHALFGAUSSIANSINK_H
+#pragma once
 
 #include "PorousFlowSinkPTDefiner.h"
 
-// Forward Declarations
 class PorousFlowHalfGaussianSink;
 
 template <>
@@ -33,13 +31,13 @@ public:
   PorousFlowHalfGaussianSink(const InputParameters & parameters);
 
 protected:
-  /// maximum of the Gaussian sink
+  /// Maximum of the Gaussian sink
   const Real _maximum;
 
-  /// standard deviation of the Gaussian sink
+  /// Standard deviation of the Gaussian sink
   const Real _sd;
 
-  /// center of the Gaussian sink
+  /// Center of the Gaussian sink
   const Real _center;
 
   virtual Real multiplier() const override;
@@ -47,4 +45,3 @@ protected:
   virtual Real dmultiplier_dvar(unsigned int pvar) const override;
 };
 
-#endif // POROUSFLOWHALFGAUSSIANSINK_H

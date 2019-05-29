@@ -7,34 +7,21 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifndef BRINEFLUIDPROPERTIESTEST_H
-#define BRINEFLUIDPROPERTIESTEST_H
+#pragma once
 
 #include "MooseObjectUnitTest.h"
+
 #include "BrineFluidProperties.h"
-#include "Water97FluidProperties.h"
-#include "NaClFluidProperties.h"
 
 class BrineFluidProperties;
-class SinglePhaseFluidPropertiesPT;
+class SinglePhaseFluidProperties;
 
 class BrineFluidPropertiesTest : public MooseObjectUnitTest
 {
 public:
-  BrineFluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp")
-  {
-    registerObjects(_factory);
-    buildObjects();
-  }
+  BrineFluidPropertiesTest() : MooseObjectUnitTest("MooseUnitApp") { buildObjects(); }
 
 protected:
-  void registerObjects(Factory & factory)
-  {
-    registerUserObject(BrineFluidProperties);
-    registerUserObject(Water97FluidProperties);
-    registerUserObject(NaClFluidProperties);
-  }
-
   void buildObjects()
   {
     InputParameters uo_pars = _factory.getValidParams("BrineFluidProperties");
@@ -44,7 +31,6 @@ protected:
   }
 
   const BrineFluidProperties * _fp;
-  const SinglePhaseFluidPropertiesPT * _water_fp;
+  const SinglePhaseFluidProperties * _water_fp;
 };
 
-#endif // BRINEFLUIDPROPERTIESTEST_H
